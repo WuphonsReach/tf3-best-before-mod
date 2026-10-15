@@ -1,0 +1,15 @@
+{
+    "authors": [
+        {
+            "name": "WuphonsReach",
+            "role": "CREATOR"
+        }
+    ],
+    "description": "Logging scaffold: replaces the cargo income function with a copy of the base formula and logs what the engine passes in. Pay is unchanged.",
+    "name": "Best Before (logging scaffold)",
+    "summary": "Scales cargo payment by freshness (work in progress)",
+    "tags": [
+        "Script Mod"
+    ],
+    "url": "https://github.com/WuphonsReach/tf3-best-before-mod"
+}
