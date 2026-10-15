@@ -11,3 +11,10 @@ This is an unofficial mod. It contains no files from the game.
 ## Licence
 
 MIT, see [LICENSE](LICENSE).
+
+## Development
+
+Type checking uses the Teal compiler (`tl`, install with `luarocks install --local tl`) against the game's own type definitions:
+
+1. Copy `tlconfig.example.lua` to `tlconfig.lua` and replace `<tf3_install_folder>` with your game install path (`tlconfig.lua` is gitignored).
+2. Run `tl check best_before_1/content/mod.script.tl`.
