@@ -4,10 +4,19 @@
 -- know, so the deduction is not tied to a vehicle or line. The log names every vehicle and line of the unit's pickup
 -- chain so the split can be studied. Log lines start with "BEST_BEFORE"; tools/verify_run.py checks a run from the log.
 
--- Pay curve settings.
-local fullPayAbove = 0.5      -- freshness at or above this pays 100%
-local payAtZero = 0.3         -- pay rate at 0% freshness
-local payWhenSpoiled = 0.0    -- pay rate once the unit is flagged spoiled
+-- Pay curve settings, in settings.tl (the curve is described there).
+local record Settings
+	bonus : number
+	bonusFrom : number
+	breakeven : number
+	penaltyFrom : number
+	penalty : number
+	stored : string
+end
+local settings = ug_require "::/settings.tl" as Settings
+
+-- A deduction never takes more than this share of a unit's predicted pay (the prediction is good to about 1%).
+local maxDeductionShare = 0.99
 
 -- What the engine applies after the income function (measured, cause unknown).
 local engineFactor = 0.96426
@@ -21,7 +30,7 @@ local maxTracked = 200
 -- sends them. The queue lives in the game script state: module-level variables do not survive between calls.
 local record PendingDeduction
 	number : integer
-	amount : integer -- negative
+	amount : integer -- negative for a deduction, positive for a bonus
 	carrier : string
 	x : number
 	y : number
@@ -158,11 +167,21 @@ local worldPosition = function(entity : Engine.Entity) : {number}
 	return { m[13], m[14], m[15] }
 end
 
-local payRate = function(freshness : number, spoiled : boolean) : number
-	if spoiled then return payWhenSpoiled end
-	if freshness >= fullPayAbove then return 1.0 end
-	local f = math.max(freshness, 0.0)
-	return payAtZero + (1.0 - payAtZero) * f / fullPayAbove
+-- The share of a unit's pay the curve adds (positive) or takes away (negative). `good` is the game's own quality flag.
+local curveAdjustment = function(freshness : number, good : boolean) : number
+	if not good then return -settings.penalty end
+	if freshness < 0 then -- flagged good by the game although its age says it is past the limit: stored cargo
+		if settings.stored == "neutral" then return 0.0 end
+		if settings.stored == "zero" then freshness = 0.0 end
+	end
+	if freshness >= settings.bonusFrom then return settings.bonus end
+	if freshness >= settings.breakeven then
+		return settings.bonus * (freshness - settings.breakeven) / (settings.bonusFrom - settings.breakeven)
+	end
+	if freshness >= settings.penaltyFrom then
+		return -settings.penalty * (settings.breakeven - freshness) / (settings.breakeven - settings.penaltyFrom)
+	end
+	return -settings.penalty
 end
 
 -- "key=value,key=value" with the keys sorted, for the one-time cargo type log line.
@@ -197,7 +216,7 @@ local probe : GameScript<BookingState> = {
 			entry.category.type = api.type.JournalEntry.Type.INCOME
 			entry.category.carrier = journalCarrier(a.carrier)
 			local cmd = api.cmd.makeJournalBookAssetCmd(player, entry, api.type.Vec3f.new(a.x, a.y, a.z))
-			log.message("BEST_BEFORE sending deduction batch=" .. bookingState.batches .. " ledger=player"
+			log.message("BEST_BEFORE sending adjustment batch=" .. bookingState.batches .. " ledger=player"
 				.. " entity=" .. tostring(player) .. " carrier=" .. a.carrier
 				.. " amount=" .. tostring(a.amount) .. " units=" .. tostring(a.units))
 			api.cmd.sendCommand(cmd)
@@ -269,33 +288,37 @@ local probe : GameScript<BookingState> = {
 				local limitMs = cargoType.timeToDeliverInSeconds * 1000.0 * deliverTimeMultiplier
 				local ageMs = now - simCargo.pickupTime
 				local freshness = limitMs > 0 and (1.0 - ageMs / limitMs) or 1.0
-				local rate = payRate(freshness, not good)
+				local adjustment = curveAdjustment(freshness, good)
+				local rate = 1.0 + adjustment
 				local src = worldPosition(simCargo.sourceEntity)
 				local dst = worldPosition(unit[2][1])
 				local predicted = "n/a"
 				local deduction = 0
+				local bonus = 0
 				local queued = ""
 				if src ~= nil and dst ~= nil and priceFactor ~= nil then
 					local dx, dy, dz = dst[1] - src[1], dst[2] - src[2], dst[3] - src[3]
 					local d = math.sqrt(dx * dx + dy * dy + dz * dz) + 8. * math.max(dz, 0.)
 					local income = priceFactor * d * engineFactor
 					predicted = tostring(income)
-					local exact = (1.0 - rate) * income
-					if exact >= 1 then
+					local exact = math.max(adjustment * income, -maxDeductionShare * income)
+					if math.abs(exact) >= 1 then
 						bookingState.units = bookingState.units + 1
-						deduction = math.floor(exact + 0.5)
+						local amount = exact < 0 and -math.floor(-exact + 0.5) or math.floor(exact + 0.5)
+						if amount < 0 then deduction = -amount else bonus = amount end
 						bookingState.pending[#bookingState.pending + 1] = {
 							number = bookingState.units,
-							amount = -deduction,
+							amount = amount,
 							carrier = carrier,
 							x = dst[1], y = dst[2], z = dst[3],
 						}
-						queued = " DEDUCT#" .. bookingState.units
+						queued = (amount < 0 and " DEDUCT#" or " BONUS#") .. bookingState.units
 					end
 				end
 				correction = "ageMs=" .. tostring(ageMs) .. " limitMs=" .. tostring(limitMs)
 					.. " freshness=" .. tostring(freshness) .. " rate=" .. tostring(rate)
-					.. " predictedIncome=" .. predicted .. " deduction=" .. tostring(deduction) .. queued
+					.. " predictedIncome=" .. predicted .. " deduction=" .. tostring(deduction)
+					.. " bonus=" .. tostring(bonus) .. queued
 			end
 			log.message("BEST_BEFORE arrival unit=" .. tostring(cargoEntity)
 				.. " target=" .. tostring(unit[2][1])

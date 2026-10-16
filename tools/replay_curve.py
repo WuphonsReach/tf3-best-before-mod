@@ -6,11 +6,14 @@ Usage: tools/replay_curve.py [options] local/logs/stdout-....txt [more logs]
 Reads the `BEST_BEFORE arrival` lines after the last load in each log (the same slice tools/verify_run.py reads) and
 applies the five-setting curve to every unit, so the defaults can be tuned without the game:
 
-  bonus         pay bonus at 100% freshness, as a fraction of the unit's pay (default 0.5 = +50%)
-  bonus-from    freshness where the bonus starts to fall (default 0.5); the bonus is level above it
-  breakeven     freshness with exactly full pay (default 0.3)
-  penalty-from  freshness where the penalty reaches its maximum (default 0.0)
-  penalty       maximum penalty, also used for spoiled units (default 0.95)
+  bonus         pay bonus at 100% freshness, as a fraction of the unit's pay (0.5 = +50%)
+  bonus-from    freshness where the bonus starts to fall; the bonus is level above it
+  breakeven     freshness with exactly full pay
+  penalty-from  freshness where the penalty reaches its maximum
+  penalty       maximum penalty, also used for spoiled units
+
+The defaults are the numbers in best_before_1/content/settings.tl (the mod's own settings file), so a run is replayed
+with what the game used unless a flag overrides it. The log also records them: look for `BEST_BEFORE settings`.
 
 Straight lines between the points, order 1 >= bonus-from >= breakeven >= penalty-from >= 0. A deduction is clamped to
 99% of the unit's predicted pay. The net is the sum of all adjustments as a share of the predicted pay of all arrivals.
@@ -29,13 +32,25 @@ test). Examples:
   tools/replay_curve.py --sweep breakeven=0.2,0.3,0.4,0.5 local/logs/stdout-20261016-0651.txt
 """
 import argparse
+import os
 import re
 import sys
 from collections import defaultdict
 
 MAX_DEDUCTION = 0.99                                    # of the unit's predicted pay
 SETTINGS = ("bonus", "bonus-from", "breakeven", "penalty-from", "penalty")
-DEFAULTS = {"bonus": 0.5, "bonus-from": 0.5, "breakeven": 0.3, "penalty-from": 0.0, "penalty": 0.95}
+SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "best_before_1", "content", "settings.tl")
+
+
+def file_defaults():
+    """The numbers in the mod's settings.tl (one `name = value,` per line), so the replay starts from the mod's own."""
+    found = dict(re.findall(r'^\s*(\w+)\s*=\s*("?[\w.]+"?),', open(SETTINGS_FILE).read(), re.M))
+    camel = {"bonus-from": "bonusFrom", "penalty-from": "penaltyFrom"}
+    numbers = {name: float(found[camel.get(name, name)]) for name in SETTINGS}
+    return numbers, found.get("stored", '"formula"').strip('"')
+
+
+DEFAULTS, DEFAULT_STORED = file_defaults()
 
 
 def kv(text):
@@ -123,7 +138,7 @@ def report(name, units, s, stored, tables):
     print(f"{name}: {len(units)} units, base pay {base:,.0f}, {spoiled} flagged spoiled, "
           f"{stored_units} flagged good at negative freshness")
     print(f"  curve: bonus {gain:+,.0f}, deduction {loss:+,.0f}, net {gain + loss:+,.0f} = {pct(gain + loss, base)} of base pay")
-    print(f"  (the probe's test curve, as logged: deduction {-logged:+,.0f} = {pct(-logged, base)})")
+    print(f"  (as logged by the probe that ran: deduction {-logged:+,.0f} = {pct(-logged, base)})")
     if tables:
         table(units, s, stored, "carrier", "carrier")
         table(units, s, stored, "cargo", "cargo")
@@ -141,7 +156,7 @@ def main():
     ap.add_argument("logs", nargs="+")
     for name in SETTINGS:
         ap.add_argument("--" + name, type=float, default=DEFAULTS[name])
-    ap.add_argument("--stored", choices=("formula", "zero", "neutral"), default="formula")
+    ap.add_argument("--stored", choices=("formula", "zero", "neutral"), default=DEFAULT_STORED)
     ap.add_argument("--sweep", help="one setting and its values, e.g. breakeven=0.2,0.3,0.4")
     ap.add_argument("--solve-bonus", action="store_true", help="also print the bonus that nets to zero")
     ap.add_argument("--tables", action="store_true", help="also print the net per carrier and per cargo type")

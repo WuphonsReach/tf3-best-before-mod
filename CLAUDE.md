@@ -26,7 +26,7 @@ Run `tl check` on each script you touch; there is no single command for both.
 
 - `best_before_1/` is symlinked into the game's `staging_area/` folder, so edits show up without copying, but the game must be restarted to reload scripts.
 - The game log is `crash_dump/stdout.txt` beside that folder and is overwritten at each launch. Copy it to `local/logs/` (gitignored) before reading or verifying it. It is written live, so a run can be read while the game is still running. Log timestamps are UTC.
-- Every line the mod writes starts with `BEST_BEFORE`. Keep that prefix and keep `tools/verify_run.py` in step when changing the log format: it parses `arrival`, `sending deduction` and `journal` lines by their `key=value` fields.
+- Every line the mod writes starts with `BEST_BEFORE`. Keep that prefix and keep `tools/verify_run.py` in step when changing the log format: it parses `arrival`, `sending adjustment` and `journal` lines by their `key=value` fields.
 
 ## Architecture
 
@@ -46,6 +46,6 @@ Game script constraints that shape this code (details in findings):
 
 ## Conventions
 
-- The probe's pay curve (full pay above 50% freshness, 30% at 0%, 0% when spoiled) and the 0.96426 engine factor are test values at the top of `probe.script.tl`, not final settings. The planned five-setting curve is in the README.
+- The pay curve's five settings (plus the stored-cargo mode) live in `best_before_1/content/settings.tl`, loaded with `ug_require` by the probe and by `mod.script.tl` (which logs them once per game start as `BEST_BEFORE settings`); `tools/replay_curve.py` reads the same file for its defaults. The 0.96426 engine factor is a test value at the top of `probe.script.tl`.
 - Keep the README short and put detail in `docs/`. Links to the sibling [tf3-save-format](https://github.com/WuphonsReach/tf3-save-format) repo are pinned to one commit (see [docs/README.md](docs/README.md)), not to its main branch.
 - The mod ships no game files. `all_def.tl` and `tlconfig.example.lua` are for type checking only and point at the game's own type definitions.

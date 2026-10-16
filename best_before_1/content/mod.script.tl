@@ -8,6 +8,8 @@ end
 
 local mod : BestBeforeMod = {}
 
+local settings = ug_require "::/settings.tl" as {string:any}
+
 local maxLoggedCalls = 400
 local loggedCalls = 0
 
@@ -30,6 +32,12 @@ end
 mod.preRunFn = function(_captureParams : {string:any}, _configDict : {{string, string}}, _allModParams : {string : {string : integer}}, baseConfig : BaseConfig)
 	baseConfig.economy.cargoIncomeScript.fileName = "best_before_1::/mod.script@calcCargoIncomeFn"
 	log.message("BEST_BEFORE preRunFn: cargoIncomeScript replaced")
+	local names : {string} = {}
+	for name, _ in pairs(settings) do names[#names + 1] = name end
+	table.sort(names)
+	local parts : {string} = {}
+	for _, name in ipairs(names) do parts[#parts + 1] = name .. "=" .. tostring(settings[name]) end
+	log.message("BEST_BEFORE settings " .. table.concat(parts, " "))
 end
 
 mod.calcCargoIncomeFn = function(captureParams : {string:any}, incomeFactor : number, posDifference : {number}) : number
