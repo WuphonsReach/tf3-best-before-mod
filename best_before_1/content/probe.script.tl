@@ -59,6 +59,26 @@ local payRate = function(freshness : number, spoiled : boolean) : number
 	return payAtZero + (1.0 - payAtZero) * f / fullPayAbove
 end
 
+-- Discovery: which logbook names do a vehicle and its line carry? (read-only, first few arrivals only)
+local maxLogbookDumps = 4
+local logbookDumps = 0
+
+local dumpLogbook = function(label : string, entity : Engine.Entity)
+	if entity == nil then return end
+	local logbook : Engine.Component.LogBook = api.engine.getComponent(entity, api.type.ComponentType.LOG_BOOK)
+	if logbook == nil then
+		log.message("BEST_BEFORE logbook " .. label .. " entity=" .. tostring(entity) .. " has no LOG_BOOK component")
+		return
+	end
+	local parts : {string} = {}
+	for logName, _ in pairs(logbook.name2log) do
+		local ok, recent = pcall(api.engine.util.logbook.getLogValueMostRecent, entity, logName)
+		local okYear, perYear = pcall(api.engine.util.logbook.getLogValuePerYear, entity, logName)
+		parts[#parts + 1] = logName .. "=recent:" .. tostring(ok and recent or "err") .. "/year:" .. tostring(okYear and perYear or "err")
+	end
+	log.message("BEST_BEFORE logbook " .. label .. " entity=" .. tostring(entity) .. " names: " .. table.concat(parts, "; "))
+end
+
 local probe : GameScript<BookingState> = {
 	update = function(_userParams : table, state : GameScriptState<BookingState>, _dt : number) : any
 		if not state:hasEventSubscriptions() then
@@ -116,6 +136,11 @@ local probe : GameScript<BookingState> = {
 					.. " vehicleName=\"" .. nameOf(pickup and pickup.vehicle) .. "\""
 					.. " line=" .. tostring(pickup and pickup.line)
 					.. " lineName=\"" .. nameOf(pickup and pickup.line) .. "\""
+				if pickup and logbookDumps < maxLogbookDumps then
+					logbookDumps = logbookDumps + 1
+					dumpLogbook("vehicle", pickup.vehicle)
+					dumpLogbook("line", pickup.line)
+				end
 				if pickup and pickup.vehicle then
 					local tv : Engine.Component.TransportVehicle = api.engine.getComponent(pickup.vehicle, api.type.ComponentType.TRANSPORT_VEHICLE)
 					if tv ~= nil and tv.unloadPendingIncome ~= nil then
