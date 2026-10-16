@@ -16,6 +16,6 @@ return {
 	bonusFrom = 0.5,
 	breakeven = 0.3,
 	penaltyFrom = 0.0,
-	penalty = 0.95,
+	penalty = 0.0,
 	stored = "formula",
 }

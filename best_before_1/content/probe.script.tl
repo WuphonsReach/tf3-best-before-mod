@@ -44,6 +44,9 @@ local record BookingState
 	tracked : {Engine.Entity}
 	loggedCargoTypes : {string : boolean}
 	lastSnapshot : string
+	lastBalance : number -- the player's balance and income total at the previous snapshot
+	lastIncome : number
+	lastFinance : string
 	logSeq : integer -- numbers the journal log lines, so a gap in the log shows dropped messages
 end
 
@@ -71,6 +74,32 @@ local balanceOf = function(entity : Engine.Entity) : string
 	return account ~= nil and tostring(account.balance) or "n/a"
 end
 
+-- The Finances tab's investment and "other" rows (construction, upkeep, subsidies), one list of per-period amounts per
+-- row, as the game's own finance table computes them. Used to see what a non-income balance change was.
+local describeFinance = function(player : Engine.Entity) : string
+	local config = api.type.ChartConfig.new()
+	config.interval = 1461000 -- one calendar year of game clock units
+	config.count = 4
+	config.minCount = 4
+	config.yStepScale = 1.0
+	local ok, data = pcall(api.engine.util.finance.computeFinanceTable, player, config)
+	if not ok then return "unavailable" end
+	local parts : {string} = {}
+	local amounts = function(values : {integer}) : string
+		local text : {string} = {}
+		for _, v in ipairs(values) do text[#text + 1] = tostring(v) end
+		return table.concat(text, ",")
+	end
+	data:foreach_investment(function(key : integer, values : {integer})
+		local kind = data:unfoldKey(key)
+		parts[#parts + 1] = "investment[" .. tostring(kind[1]) .. "/" .. tostring(kind[2]) .. "/" .. tostring(kind[3]) .. "]=" .. amounts(values)
+	end)
+	data:foreach_other(function(other : JournalEntry.Other, values : {integer})
+		parts[#parts + 1] = "other[" .. tostring(other) .. "]=" .. amounts(values)
+	end)
+	return table.concat(parts, " ")
+end
+
 -- Logs the player's balance and income figures plus the tracked ledgers, but only when something changed.
 local logJournalSnapshot = function(state : GameScriptState<BookingState>, bookingState : BookingState)
 	local player = api.engine.util.getPlayer()
@@ -88,8 +117,29 @@ local logJournalSnapshot = function(state : GameScriptState<BookingState>, booki
 	if snapshot ~= bookingState.lastSnapshot then
 		bookingState.lastSnapshot = snapshot
 		bookingState.logSeq = (bookingState.logSeq or 0) + 1
+		-- A balance step that is not income is a cost. Costs come with the running-cost tick, so a construction or
+		-- other booking cannot be told apart from it in the balance; the finance table can, so log it when it changes.
+		local nonIncomeStep : number = 0
+		if ok and okIncome and bookingState.lastBalance ~= nil and bookingState.lastIncome ~= nil then
+			nonIncomeStep = (balance - bookingState.lastBalance) - (income - bookingState.lastIncome)
+		end
+		if ok then bookingState.lastBalance = balance end
+		if okIncome then bookingState.lastIncome = income end
+		local finance : string = nil
+		if bookingState.lastFinance == nil or nonIncomeStep ~= 0 then
+			finance = describeFinance(player)
+			if finance ~= bookingState.lastFinance then
+				bookingState.lastFinance = finance
+			else
+				finance = nil
+			end
+		end
 		state:set(bookingState)
 		log.message("BEST_BEFORE journal #" .. bookingState.logSeq .. " t=" .. tostring(gameTime.gameTime) .. " " .. snapshot)
+		if finance ~= nil then
+			log.message("BEST_BEFORE finance after journal #" .. bookingState.logSeq .. " t=" .. tostring(gameTime.gameTime)
+				.. " nonIncomeStep=" .. tostring(nonIncomeStep) .. " " .. finance)
+		end
 	end
 end
 
