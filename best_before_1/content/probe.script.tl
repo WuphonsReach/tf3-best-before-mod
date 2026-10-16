@@ -11,9 +11,6 @@ local payWhenSpoiled = 0.0    -- pay rate once the unit is flagged spoiled
 local engineFactor = 0.96426
 local deliverTimeMultiplier = 1.5
 
--- Test run: deduct at most this many cargo units, then stop.
-local maxDeductedUnits = 400
-
 -- Vehicles and lines whose ledger balance is logged (every arriving vehicle and line, up to this many).
 local maxTracked = 120
 
@@ -246,7 +243,7 @@ local probe : GameScript<BookingState> = {
 					local income = priceFactor * d * engineFactor
 					predicted = tostring(income)
 					local exact = (1.0 - rate) * income
-					if exact >= 1 and bookingState.units < maxDeductedUnits then
+					if exact >= 1 then
 						bookingState.units = bookingState.units + 1
 						deduction = math.floor(exact + 0.5)
 						bookingState.pending[#bookingState.pending + 1] = {

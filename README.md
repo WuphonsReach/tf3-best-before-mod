@@ -41,8 +41,8 @@ Checked in game on a test save (vegetables and fish, horse carts and ships).
 
 ## Status
 
-The probe in `best_before_1/content/probe.script.tl` computes the freshness deduction for each arriving unit, queues it in the game script state, and `update` sends it summed per vehicle, line and player (and carrier, taken from the vehicle) with no result callback, for the first 400 units. The deduction is still the probe's test curve (full pay above 50% freshness, 30% at 0%, 0% once spoiled), not yet adjustable.
+The probe in `best_before_1/content/probe.script.tl` computes the freshness deduction for each arriving unit, queues it in the game script state, and `update` sends it summed per vehicle, line and player (and carrier, taken from the vehicle) with no result callback, for every unit (the old 400-unit test cap is gone). The deduction is still the probe's test curve (full pay above 50% freshness, 30% at 0%, 0% once spoiled), not yet adjustable.
 
 `tools/verify_run.py` checks a run from the game log alone: it compares each tracked ledger's balance change with the pay the arrivals predicted, the deductions sent and the running-cost batches, so a run needs few or no screenshots. Run it on a copy of `crash_dump/stdout.txt`. It ignores arrivals in the last 30,000 clock units before the final snapshot, because their pay may not have landed yet; pay shows in the next journal snapshot, at most about 5,200 units after the arrival. (A 30,000 margin dropped pay that had already landed and failed one vehicle and one line on a live log.)
 
-Next: adjustable X, M and S, and a freshness bonus above a threshold (and in-game settings through `mod.json`), per-cargo limits read from `api.res.cargoTypeRep`, and removing the unit cap.
+Next: adjustable X, M and S, and a freshness bonus above a threshold (and in-game settings through `mod.json`), and dropping the income-function logging stub. The per-cargo limits already come from `api.res.cargoTypeRep`; only fish and crops (both 1,687,500 ms) have been seen so far.
