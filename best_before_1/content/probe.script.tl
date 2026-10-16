@@ -4,6 +4,12 @@
 local maxLoggedUnits = 2000
 local loggedUnits = 0
 
+local nameOf = function(entity : Engine.Entity) : string
+	if entity == nil then return "?" end
+	local component : Engine.Component.Name = api.engine.getComponent(entity, api.type.ComponentType.NAME)
+	return component ~= nil and component.name or "?"
+end
+
 local probe : GameScript<{string:integer}> = {
 	update = function(_userParams : table, state : GameScriptState<{string:integer}>, _dt : number) : any
 		if not state:hasEventSubscriptions() then
@@ -34,7 +40,9 @@ local probe : GameScript<{string:integer}> = {
 					.. " extension=" .. tostring(simCargo.deliveryExtensionDuration)
 					.. " source=" .. tostring(simCargo.sourceEntity)
 					.. " vehicle=" .. tostring(pickup and pickup.vehicle)
+					.. " vehicleName=\"" .. nameOf(pickup and pickup.vehicle) .. "\""
 					.. " line=" .. tostring(pickup and pickup.line)
+					.. " lineName=\"" .. nameOf(pickup and pickup.line) .. "\""
 				if pickup and pickup.vehicle then
 					local tv : Engine.Component.TransportVehicle = api.engine.getComponent(pickup.vehicle, api.type.ComponentType.TRANSPORT_VEHICLE)
 					if tv ~= nil and tv.unloadPendingIncome ~= nil then
