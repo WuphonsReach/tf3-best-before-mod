@@ -22,6 +22,8 @@ local record PendingBooking
 	y : number
 	z : number
 end
+local updateCalls = 0
+
 local record BookingState
 	bookings : integer
 	pending : {PendingBooking}
@@ -63,6 +65,11 @@ local probe : GameScript<BookingState> = {
 			state:subscribeToEvent("OnToArriveAtDestination")
 		end
 		local bookingState = state:get()
+		updateCalls = updateCalls + 1
+		if updateCalls <= 3 or (bookingState.pending ~= nil and #bookingState.pending > 0) then
+			log.message("BEST_BEFORE update call " .. updateCalls .. " bookings=" .. tostring(bookingState.bookings)
+				.. " pending=" .. tostring(bookingState.pending and #bookingState.pending))
+		end
 		if bookingState.pending == nil or #bookingState.pending == 0 then return end
 		local queue = bookingState.pending
 		bookingState.pending = {}
@@ -75,6 +82,7 @@ local probe : GameScript<BookingState> = {
 			entry.category.carrier = api.type.JournalEntry.Carrier.ROAD
 			local cmd = api.cmd.makeJournalBookAssetCmd(api.engine.util.getPlayer(), entry, api.type.Vec3f.new(booking.x, booking.y, booking.z))
 			local number, amount = booking.number, booking.amount
+			log.message("BEST_BEFORE sending booking " .. booking.number .. " amount=" .. tostring(booking.amount))
 			api.cmd.sendCommand(cmd, function(_data : ICommandData, success : boolean)
 				log.message("BEST_BEFORE booking " .. number .. " amount=" .. tostring(amount) .. " success=" .. tostring(success))
 			end)
