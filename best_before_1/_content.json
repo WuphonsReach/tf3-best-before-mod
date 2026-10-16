@@ -1,6 +1,8 @@
 {
     "archives": null,
     "files": [
-        "mod.script.tl"
+        "mod.script.tl",
+        "probe.gs.lua",
+        "probe.script.tl"
     ]
 }
