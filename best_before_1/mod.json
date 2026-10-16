@@ -5,7 +5,7 @@
     "options": null,
     "params": null,
     "postRunScript": {
-        "fileName": ""
+        "fileName": "best_before_1::/mod.script@postRunFn"
     },
     "preRunScript": {
         "fileName": "best_before_1::/mod.script@preRunFn"
