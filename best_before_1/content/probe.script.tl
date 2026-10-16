@@ -18,6 +18,7 @@ local maxBookings = 10
 local record PendingBooking
 	number : integer
 	amount : integer
+	ledger : string -- "vehicle", "line" or "player", for the log
 	target : Engine.Entity -- entity to book to instead of the player (nil = player account)
 	x : number
 	y : number
@@ -28,9 +29,49 @@ local updateCalls = 0
 local record BookingState
 	bookings : integer
 	pending : {PendingBooking}
+	tracked : {Engine.Entity} -- vehicles and lines whose ledger balance is logged
+	lastSnapshot : string
+	logSeq : integer -- numbers the journal log lines, so a gap in the log shows dropped messages
 end
 
-local maxLoggedUnits = 2000
+-- Test of whether vehicle and line bookings ever reach the player's account (a slow roll-up): book only to the
+-- vehicle and the line and watch the player's own journal figures in the log.
+local bookToPlayer = false
+local maxTracked = 8
+
+local balanceOf = function(entity : Engine.Entity) : string
+	local account : Engine.Component.Account = api.engine.getComponent(entity, api.type.ComponentType.ACCOUNT)
+	return account ~= nil and tostring(account.balance) or "n/a"
+end
+
+-- Logs the player's balance and income figures plus the tracked ledgers, but only when something changed.
+local logJournalSnapshot = function(state : GameScriptState<BookingState>, bookingState : BookingState)
+	local player = api.engine.util.getPlayer()
+	local gameTime : Engine.Component.GameTime = api.engine.getComponent(api.engine.util.getWorld(), api.type.ComponentType.GAME_TIME)
+	local ok, balance = pcall(api.engine.util.finance.getPlayersBalance, player)
+	local okIncome, income = pcall(api.engine.util.finance.calcIncomeSince, -1, player)
+	local okLast, lastTime = pcall(api.engine.util.finance.getLastIncomeTime, player)
+	local parts : {string} = {
+		"playerBalance=" .. tostring(ok and balance or "err"),
+		"playerAccountComponent=" .. balanceOf(player),
+		"playerIncomeTotal=" .. tostring(okIncome and income or "err"),
+		"lastIncomeTime=" .. tostring(okLast and lastTime or "err"),
+	}
+	for _, entity in ipairs(bookingState.tracked or {}) do
+		parts[#parts + 1] = tostring(entity) .. "=" .. balanceOf(entity)
+	end
+	local snapshot = table.concat(parts, " ")
+	if snapshot ~= bookingState.lastSnapshot then
+		bookingState.lastSnapshot = snapshot
+		bookingState.logSeq = (bookingState.logSeq or 0) + 1
+		state:set(bookingState)
+		log.message("BEST_BEFORE journal #" .. bookingState.logSeq .. " t=" .. tostring(gameTime.gameTime) .. " " .. snapshot)
+	end
+end
+
+-- Module-level counters like this one do not survive between calls (each call may run in a fresh environment), so
+-- this cap is only loose; the real cap is maxBookings, kept in the game script state.
+local maxLoggedUnits = 100000
 local loggedUnits = 0
 
 local nameOf = function(entity : Engine.Entity) : string
@@ -94,6 +135,7 @@ local probe : GameScript<BookingState> = {
 			log.message("BEST_BEFORE update call " .. updateCalls .. " bookings=" .. tostring(bookingState.bookings)
 				.. " pending=" .. tostring(bookingState.pending and #bookingState.pending))
 		end
+		logJournalSnapshot(state, bookingState)
 		if bookingState.pending == nil or #bookingState.pending == 0 then return end
 		local queue = bookingState.pending
 		bookingState.pending = {}
@@ -106,8 +148,8 @@ local probe : GameScript<BookingState> = {
 			entry.category.carrier = api.type.JournalEntry.Carrier.ROAD
 			local payer = booking.target or api.engine.util.getPlayer()
 			local cmd = api.cmd.makeJournalBookAssetCmd(payer, entry, api.type.Vec3f.new(booking.x, booking.y, booking.z))
-			log.message("BEST_BEFORE sending booking " .. booking.number .. " amount=" .. tostring(booking.amount)
-				.. " payer=" .. tostring(payer) .. (booking.target ~= nil and " (vehicle or line)" or " (player)"))
+			log.message("BEST_BEFORE sending booking " .. booking.number .. " ledger=" .. booking.ledger
+				.. " amount=" .. tostring(booking.amount) .. " payer=" .. tostring(payer))
 			api.cmd.sendCommand(cmd)
 		end
 	end,
@@ -180,19 +222,32 @@ local probe : GameScript<BookingState> = {
 					penalty = tostring(penaltyAmount)
 					if penaltyAmount >= 1 and bookingState.bookings < maxBookings then
 						bookingState.bookings = bookingState.bookings + 1
-						-- Experiment: pass the vehicle (bookings 1-3) or the line (4-6) where the command expects the player.
+						-- One penalty is booked to each ledger the real pay lands in: the vehicle, the line and the player.
 						local bookPickup = simCargo.pickupPoints and simCargo.pickupPoints[1]
-						local target : Engine.Entity = nil
+						local amount = -math.floor(penaltyAmount + 0.5)
+						local ledgers : {{string, Engine.Entity}} = {}
 						if bookPickup ~= nil then
-							if bookingState.bookings <= 3 then target = bookPickup.vehicle
-							elseif bookingState.bookings <= 6 then target = bookPickup.line end
+							ledgers[#ledgers + 1] = { "vehicle", bookPickup.vehicle }
+							ledgers[#ledgers + 1] = { "line", bookPickup.line }
 						end
-						bookingState.pending[#bookingState.pending + 1] = {
-							number = bookingState.bookings,
-							amount = -math.floor(penaltyAmount + 0.5),
-							target = target,
-							x = dst[1], y = dst[2], z = dst[3],
-						}
+						if bookToPlayer then ledgers[#ledgers + 1] = { "player", nil } end
+						for _, ledger in ipairs(ledgers) do
+							bookingState.pending[#bookingState.pending + 1] = {
+								number = bookingState.bookings,
+								amount = amount,
+								ledger = ledger[1],
+								target = ledger[2],
+								x = dst[1], y = dst[2], z = dst[3],
+							}
+							if ledger[2] ~= nil then
+								bookingState.tracked = bookingState.tracked or {}
+								local known = false
+								for _, e in ipairs(bookingState.tracked) do if e == ledger[2] then known = true end end
+								if not known and #bookingState.tracked < maxTracked then
+									bookingState.tracked[#bookingState.tracked + 1] = ledger[2]
+								end
+							end
+						end
 						booked = " BOOKED#" .. bookingState.bookings
 					end
 				end
