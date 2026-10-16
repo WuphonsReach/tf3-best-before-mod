@@ -18,3 +18,10 @@ Type checking uses the Teal compiler (`tl`, install with `luarocks install --loc
 
 1. Copy `tlconfig.example.lua` to `tlconfig.lua` and replace `<tf3_install_folder>` with your game install path (`tlconfig.lua` is gitignored).
 2. Run `tl check best_before_1/content/mod.script.tl`.
+
+## Findings so far
+
+- Spoiled cargo pays full price in the base game (checked in the line journal).
+- The cargo income function (`baseConfig.economy.cargoIncomeScript`) can be replaced by a mod, but it only receives `difficultyFactor`, the price factor and the pickup-to-delivery distance. It gets the same arguments for fresh and spoiled cargo, so freshness cannot be applied there.
+- The cargo percentage in the vehicle window falls with time and is 0% when the load is spoiled.
+- Each cargo unit is a game entity with timestamps and a quality check, and game scripts can subscribe to cargo arrival events. A probe script to see what those events carry is the next step.

@@ -8,7 +8,7 @@ end
 
 local mod : BestBeforeMod = {}
 
-local maxLoggedCalls = 40
+local maxLoggedCalls = 400
 local loggedCalls = 0
 
 local travelDistance = function(posDifference : {number}) : number
@@ -33,14 +33,16 @@ mod.preRunFn = function(_captureParams : {string:any}, _configDict : {{string, s
 end
 
 mod.calcCargoIncomeFn = function(captureParams : {string:any}, incomeFactor : number, posDifference : {number}) : number
+	local income = incomeFactor * (captureParams.difficultyFactor as number) * travelDistance(posDifference)
 	if loggedCalls < maxLoggedCalls then
 		loggedCalls = loggedCalls + 1
 		log.message("BEST_BEFORE income call " .. loggedCalls
 			.. " captureParams=" .. describe(captureParams)
 			.. " incomeFactor=" .. tostring(incomeFactor)
-			.. " posDifference=" .. describe(posDifference))
+			.. " posDifference=" .. describe(posDifference)
+			.. " result=" .. tostring(income))
 	end
-	return incomeFactor * (captureParams.difficultyFactor as number) * travelDistance(posDifference)
+	return income
 end
 
 return mod
