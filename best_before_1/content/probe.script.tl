@@ -13,7 +13,7 @@ local record Settings
 	penalty : number
 	stored : string
 end
-local settings = ug_require "::/settings.tl" as Settings
+local settings = ug_require "best_before_1::/settings.tl" as Settings
 
 -- A deduction never takes more than this share of a unit's predicted pay (the prediction is good to about 1%).
 local maxDeductionShare = 0.99

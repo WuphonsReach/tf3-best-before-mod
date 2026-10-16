@@ -46,6 +46,6 @@ Game script constraints that shape this code (details in findings):
 
 ## Conventions
 
-- The pay curve's five settings (plus the stored-cargo mode) live in `best_before_1/content/settings.tl`, loaded with `ug_require` by the probe and by `mod.script.tl` (which logs them once per game start as `BEST_BEFORE settings`); `tools/replay_curve.py` reads the same file for its defaults. The 0.96426 engine factor is a test value at the top of `probe.script.tl`.
+- The pay curve's five settings (plus the stored-cargo mode) live in `best_before_1/content/settings.tl`, loaded with `ug_require "best_before_1::/settings.tl"` (the `::/` shorthand does not resolve in the mod scripts) by the probe and by `mod.script.tl` (which logs them once per game start as `BEST_BEFORE settings`); `tools/replay_curve.py` reads the same file for its defaults. The 0.96426 engine factor is a test value at the top of `probe.script.tl`.
 - Keep the README short and put detail in `docs/`. Links to the sibling [tf3-save-format](https://github.com/WuphonsReach/tf3-save-format) repo are pinned to one commit (see [docs/README.md](docs/README.md)), not to its main branch.
 - The mod ships no game files. `all_def.tl` and `tlconfig.example.lua` are for type checking only and point at the game's own type definitions.

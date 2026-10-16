@@ -8,7 +8,7 @@ end
 
 local mod : BestBeforeMod = {}
 
-local settings = ug_require "::/settings.tl" as {string:any}
+local settings = ug_require "best_before_1::/settings.tl" as {string:any}
 
 local maxLoggedCalls = 400
 local loggedCalls = 0
