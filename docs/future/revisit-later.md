@@ -9,7 +9,7 @@ Questions and options that depend on something we have not learned yet. Each say
 - **About 14% more player income than the arrivals predict** (1.36 on the large save). Possibly chain pay we do not see per unit.
 
 ## Freshness
-- **Stored cargo.** Decide whether freshness should follow the game's own flag for units that sat in a warehouse, or a corrected age. The log has `deliveryExtensionDuration`, `startTime` and `pickupTime` per unit to test candidates against `isGoodQuality`.
+- **Stored cargo.** The `stored = "corrected"` setting takes `deliveryExtensionDuration` off a unit's age, which removes every disagreement with the game's good flag on the logged runs (see [findings](../findings.md)). Open: the exact spoil rule for paused cargo (spoiled units start at about 0.845 of the limit on the corrected age, not at 1.0), and runs of several game years to see how much stored cargo there is.
 - **Air.** No unit on an air line has been deducted yet (the test cargo plane delivered at 0.72 to 0.78 freshness). Needs a run with air cargo that arrives late.
 - **Limits per cargo.** Eleven cargo types have been seen with limits from 1,687,500 ms to 6,750,000 ms; check that the 1.5 x delivery time rule holds for all of them, not only fish and vegetables.
 

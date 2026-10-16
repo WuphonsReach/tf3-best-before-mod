@@ -338,7 +338,10 @@ local probe : GameScript<BookingState> = {
 				local limitMs = cargoType.timeToDeliverInSeconds * 1000.0 * deliverTimeMultiplier
 				local ageMs = now - simCargo.pickupTime
 				local freshness = limitMs > 0 and (1.0 - ageMs / limitMs) or 1.0
-				local adjustment = curveAdjustment(freshness, good)
+				-- A unit that waited in a specialized warehouse has its timer paused; deliveryExtensionDuration holds that
+				-- time, so the corrected age is the age minus it (checked against the game's good flag on logged runs).
+				local correctedFreshness = limitMs > 0 and (1.0 - (ageMs - simCargo.deliveryExtensionDuration) / limitMs) or 1.0
+				local adjustment = curveAdjustment(settings.stored == "corrected" and correctedFreshness or freshness, good)
 				local rate = 1.0 + adjustment
 				local src = worldPosition(simCargo.sourceEntity)
 				local dst = worldPosition(unit[2][1])
@@ -366,7 +369,7 @@ local probe : GameScript<BookingState> = {
 					end
 				end
 				correction = "ageMs=" .. tostring(ageMs) .. " limitMs=" .. tostring(limitMs)
-					.. " freshness=" .. tostring(freshness) .. " rate=" .. tostring(rate)
+					.. " freshness=" .. tostring(freshness) .. " corrected=" .. tostring(correctedFreshness) .. " rate=" .. tostring(rate)
 					.. " predictedIncome=" .. predicted .. " deduction=" .. tostring(deduction)
 					.. " bonus=" .. tostring(bonus) .. queued
 			end

@@ -18,10 +18,10 @@ with what the game used unless a flag overrides it. The log also records them: l
 Straight lines between the points, order 1 >= bonus-from >= breakeven >= penalty-from >= 0. A deduction is clamped to
 99% of the unit's predicted pay. The net is the sum of all adjustments as a share of the predicted pay of all arrivals.
 
-Stored cargo: for some units the game's own good flag disagrees with the freshness the probe worked out from the unit's
-age (the unit sat in a warehouse or has an extension). `--stored` picks what to do with a unit that is flagged good but
-has negative freshness: `formula` keeps the logged freshness, `zero` clamps it to 0%, `neutral` gives it no adjustment.
-Units the game flags as spoiled always get the full penalty.
+Stored cargo: a specialized warehouse pauses a unit's spoil timer, so the plain age overstates how old it is. `--stored`
+picks the freshness used: `corrected` takes the paused time (`ext`) off the age; `formula` uses the plain age; `zero`
+and `neutral` use the plain age but, for a unit the game flags good although its plain age is past the limit, clamp it
+to 0% or give it no adjustment. Units the game flags as spoiled always get the full penalty.
 
 Logs of the same save overlap (each load replays the same deliveries), so pass logs of different saves together, or
 read the per-log lines rather than the pooled one. Do not use a log from a run with a changed cargo limit (the ship
@@ -68,7 +68,15 @@ def read_arrivals(path):
         pred = d.get("predictedIncome", "n/a")
         if pred == "n/a" or "freshness" not in d:
             continue
-        out.append({"pred": float(pred), "fresh": float(d["freshness"]), "good": d.get("good") == "true",
+        fresh = float(d["freshness"])
+        # logged `corrected` (newer probe) or worked out from the age minus the pause (`ext`), plain age if neither
+        if "corrected" in d:
+            corrected = float(d["corrected"])
+        elif "ext" in d and "ageMs" in d and float(d.get("limitMs", 0)) > 0:
+            corrected = 1.0 - (float(d["ageMs"]) - float(d["ext"])) / float(d["limitMs"])
+        else:
+            corrected = fresh
+        out.append({"pred": float(pred), "fresh": fresh, "corrected": corrected, "good": d.get("good") == "true",
                     "cargo": d.get("cargoType", "?"), "carrier": d.get("carrier", "?"),
                     "logged": int(d.get("deduction", 0))})
     return out
@@ -82,8 +90,9 @@ def check_order(s):
         sys.exit("bonus must be >= 0 and penalty between 0 and 1")
 
 
-def adjustment(fresh, good, s, stored):
+def adjustment(u, s, stored):
     """Fraction of the unit's pay added (positive) or taken away (negative)."""
+    fresh, good = (u["corrected"] if stored == "corrected" else u["fresh"]), u["good"]
     if not good:
         return -s["penalty"]
     if fresh < 0:                                       # flagged good by the game although the formula says past due
@@ -104,7 +113,7 @@ def replay(units, s, stored):
     """Returns (bonus total, deduction total) in pay units; a deduction is negative."""
     gain = loss = 0.0
     for u in units:
-        a = adjustment(u["fresh"], u["good"], s, stored) * u["pred"]
+        a = adjustment(u, s, stored) * u["pred"]
         if a > 0:
             gain += a
         else:
@@ -156,7 +165,7 @@ def main():
     ap.add_argument("logs", nargs="+")
     for name in SETTINGS:
         ap.add_argument("--" + name, type=float, default=DEFAULTS[name])
-    ap.add_argument("--stored", choices=("formula", "zero", "neutral"), default=DEFAULT_STORED)
+    ap.add_argument("--stored", choices=("corrected", "formula", "zero", "neutral"), default=DEFAULT_STORED)
     ap.add_argument("--sweep", help="one setting and its values, e.g. breakeven=0.2,0.3,0.4")
     ap.add_argument("--solve-bonus", action="store_true", help="also print the bonus that nets to zero")
     ap.add_argument("--tables", action="store_true", help="also print the net per carrier and per cargo type")
@@ -166,6 +175,9 @@ def main():
 
     data = [(p, read_arrivals(p)) for p in args.logs]
     data = [(p, u) for p, u in data if u]
+    for p, _ in data:
+        if "ext=" not in open(p, errors="replace").read(2_000_000) and args.stored == "corrected":
+            print(f"note: {p} has no `ext` field (older probe), so `corrected` equals the plain age there", file=sys.stderr)
     if not data:
         sys.exit("no arrivals with a predicted income found")
     if len(data) > 1:

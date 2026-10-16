@@ -9,13 +9,15 @@
 -- bonus and penalty are fractions of the unit's pay (0.5 = 50%). Keep 1 >= bonusFrom >= breakeven >= penaltyFrom >= 0.
 -- A deduction never takes more than 99% of a unit's pay. Set bonus = 0 for deductions only, penalty = 0 for bonuses only.
 --
--- stored: what to do with a unit the game flags good but whose age says it is past the limit (cargo that waited in a
--- warehouse): "formula" keeps the age-based freshness, "zero" counts it as 0% fresh, "neutral" leaves its pay alone.
+-- stored: what to do with cargo that waited in a warehouse. A specialized warehouse pauses a unit's spoil timer, so its
+-- age overstates how old it is: "corrected" takes the paused time off the age (deliveryExtensionDuration), "formula"
+-- uses the plain age, and for a unit the game flags good but whose plain age is past the limit, "zero" counts it as 0%
+-- fresh and "neutral" leaves its pay alone (both use the plain age for every other unit).
 return {
 	bonus = 0.5,
 	bonusFrom = 0.5,
 	breakeven = 0.3,
 	penaltyFrom = 0.0,
 	penalty = 0.0,
-	stored = "formula",
+	stored = "corrected",
 }
