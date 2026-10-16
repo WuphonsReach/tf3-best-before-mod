@@ -32,6 +32,8 @@ Checked in game on a test save (vegetables and fish, horse carts and ships).
 - **Predicting pay in the arrival handler works.** Source and target construction positions give the distance within about 1% of the engine's.
 - **Game script rules learned the hard way:** `sendCommand` must not be called from `handleEvent` (assertion `!m_betweenChanges`), journal entries must have `time = -1`, and module-level variables do not survive between calls, so state goes in the game script `state`.
 
+- **Line panel and account timing.** The log books pay per unit as each arrives, but the line's balance panel only moves when a whole cart finishes unloading (steps of about $74.5k), so a screenshot taken mid-unload is short by up to a cart. The account also drops in lumps of roughly $35-45k when the game books running costs for every vehicle together (the red `$-391` labels over carts are each vehicle's share). The line panel sometimes gains about $6k while the account does not move; cause unknown.
+
 ## Status
 
-The probe in `best_before_1/content/probe.script.tl` logs a planned penalty for each arriving unit and, as a test, books the first 10 as negative income journal entries (sent from `update`). Whether this changes the account balance and what it shows on the line is being tested.
+The probe in `best_before_1/content/probe.script.tl` logs a planned penalty for each arriving unit and, as a test, queues the first 10 as negative income journal entries to be sent from `update`. So far no booking has reached the account: the queue is filled in the event handler but `update` has not been seen sending it. The latest version logs what `update` sees (`BEST_BEFORE update call`, `sending booking`) to find out why.
