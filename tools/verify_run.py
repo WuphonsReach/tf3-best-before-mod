@@ -3,12 +3,15 @@
 
 Usage: tools/verify_run.py local/logs/stdout-....txt
 
-For every vehicle and line the probe logged ("BEST_BEFORE journal" lines carry each tracked ledger's balance), the
-ledger's balance change over the run must equal
-    pay + deductions - running costs
-where the pay is what the arrivals predicted, the deductions are the "sending deduction" lines, and the running
-costs are the negative steps at multiples of 60,000 clock units. If the deductions had not landed, the derived pay
-would be too high by the deductions' share, so the check tells landed from not landed.
+The probe books every freshness deduction to the player only (the game pays a delivered unit once and shares it along
+the supply chain by a formula we do not know). The run passes when
+  - the log has no error lines and no gaps in the journal sequence numbers,
+  - the units deducted in the arrival lines equal the units in the "sending deduction" lines (nothing lost in the
+    per-update aggregation, apart from the last few still queued), and
+  - the booked amounts show up in the player's balance: most entries appear as an exact step of playerBalance or
+    playerIncomeTotal in one of the next four snapshots (the rest share a step with pay, so the rate stays below 100%).
+Vehicle and line ledgers are reported for information only: pay for a transferred unit is split along its chain, so a
+first-leg ledger does not receive the whole predicted pay.
 """
 import re
 import sys
@@ -17,7 +20,8 @@ from collections import defaultdict
 MARGIN = 10000          # clock units: pay of units that arrived this close to the end may not have landed yet
 #                         (measured: pay shows in the next snapshot, at most about 5,200 after the arrival)
 BATCH = 60000           # running costs are booked every 60,000 clock units
-TOLERANCE = 0.03        # the prediction matches real pay within about 1%
+MIN_LANDED = 0.4        # share of the booked entries that must show up as an exact step (about 0.6 to 0.67 seen)
+MAX_UNSENT = 5          # units that may still be queued when the log ends
 
 
 def kv(text):
@@ -111,13 +115,10 @@ def main(path):
         keys = sorted({a[kind] for a in arrivals if a[kind] not in (None, "nil")}
                       & {k for s in snaps for k in s["bal"]})
         rows = [r for r in (check(k, kind) for k in keys) if r]
-        bad = [r for r in rows if abs(r["ratio"] - 1) > TOLERANCE and r["sent"] != 0]
-        print(("PASS" if not bad else "FAIL") + f"  {label}: {len(rows)} ledgers checked, {len(bad)} outside "
-              f"{TOLERANCE:.0%} (derived pay / predicted pay)")
-        ok = ok and not bad
-        for r in (bad or rows)[:6]:
-            print(f"        {r['key']}: delta {r['delta']:>10,} costs {r['costs']:>7,} deductions {r['sent']:>9,} "
-                  f"predicted pay {r['expected']:>10,.0f}  ratio {r['ratio']:.3f} (without deductions {r['ratio_without']:.3f})")
+        if rows:
+            ratios = sorted(r["ratio"] for r in rows)
+            print(f"INFO  {label} (first leg of each unit): {len(rows)} ledgers, derived pay / predicted pay "
+                  f"min {ratios[0]:.2f}, median {ratios[len(ratios) // 2]:.2f}, max {ratios[-1]:.2f}")
 
     # The player: all arrivals, all deductions booked to the player.
     base, last = snaps[0], end
@@ -136,21 +137,41 @@ def main(path):
           f"{(delta + costs) / expected:.3f}). Income the arrivals do not predict makes this above 1 "
           f"(1.145 in the 05:00 control run with no player deductions).")
 
+    # Units: the arrival lines and the sent entries must agree.
+    queued_units = sum(1 for a in arrivals if a["ded"] > 0)
+    sent_units = sum(s["units"] for s in sends if s["ledger"] == "player")
+    unsent_ok = 0 <= queued_units - sent_units <= MAX_UNSENT
+    print(("PASS" if unsent_ok else "FAIL") + f"  units: {queued_units} deducted in the arrival lines, "
+          f"{sent_units} sent to the player")
+    ok = ok and unsent_ok
+
     # Did each entry land exactly, at once? (it can share a step with pay, so this is only a rate)
-    exact = 0
+    landed, checked = 0, 0
     for s in sends:
-        key = s["entity"]
-        later = [x for x in snaps if x["i"] > s["i"] and key in x["bal"]][:4]
-        prevs = [x for x in snaps if x["i"] < s["i"] and key in x["bal"]]
+        if s["ledger"] != "player":
+            continue
+        later = [x for x in snaps if x["i"] > s["i"]][:4]
+        prevs = [x for x in snaps if x["i"] < s["i"]]
         if not later or not prevs:
             continue
-        before = prevs[-1]["bal"][key]
-        for x in later:
-            if x["bal"][key] - before == s["amount"] or x["bal"].get("playerBalance") is None:
-                exact += 1
+        checked += 1
+        for field in ("playerBalance", "playerIncomeTotal"):
+            before = prevs[-1]["bal"].get(field)
+            hit = False
+            for x in later:
+                value = x["bal"].get(field)
+                if before is not None and value is not None and value - before == s["amount"]:
+                    hit = True
+                    break
+                before = value
+            if hit:
+                landed += 1
                 break
-            before = x["bal"][key]
-    print(f"INFO  {exact} of {len(sends)} entries showed up as an exact step in one of the next four snapshots")
+    rate = landed / checked if checked else 0.0
+    landed_ok = rate >= MIN_LANDED
+    print(("PASS" if landed_ok else "FAIL") + f"  landing: {landed} of {checked} player entries showed up as an exact "
+          f"step of the balance or income total in the next four snapshots ({rate:.0%}, needs {MIN_LANDED:.0%})")
+    ok = ok and landed_ok
     print("RESULT " + ("PASS" if ok else "FAIL"))
     return 0 if ok else 1
 
