@@ -12,9 +12,9 @@ local deliverTimeMultiplier = 1.5
 
 -- Test run: book at most this many penalties, then stop.
 local maxBookings = 10
-local bookings = 0
 
 -- Commands cannot be sent while the engine is delivering an event, so the handler queues bookings and update sends them.
+-- The queue lives in the game script state: module-level variables do not survive between calls.
 local record PendingBooking
 	number : integer
 	amount : integer
@@ -22,7 +22,10 @@ local record PendingBooking
 	y : number
 	z : number
 end
-local pendingBookings : {PendingBooking} = {}
+local record BookingState
+	bookings : integer
+	pending : {PendingBooking}
+end
 
 local maxLoggedUnits = 2000
 local loggedUnits = 0
@@ -54,13 +57,17 @@ local payRate = function(freshness : number, spoiled : boolean) : number
 	return payAtZero + (1.0 - payAtZero) * f / fullPayAbove
 end
 
-local probe : GameScript<{string:integer}> = {
-	update = function(_userParams : table, state : GameScriptState<{string:integer}>, _dt : number) : any
+local probe : GameScript<BookingState> = {
+	update = function(_userParams : table, state : GameScriptState<BookingState>, _dt : number) : any
 		if not state:hasEventSubscriptions() then
 			state:subscribeToEvent("OnToArriveAtDestination")
 		end
-		while #pendingBookings > 0 do
-			local booking = table.remove(pendingBookings, 1)
+		local bookingState = state:get()
+		if bookingState.pending == nil or #bookingState.pending == 0 then return end
+		local queue = bookingState.pending
+		bookingState.pending = {}
+		state:set(bookingState)
+		for _, booking in ipairs(queue) do
 			local entry = api.type.JournalEntry.new()
 			entry.amount = booking.amount
 			entry.time = -1 -- the engine fills in the time
@@ -73,9 +80,13 @@ local probe : GameScript<{string:integer}> = {
 			end)
 		end
 	end,
-	handleEvent = function(_userParams : table, _state : GameScriptState<{string:integer}>, _src : string, id : string, name : string, param : any) : any
+	handleEvent = function(_userParams : table, state : GameScriptState<BookingState>, _src : string, id : string, name : string, param : any) : any
 		if id ~= "SimCargoSystem" or name ~= "OnToArriveAtDestination" then return end
 		if loggedUnits >= maxLoggedUnits then return end
+
+		local bookingState = state:get()
+		bookingState.bookings = bookingState.bookings or 0
+		bookingState.pending = bookingState.pending or {}
 
 		local gameTimeComponent : Engine.Component.GameTime
 			= api.engine.getComponent(api.engine.util.getWorld(), api.type.ComponentType.GAME_TIME)
@@ -131,14 +142,14 @@ local probe : GameScript<{string:integer}> = {
 					predicted = tostring(income)
 					local penaltyAmount = (1.0 - rate) * income
 					penalty = tostring(penaltyAmount)
-					if penaltyAmount >= 1 and bookings < maxBookings then
-						bookings = bookings + 1
-						pendingBookings[#pendingBookings + 1] = {
-							number = bookings,
+					if penaltyAmount >= 1 and bookingState.bookings < maxBookings then
+						bookingState.bookings = bookingState.bookings + 1
+						bookingState.pending[#bookingState.pending + 1] = {
+							number = bookingState.bookings,
 							amount = -math.floor(penaltyAmount + 0.5),
 							x = dst[1], y = dst[2], z = dst[3],
 						}
-						booked = " BOOKED#" .. bookings
+						booked = " BOOKED#" .. bookingState.bookings
 					end
 				end
 				correction = "ageMs=" .. tostring(ageMs) .. " limitMs=" .. tostring(limitMs)
@@ -154,6 +165,7 @@ local probe : GameScript<{string:integer}> = {
 				.. " " .. detail
 				.. " " .. correction)
 		end
+		state:set(bookingState)
 	end,
 }
 
