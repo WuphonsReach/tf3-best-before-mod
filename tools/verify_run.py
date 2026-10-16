@@ -14,7 +14,8 @@ import re
 import sys
 from collections import defaultdict
 
-MARGIN = 30000          # clock units: pay of units that arrived this close to the end may not have landed yet
+MARGIN = 10000          # clock units: pay of units that arrived this close to the end may not have landed yet
+#                         (measured: pay shows in the next snapshot, at most about 5,200 after the arrival)
 BATCH = 60000           # running costs are booked every 60,000 clock units
 TOLERANCE = 0.03        # the prediction matches real pay within about 1%
 
