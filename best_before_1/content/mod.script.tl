@@ -39,13 +39,14 @@ end
 
 mod.postRunFn = function(_captureParams : {string:any})
 	for id, name in pairs(api.res.cargoTypeRep.getAll()) do
-		local cargoType = api.res.cargoTypeRep.getAsTable(id)
+		local cargoType = api.res.cargoTypeRep.get(id)
 		local ref = cargoType.scriptRef
 		local current = ref ~= nil and ref.fileName or "none"
-		log.message("BEST_BEFORE cargo type " .. tostring(id) .. " " .. tostring(name) .. " scriptRef=" .. current)
+		local tableKeys = describe(api.res.cargoTypeRep.getAsTable(id))
+		log.message("BEST_BEFORE cargo type " .. tostring(id) .. " " .. tostring(name) .. " scriptRef=" .. current
+			.. " asTable=" .. tableKeys)
 		if ref ~= nil and string.find(current, "constantFn", 1, true) then
 			ref.fileName = "best_before_1::/mod.script@priceFn"
-			api.res.cargoTypeRep.setAsTable(id, cargoType)
 		end
 	end
 end
