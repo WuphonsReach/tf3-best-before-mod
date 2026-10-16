@@ -14,6 +14,16 @@ local deliverTimeMultiplier = 1.5
 local maxBookings = 10
 local bookings = 0
 
+-- Commands cannot be sent while the engine is delivering an event, so the handler queues bookings and update sends them.
+local record PendingBooking
+	number : integer
+	amount : integer
+	x : number
+	y : number
+	z : number
+end
+local pendingBookings : {PendingBooking} = {}
+
 local maxLoggedUnits = 2000
 local loggedUnits = 0
 
@@ -48,6 +58,19 @@ local probe : GameScript<{string:integer}> = {
 	update = function(_userParams : table, state : GameScriptState<{string:integer}>, _dt : number) : any
 		if not state:hasEventSubscriptions() then
 			state:subscribeToEvent("OnToArriveAtDestination")
+		end
+		while #pendingBookings > 0 do
+			local booking = table.remove(pendingBookings, 1)
+			local entry = api.type.JournalEntry.new()
+			entry.amount = booking.amount
+			entry.time = -1 -- the engine fills in the time
+			entry.category.type = api.type.JournalEntry.Type.INCOME
+			entry.category.carrier = api.type.JournalEntry.Carrier.ROAD
+			local cmd = api.cmd.makeJournalBookAssetCmd(api.engine.util.getPlayer(), entry, api.type.Vec3f.new(booking.x, booking.y, booking.z))
+			local number, amount = booking.number, booking.amount
+			api.cmd.sendCommand(cmd, function(_data : ICommandData, success : boolean)
+				log.message("BEST_BEFORE booking " .. number .. " amount=" .. tostring(amount) .. " success=" .. tostring(success))
+			end)
 		end
 	end,
 	handleEvent = function(_userParams : table, _state : GameScriptState<{string:integer}>, _src : string, id : string, name : string, param : any) : any
@@ -110,18 +133,12 @@ local probe : GameScript<{string:integer}> = {
 					penalty = tostring(penaltyAmount)
 					if penaltyAmount >= 1 and bookings < maxBookings then
 						bookings = bookings + 1
-						local entry = api.type.JournalEntry.new()
-						entry.amount = -math.floor(penaltyAmount + 0.5)
-						entry.time = -1 -- the engine fills in the time
-						entry.category.type = api.type.JournalEntry.Type.INCOME
-						entry.category.carrier = api.type.JournalEntry.Carrier.ROAD
-						local cmd = api.cmd.makeJournalBookAssetCmd(api.engine.util.getPlayer(), entry, api.type.Vec3f.new(dst[1], dst[2], dst[3]))
-						local bookingNumber = bookings
-						local bookedAmount = entry.amount
-						api.cmd.sendCommand(cmd, function(_data : ICommandData, success : boolean)
-							log.message("BEST_BEFORE booking " .. bookingNumber .. " amount=" .. tostring(bookedAmount) .. " success=" .. tostring(success))
-						end)
-						booked = " BOOKED#" .. bookingNumber
+						pendingBookings[#pendingBookings + 1] = {
+							number = bookings,
+							amount = -math.floor(penaltyAmount + 0.5),
+							x = dst[1], y = dst[2], z = dst[3],
+						}
+						booked = " BOOKED#" .. bookings
 					end
 				end
 				correction = "ageMs=" .. tostring(ageMs) .. " limitMs=" .. tostring(limitMs)
