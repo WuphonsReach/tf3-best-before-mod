@@ -2,7 +2,7 @@
 
 Transport Fever 3 mod: cargo payment scales with freshness.
 
-**Status: early work.** `best_before_1/` is a logging scaffold. It pays exactly as the base game does and writes what the engine passes to the income function to the game log (lines starting `BEST_BEFORE`). It has not been run in the game yet.
+**Status: early work.** `best_before_1/` is a test probe. For each arriving cargo unit it works out a *freshness deduction* (the part of the pay the freshness curve takes away) and books it back as a negative income entry to the vehicle, its line and the player. It logs everything with lines starting `BEST_BEFORE`. The deduction mechanism has been checked in the game; settings and the final curve are not done.
 
 Planned pay curve: full rate above a freshness threshold, then a straight line down to a minimum rate at 0% freshness, then a fixed rate (default 0%) once the cargo is spoiled.
 
@@ -33,8 +33,13 @@ Checked in game on a test save (vegetables and fish, horse carts and ships).
 - **Game script rules learned the hard way:** `sendCommand` must not be called from `handleEvent` (assertion `!m_betweenChanges`), journal entries must have `time = -1`, `sendCommand` must be called without a result callback from `update` (a callback raises "Callbacks are currently disallowed"), and module-level variables do not survive between calls, so state goes in the game script `state`. State written by the handler is visible to `update`.
 - **A journal booking reaches the account.** `api.cmd.makeJournalBookAssetCmd` with an INCOME entry (negative amount, road carrier) sent from `update` changed the account by exactly the booked amount: -93,084 for five bookings, and +55,798 for a $74,480 cart payment plus one -18,682 booking. The booking shows on the account only, not on the line's balance panel, since the entry carries no line or vehicle. Because there is no callback, success is judged from the account.
 
+- **Vehicles and lines have their own ledgers.** The first argument of `makeJournalBookAssetCmd` is the entity whose account the entry goes to, not only the player. A vehicle, a line and the player each carry an `ACCOUNT` component, and an entry booked to one changes only that one. Real pay lands in all three, so a freshness deduction is booked to all three (vehicle, line, player). Over about 32 game minutes (two year-periods and about 15 month-periods of the game clock, with the calendar stopped) nothing booked to a vehicle or line reached the player's account.
 - **Line panel and account timing.** The log books pay per unit as each arrives, but the line's balance panel only moves when a whole cart finishes unloading (steps of about $74.5k), so a screenshot taken mid-unload is short by up to a cart. The account also drops in lumps of roughly $35-45k when the game books running costs for every vehicle together (the red `$-391` labels over carts are each vehicle's share). The line panel sometimes gains about $6k while the account does not move (seen again in the booking run); cause unknown.
 
 ## Status
 
-The probe in `best_before_1/content/probe.script.tl` logs a planned penalty for each arriving unit and, as a test, queues the first 10 as negative income journal entries that `update` sends. The mechanism works end to end: the amounts reach the account (see the findings above). The booked amount is still the flat probe value, not the freshness curve. Next: the real curve with adjustable X, M and S, per-cargo limits read from `api.res.cargoTypeRep`, removing the 10-booking cap, and in-game settings through `mod.json`.
+The probe in `best_before_1/content/probe.script.tl` computes the freshness deduction for each arriving unit, queues it in the game script state, and `update` sends it summed per vehicle, line and player (and carrier, taken from the vehicle) with no result callback, for the first 400 units. The deduction is still the probe's test curve (full pay above 50% freshness, 30% at 0%, 0% once spoiled), not yet adjustable.
+
+`tools/verify_run.py` checks a run from the game log alone: it compares each tracked ledger's balance change with the pay the arrivals predicted, the deductions sent and the running-cost batches, so a run needs few or no screenshots. Run it on a copy of `crash_dump/stdout.txt`.
+
+Next: adjustable X, M and S (and in-game settings through `mod.json`), per-cargo limits read from `api.res.cargoTypeRep`, and removing the unit cap.
