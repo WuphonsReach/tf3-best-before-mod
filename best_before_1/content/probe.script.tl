@@ -11,10 +11,6 @@ local payWhenSpoiled = 0.0    -- pay rate once the unit is flagged spoiled
 local engineFactor = 0.96426
 local deliverTimeMultiplier = 1.5
 
--- Test only: ships deliver fish at about 80% freshness, so no ship unit was ever deducted. Shrinking the limit for
--- WATER to a quarter puts those units near 20% freshness, so ship entries get booked.
-local waterLimitScale = 0.25
-
 -- Test run: deduct at most this many cargo units, then stop.
 local maxDeductedUnits = 400
 
@@ -236,7 +232,6 @@ local probe : GameScript<BookingState> = {
 				local priceFactor = params ~= nil and params.initialPrice ~= nil and params.finalPrice ~= nil
 					and (params.initialPrice + (params.finalPrice - params.initialPrice) * 0.25) or nil
 				local limitMs = cargoType.timeToDeliverInSeconds * 1000.0 * deliverTimeMultiplier
-				if carrier == "WATER" then limitMs = limitMs * waterLimitScale end
 				local ageMs = now - simCargo.pickupTime
 				local freshness = limitMs > 0 and (1.0 - ageMs / limitMs) or 1.0
 				local rate = payRate(freshness, not good)
