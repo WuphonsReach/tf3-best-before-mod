@@ -21,7 +21,17 @@ Type checking uses the Teal compiler (`tl`, install with `luarocks install --loc
 
 ## Findings so far
 
-- Spoiled cargo pays full price in the base game (checked in the line journal).
-- The cargo income function (`baseConfig.economy.cargoIncomeScript`) can be replaced by a mod, but it only receives `difficultyFactor`, the price factor and the pickup-to-delivery distance. It gets the same arguments for fresh and spoiled cargo, so freshness cannot be applied there.
-- The cargo percentage in the vehicle window falls with time and is 0% when the load is spoiled.
-- Each cargo unit is a game entity with timestamps and a quality check, and game scripts can subscribe to cargo arrival events. A probe script to see what those events carry is the next step.
+Checked in game on a test save (vegetables and fish, horse carts and ships).
+
+- **Spoiled cargo pays full price in the base game.** Fresh, spoiled and mixed carts are all paid the same: the income function's result times a constant of about 0.96426 that the engine applies afterwards (cause unknown).
+- **Pay is straight-line distance**: price factor x 3D distance between pickup and delivery (plus a climb term). The unloading point matters, so the cart that stops slightly further away earns slightly more.
+- **The income function cannot see freshness.** `baseConfig.economy.cargoIncomeScript` can be replaced by a mod, but it is called once per cargo unit with only `difficultyFactor`, the price factor and the distance. It is called before the unit's arrival event.
+- **Each cargo unit is an entity** (`SimCargo`) with `pickupTime`, a source entity and the vehicle and line it travelled on. `api.engine.util.cargo.isGoodQuality(unit)` tells whether it is spoiled.
+- **A unit spoils exactly `timeToDeliverInSeconds x 1.5` after pickup** (1,687,500 ms for vegetables and fish). Freshness is `1 - (now - pickupTime) / that`; the vehicle window's percentage is the load's average. The flag and this formula agreed on all 82 logged units.
+- **The cargo type's price function cannot be redirected from a mod at run time.** The `scriptRef` is readable through `api.res.cargoTypeRep.get(id)` but changing it had no effect.
+- **Predicting pay in the arrival handler works.** Source and target construction positions give the distance within about 1% of the engine's.
+- **Game script rules learned the hard way:** `sendCommand` must not be called from `handleEvent` (assertion `!m_betweenChanges`), journal entries must have `time = -1`, and module-level variables do not survive between calls, so state goes in the game script `state`.
+
+## Status
+
+The probe in `best_before_1/content/probe.script.tl` logs a planned penalty for each arriving unit and, as a test, books the first 10 as negative income journal entries (sent from `update`). Whether this changes the account balance and what it shows on the line is being tested.
