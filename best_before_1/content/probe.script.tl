@@ -81,11 +81,8 @@ local probe : GameScript<BookingState> = {
 			entry.category.type = api.type.JournalEntry.Type.INCOME
 			entry.category.carrier = api.type.JournalEntry.Carrier.ROAD
 			local cmd = api.cmd.makeJournalBookAssetCmd(api.engine.util.getPlayer(), entry, api.type.Vec3f.new(booking.x, booking.y, booking.z))
-			local number, amount = booking.number, booking.amount
 			log.message("BEST_BEFORE sending booking " .. booking.number .. " amount=" .. tostring(booking.amount))
-			api.cmd.sendCommand(cmd, function(_data : ICommandData, success : boolean)
-				log.message("BEST_BEFORE booking " .. number .. " amount=" .. tostring(amount) .. " success=" .. tostring(success))
-			end)
+			api.cmd.sendCommand(cmd)
 		end
 	end,
 	handleEvent = function(_userParams : table, state : GameScriptState<BookingState>, _src : string, id : string, name : string, param : any) : any
