@@ -10,6 +10,10 @@ local payWhenSpoiled = 0.0    -- pay rate once the unit is flagged spoiled
 local engineFactor = 0.96426
 local deliverTimeMultiplier = 1.5
 
+-- Test run: book at most this many penalties, then stop.
+local maxBookings = 10
+local bookings = 0
+
 local maxLoggedUnits = 2000
 local loggedUnits = 0
 
@@ -95,17 +99,34 @@ local probe : GameScript<{string:integer}> = {
 				local predicted = "n/a"
 				local penalty = "n/a"
 				local distance = "n/a"
+				local booked = ""
 				if src ~= nil and dst ~= nil and priceFactor ~= nil then
 					local dx, dy, dz = dst[1] - src[1], dst[2] - src[2], dst[3] - src[3]
 					local d = math.sqrt(dx * dx + dy * dy + dz * dz) + 8. * math.max(dz, 0.)
 					local income = priceFactor * d * engineFactor
 					distance = tostring(d)
 					predicted = tostring(income)
-					penalty = tostring((1.0 - rate) * income)
+					local penaltyAmount = (1.0 - rate) * income
+					penalty = tostring(penaltyAmount)
+					if penaltyAmount >= 1 and bookings < maxBookings then
+						bookings = bookings + 1
+						local entry = api.type.JournalEntry.new()
+						entry.amount = -math.floor(penaltyAmount + 0.5)
+						entry.time = now
+						entry.category.type = api.type.JournalEntry.Type.INCOME
+						entry.category.carrier = api.type.JournalEntry.Carrier.ROAD
+						local cmd = api.cmd.makeJournalBookAssetCmd(api.engine.util.getPlayer(), entry, api.type.Vec3f.new(dst[1], dst[2], dst[3]))
+						local bookingNumber = bookings
+						local bookedAmount = entry.amount
+						api.cmd.sendCommand(cmd, function(_data : ICommandData, success : boolean)
+							log.message("BEST_BEFORE booking " .. bookingNumber .. " amount=" .. tostring(bookedAmount) .. " success=" .. tostring(success))
+						end)
+						booked = " BOOKED#" .. bookingNumber
+					end
 				end
 				correction = "ageMs=" .. tostring(ageMs) .. " limitMs=" .. tostring(limitMs)
 					.. " freshness=" .. tostring(freshness) .. " rate=" .. tostring(rate)
-					.. " distance=" .. distance .. " predictedIncome=" .. predicted .. " penalty=" .. penalty
+					.. " distance=" .. distance .. " predictedIncome=" .. predicted .. " penalty=" .. penalty .. booked
 			end
 			log.message("BEST_BEFORE arrival unit=" .. tostring(cargoEntity)
 				.. " target=" .. tostring(unit[2][1])
