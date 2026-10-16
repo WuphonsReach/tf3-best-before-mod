@@ -1,6 +1,8 @@
 -- Freshness deduction probe: for every cargo unit arriving at its destination, work out how much of its pay the
--- freshness curve takes away and book that as a negative income entry to the vehicle, its line and the player.
--- Log lines start with "BEST_BEFORE"; tools/verify_run.py checks a run from the log alone.
+-- freshness curve takes away and book that as a negative income entry to the player's account.
+-- The game pays a delivered unit once, at the consumer, and shares the pay back along the chain by a formula we do not
+-- know, so the deduction is not tied to a vehicle or line. The log names every vehicle and line of the unit's pickup
+-- chain so the split can be studied. Log lines start with "BEST_BEFORE"; tools/verify_run.py checks a run from the log.
 
 -- Pay curve settings.
 local fullPayAbove = 0.5      -- freshness at or above this pays 100%
@@ -11,19 +13,15 @@ local payWhenSpoiled = 0.0    -- pay rate once the unit is flagged spoiled
 local engineFactor = 0.96426
 local deliverTimeMultiplier = 1.5
 
--- Test run: deduct at most this many cargo units, then stop.
-local maxDeductedUnits = 400
-
--- Vehicles and lines whose ledger balance is logged (every arriving vehicle and line, up to this many).
-local maxTracked = 120
+-- Vehicles and lines whose ledger balance is logged (every vehicle and line in an arriving unit's pickup chain, up to
+-- this many).
+local maxTracked = 200
 
 -- Commands cannot be sent while the engine is delivering an event, so the handler queues the deductions and update
 -- sends them. The queue lives in the game script state: module-level variables do not survive between calls.
 local record PendingDeduction
 	number : integer
 	amount : integer -- negative
-	vehicle : Engine.Entity
-	line : Engine.Entity
 	carrier : string
 	x : number
 	y : number
@@ -35,14 +33,13 @@ local record BookingState
 	batches : integer
 	pending : {PendingDeduction}
 	tracked : {Engine.Entity}
+	loggedCargoTypes : {string : boolean}
 	lastSnapshot : string
 	logSeq : integer -- numbers the journal log lines, so a gap in the log shows dropped messages
 end
 
--- One entry per ledger and carrier, summed over the queue.
+-- One entry per carrier, summed over the queue.
 local record Aggregate
-	ledger : string -- "vehicle", "line" or "player", for the log
-	entity : Engine.Entity -- nil for the player
 	carrier : string
 	amount : integer
 	units : integer
@@ -53,7 +50,14 @@ end
 
 local updateCalls = 0
 
+-- Vehicles and lines can be sold while their cargo is still on its way, and asking the engine about a vanished entity
+-- raises "Invalid entity", which would abort the whole event.
+local exists = function(entity : Engine.Entity) : boolean
+	return entity ~= nil and api.engine.entityExists(entity)
+end
+
 local balanceOf = function(entity : Engine.Entity) : string
+	if not exists(entity) then return "gone" end
 	local account : Engine.Component.Account = api.engine.getComponent(entity, api.type.ComponentType.ACCOUNT)
 	return account ~= nil and tostring(account.balance) or "n/a"
 end
@@ -91,17 +95,15 @@ local track = function(bookingState : BookingState, entity : Engine.Entity)
 	end
 end
 
--- The vehicle's carrier as the name of the journal carrier it books under.
-local carrierNameOf = function(vehicle : Engine.Entity) : string
-	if vehicle == nil then return "OTHER" end
-	local tv : Engine.Component.TransportVehicle = api.engine.getComponent(vehicle, api.type.ComponentType.TRANSPORT_VEHICLE)
-	if tv == nil then return "OTHER" end
+-- A pickup point's carrier as the name of the journal carrier it books under.
+local carrierNameOf = function(carrier : Carrier) : string
+	if carrier == nil then return "OTHER" end
 	local carriers = api.type.enum.Carrier
-	if tv.carrier == carriers.ROAD then return "ROAD" end
-	if tv.carrier == carriers.RAIL then return "RAIL" end
-	if tv.carrier == carriers.TRAM then return "TRAM" end
-	if tv.carrier == carriers.AIR then return "AIR" end
-	if tv.carrier == carriers.WATER then return "WATER" end
+	if carrier == carriers.ROAD then return "ROAD" end
+	if carrier == carriers.RAIL then return "RAIL" end
+	if carrier == carriers.TRAM then return "TRAM" end
+	if carrier == carriers.AIR then return "AIR" end
+	if carrier == carriers.WATER then return "WATER" end
 	return "OTHER"
 end
 
@@ -117,39 +119,37 @@ end
 
 local aggregate = function(queue : {PendingDeduction}) : {Aggregate}
 	local result : {Aggregate} = {}
-	local add = function(ledger : string, entity : Engine.Entity, item : PendingDeduction)
+	for _, item in ipairs(queue) do
+		local found = false
 		for _, a in ipairs(result) do
-			if a.ledger == ledger and a.entity == entity and a.carrier == item.carrier then
+			if a.carrier == item.carrier then
 				a.amount = a.amount + item.amount
 				a.units = a.units + 1
-				return
+				found = true
+				break
 			end
 		end
-		result[#result + 1] = {
-			ledger = ledger, entity = entity, carrier = item.carrier,
-			amount = item.amount, units = 1, x = item.x, y = item.y, z = item.z,
-		}
-	end
-	for _, item in ipairs(queue) do
-		if item.vehicle ~= nil then add("vehicle", item.vehicle, item) end
-		if item.line ~= nil then add("line", item.line, item) end
-		add("player", nil, item)
+		if not found then
+			result[#result + 1] = {
+				carrier = item.carrier, amount = item.amount, units = 1, x = item.x, y = item.y, z = item.z,
+			}
+		end
 	end
 	return result
 end
 
 local nameOf = function(entity : Engine.Entity) : string
-	if entity == nil then return "?" end
+	if not exists(entity) then return "?" end
 	local component : Engine.Component.Name = api.engine.getComponent(entity, api.type.ComponentType.NAME)
 	return component ~= nil and component.name or "?"
 end
 
 local worldPosition = function(entity : Engine.Entity) : {number}
-	if entity == nil then return nil end
+	if not exists(entity) then return nil end
 	local construction : Engine.Component.Construction = api.engine.getComponent(entity, api.type.ComponentType.CONSTRUCTION)
 	if construction == nil then
 		local parent = api.engine.system.streetConnectorSystem.getConstructionEntityForSubconstruction(entity)
-		if parent ~= nil and parent >= 0 then
+		if parent ~= nil and parent >= 0 and exists(parent) then
 			construction = api.engine.getComponent(parent, api.type.ComponentType.CONSTRUCTION)
 		end
 	end
@@ -165,6 +165,17 @@ local payRate = function(freshness : number, spoiled : boolean) : number
 	return payAtZero + (1.0 - payAtZero) * f / fullPayAbove
 end
 
+-- "key=value,key=value" with the keys sorted, for the one-time cargo type log line.
+local describeParams = function(params : {string : number}) : string
+	if params == nil then return "none" end
+	local keys : {string} = {}
+	for key, _ in pairs(params) do keys[#keys + 1] = key end
+	table.sort(keys)
+	local parts : {string} = {}
+	for _, key in ipairs(keys) do parts[#parts + 1] = key .. "=" .. tostring(params[key]) end
+	return table.concat(parts, ",")
+end
+
 local probe : GameScript<BookingState> = {
 	update = function(_userParams : table, state : GameScriptState<BookingState>, _dt : number) : any
 		if not state:hasEventSubscriptions() then
@@ -178,16 +189,16 @@ local probe : GameScript<BookingState> = {
 		bookingState.pending = {}
 		bookingState.batches = (bookingState.batches or 0) + 1
 		state:set(bookingState)
+		local player = api.engine.util.getPlayer()
 		for _, a in ipairs(aggregate(queue)) do
 			local entry = api.type.JournalEntry.new()
 			entry.amount = a.amount
 			entry.time = -1 -- the engine fills in the time
 			entry.category.type = api.type.JournalEntry.Type.INCOME
 			entry.category.carrier = journalCarrier(a.carrier)
-			local payer = a.entity or api.engine.util.getPlayer()
-			local cmd = api.cmd.makeJournalBookAssetCmd(payer, entry, api.type.Vec3f.new(a.x, a.y, a.z))
-			log.message("BEST_BEFORE sending deduction batch=" .. bookingState.batches .. " ledger=" .. a.ledger
-				.. " entity=" .. tostring(payer) .. " carrier=" .. a.carrier
+			local cmd = api.cmd.makeJournalBookAssetCmd(player, entry, api.type.Vec3f.new(a.x, a.y, a.z))
+			log.message("BEST_BEFORE sending deduction batch=" .. bookingState.batches .. " ledger=player"
+				.. " entity=" .. tostring(player) .. " carrier=" .. a.carrier
 				.. " amount=" .. tostring(a.amount) .. " units=" .. tostring(a.units))
 			api.cmd.sendCommand(cmd)
 		end
@@ -198,6 +209,7 @@ local probe : GameScript<BookingState> = {
 		local bookingState = state:get()
 		bookingState.units = bookingState.units or 0
 		bookingState.pending = bookingState.pending or {}
+		bookingState.loggedCargoTypes = bookingState.loggedCargoTypes or {}
 
 		local gameTimeComponent : Engine.Component.GameTime
 			= api.engine.getComponent(api.engine.util.getWorld(), api.type.ComponentType.GAME_TIME)
@@ -211,23 +223,46 @@ local probe : GameScript<BookingState> = {
 			local detail = "no SimCargo"
 			local correction = "correction=n/a"
 			if simCargo ~= nil then
-				local pickup = simCargo.pickupPoints and simCargo.pickupPoints[1]
-				local vehicle : Engine.Entity = pickup and pickup.vehicle
-				local line : Engine.Entity = pickup and pickup.line
-				local carrier = carrierNameOf(vehicle)
-				track(bookingState, vehicle)
-				track(bookingState, line)
+				-- The unit may have changed vehicles: the first pickup point is the first leg, the last the leg that
+				-- delivered it, and the carrier of the last leg is the one the deduction is booked under.
+				local points = simCargo.pickupPoints or {}
+				local first = points[1]
+				local last = points[#points]
+				local vehicle : Engine.Entity = first and first.vehicle
+				local line : Engine.Entity = first and first.line
+				local lastVehicle : Engine.Entity = last and last.vehicle
+				local lastLine : Engine.Entity = last and last.line
+				local carrier = last ~= nil and carrierNameOf(last.carrier) or "OTHER"
+				local chain : {string} = {}
+				for _, point in ipairs(points) do
+					track(bookingState, point.vehicle)
+					track(bookingState, point.line)
+					chain[#chain + 1] = tostring(point.vehicle) .. ":" .. tostring(point.line) .. ":" .. carrierNameOf(point.carrier)
+				end
 				detail = "cargoType=" .. tostring(simCargo.cargoType)
 					.. " startTime=" .. tostring(simCargo.startTime)
 					.. " pickupTime=" .. tostring(simCargo.pickupTime)
+					.. " ext=" .. tostring(simCargo.deliveryExtensionDuration)
 					.. " source=" .. tostring(simCargo.sourceEntity)
 					.. " vehicle=" .. tostring(vehicle)
 					.. " vehicleName=\"" .. nameOf(vehicle) .. "\""
 					.. " line=" .. tostring(line)
 					.. " lineName=\"" .. nameOf(line) .. "\""
+					.. " lastVehicle=" .. tostring(lastVehicle)
+					.. " lastLine=" .. tostring(lastLine)
+					.. " legs=" .. tostring(#points)
+					.. " chain=" .. (#chain > 0 and table.concat(chain, ">") or "none")
 					.. " carrier=" .. carrier
 
 				local cargoType = api.res.cargoTypeRep.get(simCargo.cargoType)
+				local typeKey = tostring(simCargo.cargoType)
+				if not bookingState.loggedCargoTypes[typeKey] then
+					bookingState.loggedCargoTypes[typeKey] = true
+					log.message("BEST_BEFORE cargoType id=" .. typeKey
+						.. " timeToDeliverSeconds=" .. tostring(cargoType.timeToDeliverInSeconds)
+						.. " scriptRef=" .. (cargoType.scriptRef ~= nil and cargoType.scriptRef.fileName or "none")
+						.. " params=" .. describeParams(cargoType.scriptRef ~= nil and cargoType.scriptRef.params as {string:number} or nil))
+				end
 				local params = cargoType.scriptRef ~= nil and cargoType.scriptRef.params as {string:number} or nil
 				local priceFactor = params ~= nil and params.initialPrice ~= nil and params.finalPrice ~= nil
 					and (params.initialPrice + (params.finalPrice - params.initialPrice) * 0.25) or nil
@@ -246,14 +281,12 @@ local probe : GameScript<BookingState> = {
 					local income = priceFactor * d * engineFactor
 					predicted = tostring(income)
 					local exact = (1.0 - rate) * income
-					if exact >= 1 and bookingState.units < maxDeductedUnits then
+					if exact >= 1 then
 						bookingState.units = bookingState.units + 1
 						deduction = math.floor(exact + 0.5)
 						bookingState.pending[#bookingState.pending + 1] = {
 							number = bookingState.units,
 							amount = -deduction,
-							vehicle = vehicle,
-							line = line,
 							carrier = carrier,
 							x = dst[1], y = dst[2], z = dst[3],
 						}
