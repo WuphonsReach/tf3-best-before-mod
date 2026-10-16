@@ -18,6 +18,7 @@ local maxBookings = 10
 local record PendingBooking
 	number : integer
 	amount : integer
+	target : Engine.Entity -- entity to book to instead of the player (nil = player account)
 	x : number
 	y : number
 	z : number
@@ -70,6 +71,9 @@ local dumpLogbook = function(label : string, entity : Engine.Entity)
 		log.message("BEST_BEFORE logbook " .. label .. " entity=" .. tostring(entity) .. " has no LOG_BOOK component")
 		return
 	end
+	local account : Engine.Component.Account = api.engine.getComponent(entity, api.type.ComponentType.ACCOUNT)
+	log.message("BEST_BEFORE account " .. label .. " entity=" .. tostring(entity)
+		.. (account ~= nil and (" balance=" .. tostring(account.balance)) or " has no ACCOUNT component"))
 	local parts : {string} = {}
 	for logName, _ in pairs(logbook.name2log) do
 		local ok, recent = pcall(api.engine.util.logbook.getLogValueMostRecent, entity, logName)
@@ -100,8 +104,10 @@ local probe : GameScript<BookingState> = {
 			entry.time = -1 -- the engine fills in the time
 			entry.category.type = api.type.JournalEntry.Type.INCOME
 			entry.category.carrier = api.type.JournalEntry.Carrier.ROAD
-			local cmd = api.cmd.makeJournalBookAssetCmd(api.engine.util.getPlayer(), entry, api.type.Vec3f.new(booking.x, booking.y, booking.z))
-			log.message("BEST_BEFORE sending booking " .. booking.number .. " amount=" .. tostring(booking.amount))
+			local payer = booking.target or api.engine.util.getPlayer()
+			local cmd = api.cmd.makeJournalBookAssetCmd(payer, entry, api.type.Vec3f.new(booking.x, booking.y, booking.z))
+			log.message("BEST_BEFORE sending booking " .. booking.number .. " amount=" .. tostring(booking.amount)
+				.. " payer=" .. tostring(payer) .. (booking.target ~= nil and " (vehicle or line)" or " (player)"))
 			api.cmd.sendCommand(cmd)
 		end
 	end,
@@ -174,9 +180,17 @@ local probe : GameScript<BookingState> = {
 					penalty = tostring(penaltyAmount)
 					if penaltyAmount >= 1 and bookingState.bookings < maxBookings then
 						bookingState.bookings = bookingState.bookings + 1
+						-- Experiment: pass the vehicle (bookings 1-3) or the line (4-6) where the command expects the player.
+						local bookPickup = simCargo.pickupPoints and simCargo.pickupPoints[1]
+						local target : Engine.Entity = nil
+						if bookPickup ~= nil then
+							if bookingState.bookings <= 3 then target = bookPickup.vehicle
+							elseif bookingState.bookings <= 6 then target = bookPickup.line end
+						end
 						bookingState.pending[#bookingState.pending + 1] = {
 							number = bookingState.bookings,
 							amount = -math.floor(penaltyAmount + 0.5),
+							target = target,
 							x = dst[1], y = dst[2], z = dst[3],
 						}
 						booked = " BOOKED#" .. bookingState.bookings
