@@ -170,7 +170,7 @@ def extract(path, out_dir, slug, note, min_arrivals):
             company = kv(rest)
         elif kind == "settings" and settings is None:
             settings = kv(rest)
-        elif kind == "curveSettings":                   # the curve a save actually used; settings.tl may differ once a save has its own
+        elif kind == "curveSettings":                   # the curve a save actually used; settings.tl may differ once the game hands the mod its in-game settings
             curve_notes.append(rest)
         elif kind == "sending":
             d = kv(rest)

@@ -1,9 +1,9 @@
 -- Freshness curve defaults. The curve is set in game: New Game (or Load Game) > Mods > the mod's gear > Settings, and the game keeps
--- those values in the save. This file only supplies the curve for a save that has no in-game settings (saves from before they
--- existed) and the numbers tools/replay_curve.py starts from; keep it equal to the defaults in mod.json. Edit the numbers and load
--- such a save to test them; no game restart is needed, the game script reads this file on each load. The log line
--- BEST_BEFORE curveSettings says which source was used (params, save or settings.tl); the BEST_BEFORE settings line from
--- mod.script.tl runs one load behind, so trust curveSettings. logLevel is not an in-game setting and is read from this file.
+-- those values in the save, and the game gives a save that lacks them the defaults from mod.json. So the curve numbers here are
+-- only the last resort for when the game hands the mod no settings at all, and the numbers tools/replay_curve.py starts from;
+-- keep them equal to the defaults in mod.json. Editing them does not change a normal game. The log line BEST_BEFORE
+-- curveSettings says which source was used (params or settings.tl); the BEST_BEFORE settings line from mod.script.tl runs one
+-- load behind, so trust curveSettings. logLevel is not an in-game setting and is read from this file on each load, no restart needed.
 -- tools/replay_curve.py reads the same numbers (keep one "name = value," per line) to show the effect on logged runs.
 --
 -- Pay changes with the unit's freshness (1 = just picked up, 0 = at the delivery limit, negative = past it):

@@ -98,7 +98,7 @@ local record PendingDeduction
 end
 
 local record BookingState
-	curve : Curve -- the pay curve this save uses, set once from settings.tl
+	curve : Curve -- the pay curve in force, refreshed by update for handleEvent
 	lastCurveNote : string
 	units : integer -- cargo units deducted so far
 	batches : integer
@@ -373,25 +373,15 @@ local readParamCurve = function() : Curve
 	})
 end
 
--- The curve in force: the in-game settings when the save has them (re-read here, so a change made on loading takes
--- effect), else the last curve this save used (saves from before the settings existed), else settings.tl's. It is kept in
--- the state so the next call starts from it. A line is logged whenever the source or the numbers change.
+-- The curve in force: the in-game settings (re-read here, so a change made on loading takes effect). The game hands a
+-- save that lacks them the defaults, so settings.tl's curve is only the last resort for when the game hands over no
+-- settings at all. The curve is kept in the state for handleEvent, and a line is logged whenever the source or the
+-- numbers change.
 local activeCurve = function(state : GameScriptState<BookingState>, bookingState : BookingState) : Curve
 	local curve = readParamCurve()
 	local source = "params"
 	if curve == nil then
-		curve = bookingState.curve
-		source = "save"
-	end
-	if curve == nil then
-		curve = {
-			bonusPercent = fileCurve.bonusPercent,
-			bonusDownToFreshness = fileCurve.bonusDownToFreshness,
-			breakevenFreshness = fileCurve.breakevenFreshness,
-			penaltyBelowFreshness = fileCurve.penaltyBelowFreshness,
-			penaltyPercent = fileCurve.penaltyPercent,
-			stored = fileCurve.stored,
-		}
+		curve = fileCurve
 		source = "settings.tl"
 	end
 	local note = "source=" .. source .. " " .. describeCurve(curve)
