@@ -25,8 +25,8 @@ python3 tools/extract_run.py local/logs/stdout-<date>-<time>.txt [--note "no-mod
 python3 tools/replay_curve.py local/runs/<name>.arrivals.csv [more]   # pool the runs marked primary in index.csv
 
 # Compare the CPU cost of the log levels (sample while the game runs; report reads the game log for the game clock)
-python3 tools/cpu_sample.py sample local/cpu/<name>.csv
-python3 tools/cpu_sample.py report local/cpu/<name>.csv [--log local/logs/<log>.txt | --game-months N]
+python3 tools/cpu_sample.py sample local/cpu/<name> [--also "steam|code"]   # writes <name>.process.csv and <name>.system.csv; run at least 5 minutes
+python3 tools/cpu_sample.py report local/cpu/<name> [--log local/logs/<log>.txt | --game-months N]
 ```
 
 Run `tl check` on each script you touch; there is no single command for both.
