@@ -4,14 +4,15 @@
 Sample (start it before or after the game; it waits for the process and stops when the game exits or on Ctrl-C):
     tools/cpu_sample.py sample local/cpu/<name> [--match transportfever] [--pid N] [--interval 5]
         [--threads REGEX] [--also REGEX]
-  writes two files, appended to (a restart carries on in the same files, one header each):
-    <name>.process.csv   utc, pid, tid, comm, cpuTicks: the game's threads whose name matches --threads (default the
+  writes two files, appended to (one header each). Every start of the script picks a random 8-character run id (or pass --run-id)
+  and puts it on all its rows, so runs sharing a file can be told apart; the report prints each run on its own.
+    <name>.process.csv   utc, runId, pid, tid, comm, cpuTicks: the game's threads whose name matches --threads (default the
                          simulation and main threads), and one whole-process row (tid 0) per other process whose name
                          matches --also (default none; say steam|code to see whether something else was busy)
-    <name>.system.csv    utc, cpu jiffies by kind from /proc/stat (all cores), the 1-minute load and free memory
+    <name>.system.csv    utc, runId, cpu jiffies by kind from /proc/stat (all cores), the 1-minute load and free memory
 
 Report (CPU in a run, per thread group, the machine's busy share, and with the game log CPU seconds per game month):
-    tools/cpu_sample.py report local/cpu/<name> [--log local/logs/stdout-....txt] [--skip 60] [--game-months N]
+    tools/cpu_sample.py report local/cpu/<name> [--log local/logs/stdout-....txt] [--skip 60] [--game-months N] [--run ID]
 
 The mod runs on the simulation threads (the log names them "Simulation Thread" and "Sim Pool N"), so compare those rows between
 runs. Compare CPU per game month, not per second: at 4x the simulation may be saturated, so CPU % looks alike at every level
@@ -22,6 +23,8 @@ import argparse
 import csv
 import os
 import re
+import secrets
+import string
 import sys
 import time
 from collections import defaultdict
@@ -82,6 +85,10 @@ def read_system():
     return jiffies + [load, str(available)]
 
 
+def new_run_id():
+    return "".join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(8))
+
+
 def opened(path, header):
     """The file in append mode, with the header only when it is new."""
     fresh = not os.path.exists(path) or os.path.getsize(path) == 0
@@ -92,7 +99,7 @@ def opened(path, header):
     return f, w
 
 
-def sample(base, pattern, pid, interval, threads, also):
+def sample(base, pattern, pid, interval, threads, also, run_id):
     wanted, others = re.compile(threads, re.I), re.compile(also, re.I) if also else None
     if pid is None:
         print(f"waiting for a process named like /{pattern}/ ...", file=sys.stderr)
@@ -106,8 +113,9 @@ def sample(base, pattern, pid, interval, threads, also):
             else:
                 time.sleep(1)
     os.makedirs(os.path.dirname(os.path.abspath(base)), exist_ok=True)
-    pf, pw = opened(base + ".process.csv", ["utc", "pid", "tid", "comm", "cpuTicks"])
-    sf, sw = opened(base + ".system.csv", ["utc"] + SYSTEM_COLUMNS + ["load1", "memAvailableKb"])
+    pf, pw = opened(base + ".process.csv", ["utc", "runId", "pid", "tid", "comm", "cpuTicks"])
+    sf, sw = opened(base + ".system.csv", ["utc", "runId"] + SYSTEM_COLUMNS + ["load1", "memAvailableKb"])
+    print(f"run id {run_id}", file=sys.stderr)
     rows = 0
     try:
         while os.path.exists(f"/proc/{pid}"):
@@ -119,24 +127,24 @@ def sample(base, pattern, pid, interval, threads, also):
             except OSError:
                 break  # the process ended
             for tid, (comm, ticks) in threads_now.items():
-                pw.writerow([when, pid, tid, comm, ticks])
+                pw.writerow([when, run_id, pid, tid, comm, ticks])
             if others is not None:
                 for other, _, comm in processes():
                     if other != pid and others.search(comm):
                         when_other = stamp()
                         try:
-                            pw.writerow([when_other, other, 0, comm, cpu_ticks(f"/proc/{other}/stat")[1]])
+                            pw.writerow([when_other, run_id, other, 0, comm, cpu_ticks(f"/proc/{other}/stat")[1]])
                         except OSError:
                             pass  # the process ended
             when = stamp()
-            sw.writerow([when] + read_system())
+            sw.writerow([when, run_id] + read_system())
             pf.flush()
             sf.flush()
             rows += 1
             time.sleep(interval)
     except KeyboardInterrupt:
         pass
-    print(f"{rows} samples appended to {base}.process.csv and {base}.system.csv", file=sys.stderr)
+    print(f"{rows} samples of run {run_id} appended to {base}.process.csv and {base}.system.csv", file=sys.stderr)
 
 
 def stamp():
@@ -180,23 +188,37 @@ def value_at(samples, when):
     return samples[-1][1]
 
 
-def report(base, log, skip, game_months):
+def report(base, log, skip, game_months, only_run):
     process_path = base if base.endswith(".csv") else base + ".process.csv"
     system_path = None if base.endswith(".csv") else base + ".system.csv"
-    series = defaultdict(list)  # (pid, tid) -> [(utc, ticks)]
+    runs = defaultdict(lambda: defaultdict(list))  # run id -> (pid, tid) -> [(utc, ticks)]
     comms = {}
     for row in csv.DictReader(open(process_path, newline="")):
         key = (int(row["pid"]), int(row["tid"]))
-        series[key].append((parse_utc(row["utc"]), int(row["cpuTicks"])))
+        runs[row["runId"]][key].append((parse_utc(row["utc"]), int(row["cpuTicks"])))
         comms[key] = row["comm"]
-    if not series:
-        sys.exit(f"{process_path}: no samples")
+    system = defaultdict(list)
+    if system_path and os.path.exists(system_path):
+        for row in csv.DictReader(open(system_path, newline="")):
+            system[row["runId"]].append(row)
+    if only_run:
+        runs = {r: v for r, v in runs.items() if r == only_run}
+    if not runs:
+        sys.exit(f"{process_path}: no samples" + (f" for run {only_run}" if only_run else ""))
+    for run, series in sorted(runs.items(), key=lambda kv: min(s[0][0] for s in kv[1].values())):
+        report_run(run, series, comms, system.get(run, []), process_path, log, skip, game_months)
+
+
+def report_run(run, series, comms, system_rows, process_path, log, skip, game_months):
     for samples in series.values():
         samples.sort()
-    start = min(s[0][0] for s in series.values()) + skip
+    first = min(s[0][0] for s in series.values())
+    start = first + skip
     end = max(s[-1][0] for s in series.values())
+    print(f"\n=== run {run}: started {datetime.fromtimestamp(first, timezone.utc):%Y-%m-%d %H:%M:%SZ} ===")
     if end <= start:
-        sys.exit(f"{process_path}: the run is shorter than --skip {skip:g}s")
+        print(f"the run is shorter than --skip {skip:g}s")
+        return
     window = end - start
 
     game, other = defaultdict(float), defaultdict(float)
@@ -236,17 +258,16 @@ def report(base, log, skip, game_months):
     if other:
         table("other process", other, None)
 
-    if system_path and os.path.exists(system_path):
+    if system_rows:
         cols = defaultdict(list)
-        rows = list(csv.DictReader(open(system_path, newline="")))
-        for row in rows:
+        for row in system_rows:
             for name in SYSTEM_COLUMNS:
                 cols[name].append((parse_utc(row["utc"]), int(row[name])))
         delta = {n: value_at(cols[n], end) - value_at(cols[n], start) for n in SYSTEM_COLUMNS}
         total = sum(delta.values())
         if total > 0:
             idle = delta["idle"] + delta["iowait"]
-            inside = [r for r in rows if start <= parse_utc(r["utc"]) <= end]
+            inside = [r for r in system_rows if start <= parse_utc(r["utc"]) <= end]
             loads = [float(r["load1"]) for r in inside]
             free = [int(r["memAvailableKb"]) for r in inside]
             print(f"\nwhole machine ({os.cpu_count()} cores): busy {100 * (1 - idle / total):.1f}%"
@@ -275,19 +296,21 @@ def main():
     s.add_argument("--interval", type=interval_arg, default=5.0, help="seconds between samples, 1 to 10 (default 5)")
     s.add_argument("--threads", default=DEFAULT_THREADS, help=f"regex for the game thread names to record (default {DEFAULT_THREADS})")
     s.add_argument("--also", default="", help="regex for other process names to record as one row each (default none)")
+    s.add_argument("--run-id", help="the run id to put on every row (default: 8 random lowercase letters and digits)")
     r = sub.add_parser("report", help="CPU per thread group and the machine's load from the two files")
     r.add_argument("name", help="the sample prefix (or a .process.csv path)")
     r.add_argument("--log", help="the run's game log, for the game clock")
     r.add_argument("--skip", type=float, default=60.0, help="seconds to ignore at the start (loading) (default 60)")
     r.add_argument("--game-months", type=float, help="game months in the window, when the log has no clock (logLevel off)")
+    r.add_argument("--run", help="report only this run id (default: every run in the files, one after another)")
     a = p.parse_args()
     if a.mode == "sample":
         try:
-            sample(a.name, a.match, a.pid, a.interval, a.threads, a.also)
+            sample(a.name, a.match, a.pid, a.interval, a.threads, a.also, a.run_id or new_run_id())
         except KeyboardInterrupt:
             sys.exit("stopped before the game was found")
     else:
-        report(a.name, a.log, a.skip, a.game_months)
+        report(a.name, a.log, a.skip, a.game_months, a.run)
 
 
 if __name__ == "__main__":
