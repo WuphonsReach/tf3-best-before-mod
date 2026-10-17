@@ -1,6 +1,6 @@
 # tf3-best-before-mod
 
-Transport Fever 3 mod: cargo payment scales with freshness.
+Transport Fever 3 mod: cargo pay scales with freshness. Fresh cargo earns a bonus, slow or spoiled cargo earns a penalty. Adds spoilage to the economy. Adjustable curve.
 
 **Status: early work.** `best_before_1/` is a test probe. For each arriving cargo unit it works out a *freshness deduction* (the part of the pay the freshness curve takes away) and books it back as a negative income entry to the player's account. It logs everything with lines starting `BEST_BEFORE`. The deduction mechanism has been checked in the game on small and large saves; settings and the final curve are not done.
 
