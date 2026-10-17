@@ -1,4 +1,5 @@
--- Freshness curve settings. Edit the numbers, restart the game and start a new game (or load a save the mod has not run on) to test them.
+-- Freshness curve settings. Edit the numbers and load a save the mod has not run on (or start a new game) to test them; no restart is
+-- needed, the game script reads this file on each load (the BEST_BEFORE settings line at start-up only shows the file as it was at game start).
 -- The curve settings and stored (everything but logLevel) are copied into a save the first time the mod runs on it, and the
 -- save keeps them: later edits here do not change a save that already has its own copy. The log says which were in force
 -- (BEST_BEFORE curveSettings). logLevel is read from this file on every start.
