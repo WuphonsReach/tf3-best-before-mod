@@ -27,6 +27,9 @@ python3 tools/replay_curve.py local/runs/<name>.arrivals.csv [more]   # pool the
 # Compare the CPU cost of the log levels (sample while the game runs; report reads the game log for the game clock)
 python3 tools/cpu_sample.py sample local/cpu/<name> [--also "steam|code"]   # writes <name>.process.csv and <name>.system.csv; run at least 5 minutes
 python3 tools/cpu_sample.py report local/cpu/<name> [--log local/logs/<log>.txt | --game-months N]
+
+# Redraw the mod's preview image (best_before_1/_metadata/workshop_preview.jpg, 1920x1080; needs rsvg-convert and the Lato font)
+python3 tools/make_preview.py [--version 0.1]   # the version goes in the upper right corner, kept clear for it
 ```
 
 Run `tl check` on each script you touch; there is no single command for both.
