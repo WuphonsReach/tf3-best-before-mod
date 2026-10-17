@@ -13,10 +13,27 @@ local record Settings
 	penaltyPercent : number
 	stored : string
 end
-local settings = ug_require "best_before_1::/settings.tl" as Settings
+local rawSettings = ug_require "best_before_1::/settings.tl" as Settings
 
--- A deduction never takes more than this share of a unit's predicted pay (the prediction is good to about 1%).
-local maxDeductionShare = 0.99
+local clamp = function(value : number, low : number, high : number) : number
+	return math.max(low, math.min(high, value))
+end
+
+-- The curve as used: the bonus is never negative (up to +200%), the penalty never positive (down to -100%), and the
+-- three freshness points stay in the order 1 >= bonusDown >= breakeven >= penaltyBelow >= 0 whatever settings.tl says.
+local settings : Settings = {
+	bonusPercent = clamp(rawSettings.bonusPercent, 0.0, 2.0),
+	bonusDownToFreshness = clamp(rawSettings.bonusDownToFreshness, 0.0, 1.0),
+	breakevenFreshness = clamp(rawSettings.breakevenFreshness, 0.0, clamp(rawSettings.bonusDownToFreshness, 0.0, 1.0)),
+	penaltyBelowFreshness = clamp(rawSettings.penaltyBelowFreshness, 0.0,
+		clamp(rawSettings.breakevenFreshness, 0.0, clamp(rawSettings.bonusDownToFreshness, 0.0, 1.0))),
+	penaltyPercent = clamp(rawSettings.penaltyPercent, -1.0, 0.0),
+	stored = rawSettings.stored,
+}
+
+-- A deduction never takes more than this share of a unit's predicted pay. At 1.0 a full deduction on a prediction a
+-- little above the real pay (it is good to about 1%) can leave the unit a hair negative.
+local maxDeductionShare = 1.0
 
 -- What the engine applies after the income function when the real value cannot be read: 0.96426, measured on Normal
 -- saves at rank 3 (it is the Inflation Normal ticket price multiplier there, 1 - 2 x 0.25 / 14).

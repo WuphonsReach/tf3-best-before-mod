@@ -20,7 +20,7 @@ The defaults are the numbers in best_before_1/content/settings.tl (the mod's own
 with what the game used unless a flag overrides it. The log also records them: look for `BEST_BEFORE settings`.
 
 Straight lines between the points, order 1 >= bonus-down-to-freshness >= breakeven-freshness >= penalty-below-freshness >= 0. A deduction is clamped to
-99% of the unit's predicted pay. The net is the sum of all adjustments as a share of the predicted pay of all arrivals.
+100% of the unit's predicted pay. The net is the sum of all adjustments as a share of the predicted pay of all arrivals.
 
 Stored cargo: a specialized warehouse pauses a unit's spoil timer, so the plain age overstates how old it is. `--stored`
 picks the freshness used: `corrected` takes the paused time (`ext`) off the age; `formula` uses the plain age; `zero`
@@ -42,7 +42,7 @@ import re
 import sys
 from collections import defaultdict
 
-MAX_DEDUCTION = 0.99                                    # of the unit's predicted pay
+MAX_DEDUCTION = 1.0                                   # of the unit's predicted pay
 SETTINGS = ("bonus-percent", "bonus-down-to-freshness", "breakeven-freshness", "penalty-below-freshness", "penalty-percent")
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "best_before_1", "content", "settings.tl")
 
@@ -104,6 +104,8 @@ def read_arrivals(path):
 
 
 def check_order(s):
+    if not 0.0 <= s["bonus-percent"] <= 2.0 or not -1.0 <= s["penalty-percent"] <= 0.0:
+        sys.exit("settings must satisfy 0 <= bonus-percent <= 2 and -1 <= penalty-percent <= 0 (the mod clamps to those)")
     order = [1.0, s["bonus-down-to-freshness"], s["breakeven-freshness"], s["penalty-below-freshness"], 0.0]
     if any(a < b for a, b in zip(order, order[1:])):
         sys.exit("settings must satisfy 1 >= bonus-down-to-freshness >= breakeven-freshness >= penalty-below-freshness >= 0")

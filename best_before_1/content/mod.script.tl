@@ -38,6 +38,17 @@ mod.preRunFn = function(_captureParams : {string:any}, _configDict : {{string, s
 	local parts : {string} = {}
 	for _, name in ipairs(names) do parts[#parts + 1] = name .. "=" .. tostring(settings[name]) end
 	log.message("BEST_BEFORE settings " .. table.concat(parts, " "))
+	-- probe.script.tl clamps to these limits; say so in the log when settings.tl asks for more.
+	local limits : {string : {number}} = {
+		bonusPercent = {0.0, 2.0}, penaltyPercent = {-1.0, 0.0},
+		bonusDownToFreshness = {0.0, 1.0}, breakevenFreshness = {0.0, 1.0}, penaltyBelowFreshness = {0.0, 1.0},
+	}
+	for name, limit in pairs(limits) do
+		local value = settings[name]
+		if type(value) == "number" and ((value as number) < limit[1] or (value as number) > limit[2]) then
+			log.message("BEST_BEFORE settings " .. name .. "=" .. tostring(value) .. " is outside " .. tostring(limit[1]) .. " to " .. tostring(limit[2]) .. " and will be clamped")
+		end
+	end
 end
 
 mod.calcCargoIncomeFn = function(captureParams : {string:any}, incomeFactor : number, posDifference : {number}) : number

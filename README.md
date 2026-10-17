@@ -2,7 +2,7 @@
 
 Transport Fever 3 mod: cargo pay scales with freshness. Fresh cargo earns a bonus, slow or spoiled cargo earns a penalty. Adds spoilage to the economy. Adjustable curve.
 
-**Status: early work.** `best_before_1/` is a test probe. For each arriving cargo unit it works out a *freshness deduction* (the part of the pay the freshness curve takes away) and books it back as a negative income entry to the player's account. It logs everything with lines starting `BEST_BEFORE`. The deduction mechanism has been checked in the game on small and large saves; settings and the final curve are not done.
+**Status: early work.** `best_before_1/` is a test probe. For each arriving cargo unit it works out a *freshness deduction* (the part of the pay the freshness curve takes away) and books it back as a negative income entry to the player's account. It logs everything with lines starting `BEST_BEFORE`. The deduction mechanism (including bonuses and a full -100% deduction) has been checked in the game on small and large saves; the default curve is a candidate (+20% bonus, break-even at 80% of the limit used, -100% penalty), not final.
 
 Planned pay curve: a bonus at full freshness that stays level down to a first freshness point, a straight line down to the break-even point (full pay), a straight line on to a maximum penalty at a second freshness point, then the same penalty down to 0% freshness and for spoiled cargo. Five settings: the maximum bonus, the three freshness points and the maximum penalty.
 
@@ -21,6 +21,7 @@ Type checking uses the Teal compiler (`tl`, install with `luarocks install --loc
 
 ## Documentation
 
+- [docs/how-it-works.md](docs/how-it-works.md): how the mod turns freshness into a booking and where it can over-penalize.
 - [docs/findings.md](docs/findings.md): what we have verified in the game and the results of the test runs.
 - [docs/future/](docs/future/): ideas set aside, things that need support from the game, and questions to revisit. The index is [docs/README.md](docs/README.md).
 

@@ -2,6 +2,7 @@
 
 | Note | Covers |
 |---|---|
+| [how-it-works.md](how-it-works.md) | How the mod turns freshness into a booking, and where it can over-penalize or miss |
 | [findings.md](findings.md) | What we have verified in the game: how pay works, cargo units and freshness, what a mod can and cannot do, test results |
 | [future/discarded.md](future/discarded.md) | Ideas we tried or weighed and set aside, why, and what would bring them back |
 | [future/needs-game-support.md](future/needs-game-support.md) | Things the mod cannot do cleanly with what the game exposes today |
