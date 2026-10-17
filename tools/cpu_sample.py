@@ -12,12 +12,15 @@ Sample (start it before or after the game; it waits for the process and stops wh
     <name>.system.csv    utc, runId, cpu jiffies by kind from /proc/stat (all cores), the 1-minute load and free memory
 
 Report (CPU in a run, per thread group, the machine's busy share, and with the game log CPU seconds per game month):
-    tools/cpu_sample.py report local/cpu/<name> [--log local/logs/stdout-....txt] [--skip 60] [--game-months N] [--run ID]
+    tools/cpu_sample.py report local/cpu/<name> [--log local/logs/stdout-....txt] [--skip 60 | --from HH:MM:SS --until HH:MM:SS] [--game-months N] [--run ID]
 
 The mod runs on the simulation threads (the log names them "Simulation Thread" and "Sim Pool N"), so compare those rows between
 runs. Compare CPU per game month, not per second: at 4x the simulation may be saturated, so CPU % looks alike at every level
 while the game just runs slower. The game clock comes from the BEST_BEFORE lines (t= or now=), so at logLevel "off" there is
-none; pass --game-months instead (read the in-game dates at the start and end of the window). Sample for at least 5 minutes.
+none; pass --game-months instead: calendar months between the in-game dates on screenshots taken at the window's start and end,
+with --from and --until set to the screenshots' times (UTC, which is the screenshot's local time plus 4 hours). Game months from
+--log are clock months, about a quarter of a calendar month at the usual calendar speed, so never compare the two. Sample for at
+least 5 minutes, and compare runs over the same stretch of game time: the game gets heavier as it goes.
 """
 import argparse
 import csv
@@ -188,7 +191,7 @@ def value_at(samples, when):
     return samples[-1][1]
 
 
-def report(base, log, skip, game_months, only_run):
+def report(base, log, skip, game_months, only_run, from_at=None, until_at=None):
     process_path = base if base.endswith(".csv") else base + ".process.csv"
     system_path = None if base.endswith(".csv") else base + ".system.csv"
     runs = defaultdict(lambda: defaultdict(list))  # run id -> (pid, tid) -> [(utc, ticks)]
@@ -206,15 +209,18 @@ def report(base, log, skip, game_months, only_run):
     if not runs:
         sys.exit(f"{process_path}: no samples" + (f" for run {only_run}" if only_run else ""))
     for run, series in sorted(runs.items(), key=lambda kv: min(s[0][0] for s in kv[1].values())):
-        report_run(run, series, comms, system.get(run, []), process_path, log, skip, game_months)
+        report_run(run, series, comms, system.get(run, []), process_path, log, skip, game_months, from_at, until_at)
 
 
-def report_run(run, series, comms, system_rows, process_path, log, skip, game_months):
+def report_run(run, series, comms, system_rows, process_path, log, skip, game_months, from_at, until_at):
     for samples in series.values():
         samples.sort()
     first = min(s[0][0] for s in series.values())
-    start = first + skip
-    end = max(s[-1][0] for s in series.values())
+    last = max(s[-1][0] for s in series.values())
+    day = datetime.fromtimestamp(first, timezone.utc).strftime("%Y-%m-%d")
+    at = lambda hms: datetime.strptime(f"{day} {hms}", "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc).timestamp()
+    start = at(from_at) if from_at else first + skip
+    end = min(at(until_at), last) if until_at else last
     print(f"\n=== run {run}: started {datetime.fromtimestamp(first, timezone.utc):%Y-%m-%d %H:%M:%SZ} ===")
     if end <= start:
         print(f"the run is shorter than --skip {skip:g}s")
@@ -237,9 +243,10 @@ def report_run(run, series, comms, system_rows, process_path, log, skip, game_mo
         points = [p for p in log_clock(log) if start <= p[0] <= end]
         if len(points) >= 2 and points[-1][1] > points[0][1]:
             months = (points[-1][1] - points[0][1]) / MONTH
-            clock_note = f"from {len(points)} log lines, {points[-1][1] - points[0][1]:,} clock units"
+            clock_note = f"clock months, from {len(points)} log lines, {points[-1][1] - points[0][1]:,} clock units"
     print(f"{process_path}: window {window:.0f}s after skipping {skip:g}s"
-          + (f", {months:.2f} game months ({clock_note})" if months else ""))
+          + (f", {months:.2f} game months ({clock_note})" if months else "")
+          + f", from {datetime.fromtimestamp(start, timezone.utc):%H:%M:%S}Z to {datetime.fromtimestamp(end, timezone.utc):%H:%M:%S}Z")
     if window < 300:
         print("WARNING  under 5 minutes: too short to compare log levels")
 
@@ -302,6 +309,8 @@ def main():
     r.add_argument("--log", help="the run's game log, for the game clock")
     r.add_argument("--skip", type=float, default=60.0, help="seconds to ignore at the start (loading) (default 60)")
     r.add_argument("--game-months", type=float, help="game months in the window, when the log has no clock (logLevel off)")
+    r.add_argument("--from", dest="from_at", help="window start, HH:MM:SS UTC on the run's day (instead of --skip)")
+    r.add_argument("--until", dest="until_at", help="window end, HH:MM:SS UTC (default: the last sample)")
     r.add_argument("--run", help="report only this run id (default: every run in the files, one after another)")
     a = p.parse_args()
     if a.mode == "sample":
@@ -310,7 +319,7 @@ def main():
         except KeyboardInterrupt:
             sys.exit("stopped before the game was found")
     else:
-        report(a.name, a.log, a.skip, a.game_months, a.run)
+        report(a.name, a.log, a.skip, a.game_months, a.run, a.from_at, a.until_at)
 
 
 if __name__ == "__main__":
