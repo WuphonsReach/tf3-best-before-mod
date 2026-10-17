@@ -20,8 +20,9 @@ Questions and options that depend on something we have not learned yet. Each say
 - **Full-pay deductions.** The penalty allows -100% and the deduction cap is 100% of the predicted pay. Checked in the game on the QZZZ save: all 2,850 spoiled units were deducted 99.99% to 100.01% of their predicted pay, none beyond rounding. The prediction is good to about 1%, so a unit can still end a hair negative in the ledger when the prediction is a little high.
 
 ## The account can go negative
+- **Decided: no cap.** The mod never holds back a deduction because the account is low. Its purpose is to penalize delivering spoiled cargo: the player is paid nothing for a spoiled unit, and a prediction a hair too high can leave a unit a small fine (rounding-sized). A deduction that depended on the balance would also make pay depend on when a unit arrives.
 - **What happened.** On the QZZZ save with the +30% / -100% defaults the account fell from $54.7M to -$7.9M in one run (low point -$8.4M). The earlier QZZZ run at +50% / -95% never went below $26.6M; the larger deductions (-$26.1M net of bonuses against -$10.5M) are the difference, on top of $205.7M of running costs. The game showed no error and the run continued.
-- **Open.** What the game does with a negative account over a longer time (loans, bankruptcy, vehicle sales), and whether the mod should leave it or cap deductions at the balance. Leaving it is the current behaviour: the deduction is the point of the mod, and the player sees it in the Finances tab. Settle with a longer run on QZZZ-like cargo, or a read of the game's bankruptcy rules.
+- **Still unknown.** What the game does with a negative account over a longer time (loans, bankruptcy, vehicle sales). Only worth a longer run or a read of the game's bankruptcy rules if it turns out to matter for players.
 
 ## Housekeeping
 - **The income-function logging stub** in `mod.script.tl` replaces `cargoIncomeScript`, which only one mod can do. Keep it while the logging is useful; remove it before a release.
