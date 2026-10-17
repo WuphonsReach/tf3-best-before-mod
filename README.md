@@ -21,6 +21,7 @@ Type checking uses the Teal compiler (`tl`, install with `luarocks install --loc
 
 ## Documentation
 
+- [docs/how-it-works.md](docs/how-it-works.md): how the mod turns freshness into a booking and where it can over-penalize.
 - [docs/findings.md](docs/findings.md): what we have verified in the game and the results of the test runs.
 - [docs/future/](docs/future/): ideas set aside, things that need support from the game, and questions to revisit. The index is [docs/README.md](docs/README.md).
 
