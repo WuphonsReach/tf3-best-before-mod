@@ -6,6 +6,7 @@
 - **Name:** "Best Before: Cargo Freshness". The Mod Hub search matches the name only, not the summary or the description, so the name carries the search words.
 - **Tags:** "Script Mod" only. It sits under the hub's Misc group. Other cargo mods listed there (Route-Based Cargo Income, Slower Town Cargo Demand) carry the same single tag; the mod changes no industries, so no Industry tag.
 - **How sure we are.** The search finding comes from searching the hub for words that appear only in another mod's summary or description (nothing found) and for words in names (found). The in-game upload tool (Mod Hub, My Mods) reads `modinfo.json`: it showed our name, tag and description, and picked up `workshop_preview.jpg` as a gallery image. The cover (its Preview slot) is set in that dialog by clicking the slot. A downloaded mod ships without a `_metadata` folder, so the hub page is built from mod.io's own copy of the text.
+- **Preview image.** `best_before_1/_metadata/workshop_preview.jpg` is drawn by `tools/make_preview.py`. `best_before_1/_metadata/0.jpg` is the cover: the in-game uploader made it when the image was picked in the dialog's Preview slot, and it is byte-identical to `workshop_preview.jpg`. See [Preview image](#preview-image) to re-create it.
 - **Unknown.** Whether mod.io's page can be edited after the upload; whether cargo from other mods works in the game (the description says it is expected to).
 
 ## Name
@@ -64,3 +65,15 @@ COMPATIBILITY
 
 Source and notes: https://github.com/WuphonsReach/tf3-best-before-mod (MIT licence).
 ```
+
+## Preview image
+
+Both files sit in `best_before_1/_metadata/` and are committed. `0.jpg` follows the name the developer's own mods use for their cover (`0.png`).
+
+To re-create `0.jpg` after the image is redrawn, or if it is lost:
+
+1. Redraw (optional): `python3 tools/make_preview.py [--version 0.1]` writes `workshop_preview.jpg` (1920x1080; needs `rsvg-convert` and the Lato font).
+2. Copy it: `cp best_before_1/_metadata/workshop_preview.jpg best_before_1/_metadata/0.jpg`. Check with `cmp` that the two are identical.
+3. In the game, open Mod Hub, My Mods, the mod's dialog and click the Preview slot (camera icon) to pick the image, so the uploader takes it as the cover. Before the cover was set the card showed a "?".
+
+Whether the uploader needs step 2 or makes `0.jpg` from step 3 alone is not known: the file appeared when the cover was picked, and was not there before.
