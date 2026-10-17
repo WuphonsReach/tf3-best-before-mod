@@ -1,7 +1,5 @@
 # What we know about the game
 
-Facts checked in the game while building the probe, and the test runs behind them. Game facts about the save format, the clock and finances live in the [tf3-save-format notes](https://github.com/WuphonsReach/tf3-save-format/tree/00c4039160d26f4fd15df0fdaf9466e67c737f7d/docs); links to them here are pinned to one commit (see [README](README.md)).
-
 ## In short
 
 - **Key drivers.** The game pays a unit once, in full, whatever its freshness: price factor x distance x the Cargo Income setting x the company's ticket price multiplier. A unit spoils at 1.5 x its cargo's delivery time after pickup, and freshness is `1 - age / (1.5 x delivery time)`. Cargo that waited in a specialized warehouse has its timer paused, so its age is corrected by `deliveryExtensionDuration`.
@@ -9,18 +7,7 @@ Facts checked in the game while building the probe, and the test runs behind the
 - **How sure we are.** Sure: bookings land, bonuses and a full -100% deduction included; chains of three legs work. Fairly sure: the pay prediction (1.001 of the ledger on both rank 1 saves) and the freshness formula (it matched the game's flag on every unit checked on the small save). Less sure: the spoil rule for stored cargo; the corrected age matches the flag on every logged unit but is not proven.
 - **Unknown.** How the game shares a transferred unit's pay along its chain. Why the player's income exceeds the prediction on some saves. What the game does with an account that stays negative.
 
-## Test saves
-
-| Save | Rank (earned) | Cargo Income / Inflation | Transport and cargo | Used for |
-|---|---|---|---|---|
-| Small (WR26A Giga Temperate 1900) | 3 | 100% / Normal | road and water; vegetables and fish | first checks of freshness and booking; Very Hard variant: Cargo Income 50%, Inflation at its highest setting |
-| Large (mynewsavenotfinished1) | 11 | 100% / Normal | road, rail, tram, water, air; 11 cargo types | chains, stored cargo, limits per cargo |
-| Emerald Shores | 13 | 100% / Normal | road, rail, tram, water; 450,000 people | six calendar years against a no-mod control |
-| QZZZ | 8 | 100% / Normal | mixed; 36% of units spoil | full (-100%) deductions |
-| 333 | 13 | 100% / Normal | mixed, includes air | air, a no-mod control |
-| Large flat (two saves) | 1 | 100% / High | rail > warehouse > road bricks | rank 1 pay scale, stored cargo |
-
-Runs were played at calendar speed 4x or 0. The primary runs (nine, 1.06 billion base pay) are pooled in `tools/replay_curve.py` for the defaults (`--use-defaults`, since they were played on earlier curves).
+Facts checked in the game while building the probe, and the test runs behind them. Game facts about the save format, the clock and finances live in the [tf3-save-format notes](https://github.com/WuphonsReach/tf3-save-format/tree/00c4039160d26f4fd15df0fdaf9466e67c737f7d/docs); links to them here are pinned to one commit (see [README](README.md)).
 
 ## How pay works
 
@@ -49,7 +36,21 @@ Runs were played at calendar speed 4x or 0. The primary runs (nine, 1.06 billion
 - **A journal booking reaches the account.** `api.cmd.makeJournalBookAssetCmd` with an INCOME entry sent from `update` changes the player's balance by exactly the booked amount (negative for a deduction, positive for a bonus). Because there is no callback, success is judged from the balance; the entry's carrier is the row it appears under in the Finances tab.
 - **Vehicles and lines have their own ledgers.** The first argument of `makeJournalBookAssetCmd` is the entity whose account the entry goes to; a vehicle, a line and the player each carry an `ACCOUNT` component, and an entry booked to one changes only that one (checked on the small save at 4x, 104 units: every tracked ledger moved by pay minus running costs minus the bookings, within 3%). The mod books to the player only, because pay is shared along the chain by an unknown formula (see [discarded](future/discarded.md)).
 - **A mod script can load a module of its own with `ug_require "<mod id>::/file.tl"`.** The shorthand `::/file.tl` does not resolve in `mod.script`: a failing load there aborts initialisation and the game goes back to the main menu. A settings file loaded this way works in both `preRunFn` and the game script.
+- **A mod is published only through the game's own uploader** (Mod Hub, My Mods), which reads `_metadata/modinfo.json` for the listing; the mod.io website refuses Transport Fever 3 uploads. Details in [publishing.md](publishing.md).
 - **Time in the journal is the game clock**, not the calendar: the game books on clock-tick periods whatever the calendar speed. A running-cost batch comes every 60,000 clock units and a year is 1,461,000 ([running-costs.md](https://github.com/WuphonsReach/tf3-save-format/blob/00c4039160d26f4fd15df0fdaf9466e67c737f7d/docs/running-costs.md), [calendar.md](https://github.com/WuphonsReach/tf3-save-format/blob/00c4039160d26f4fd15df0fdaf9466e67c737f7d/docs/calendar.md)).
+
+## Test saves
+
+| Save | Rank (earned) | Cargo Income / Inflation | Transport and cargo | Used for |
+|---|---|---|---|---|
+| Small (WR26A Giga Temperate 1900) | 3 | 100% / Normal | road and water; vegetables and fish | first checks of freshness and booking; Very Hard variant: Cargo Income 50%, Inflation at its highest setting |
+| Large (mynewsavenotfinished1) | 11 | 100% / Normal | road, rail, tram, water, air; 11 cargo types | chains, stored cargo, limits per cargo |
+| Emerald Shores | 13 | 100% / Normal | road, rail, tram, water; 450,000 people | six calendar years against a no-mod control |
+| QZZZ | 8 | 100% / Normal | mixed; 36% of units spoil | full (-100%) deductions |
+| 333 | 13 | 100% / Normal | mixed, includes air | air, a no-mod control |
+| Large flat (two saves) | 1 | 100% / High | rail > warehouse > road bricks | rank 1 pay scale, stored cargo |
+
+Runs were played at calendar speed 4x or 0. The primary runs (nine, 1.06 billion base pay) are pooled in `tools/replay_curve.py` for the defaults (`--use-defaults`, since they were played on earlier curves).
 
 ## Test results
 

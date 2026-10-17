@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Transport Fever 3 script mod (`best_before_1/`) that makes cargo pay scale with freshness. It is early work: the mod is a test probe, not a release. The README and [docs/](docs/README.md) carry the status, the verified game facts ([docs/findings.md](docs/findings.md)) and the open questions ([docs/future/](docs/future/)). Read findings before changing mechanics; several approaches were tried and set aside ([docs/future/discarded.md](docs/future/discarded.md)).
+A Transport Fever 3 script mod (`best_before_1/`) that makes cargo pay scale with freshness. It is public on mod.io as an early test version ([Best Before: Cargo Freshness](https://mod.io/g/transportfever3/m/best-before-cargo-freshness), mod id 6459472, version 1.0), and still logs heavily for testing. The README and [docs/](docs/README.md) carry the status, the verified game facts ([docs/findings.md](docs/findings.md)) and the open questions ([docs/future/](docs/future/)). Read findings before changing mechanics; several approaches were tried and set aside ([docs/future/discarded.md](docs/future/discarded.md)).
 
 There is no build step and no unit tests. The code is Teal (`.tl`) that the game loads directly, and the only checks are the type checker and testing in the game.
 
@@ -46,7 +46,7 @@ Run `tl check` on each script you touch; there is no single command for both.
 
 Pay for a cargo unit is decided by the engine; a mod cannot see freshness at that point. So the mod lets the engine pay in full and books a correcting entry afterwards. Three pieces work together:
 
-- **[mod.json](best_before_1/mod.json)** sets `preRunScript` to `mod.script@preRunFn`, which replaces `baseConfig.economy.cargoIncomeScript` with `calcCargoIncomeFn`. This is a logging stub only (same formula as the base game, pay unchanged). Only one mod can replace that script, so it is a conflict risk; it is meant to go before a release.
+- **[mod.json](best_before_1/mod.json)** sets `preRunScript` to `mod.script@preRunFn`, which replaces `baseConfig.economy.cargoIncomeScript` with `calcCargoIncomeFn`. This is a logging stub only (same formula as the base game, pay unchanged). Only one mod can replace that script, so it is a conflict risk; it ships in the published 1.0 (the listing says so) and should go in a later update.
 - **[probe.gs.lua](best_before_1/content/probe.gs.lua)** is the game script registration (plain Lua, not Teal). It points the game script's `update` and `handleEvent` at the functions in `probe.script.tl`. `.tl` files are referenced by the `file@function` form, for example `best_before_1::/probe.script@update`.
 - **[probe.script.tl](best_before_1/content/probe.script.tl)** is the real logic. `handleEvent` receives `SimCargoSystem` `OnToArriveAtDestination` (subscribed in `update`), computes each unit's freshness (`1 - (now - pickupTime) / (timeToDeliverInSeconds x 1000 x 1.5)`, with the time `deliveryExtensionDuration` took off the age: stored cargo is always judged `corrected`, the other modes are kept in the code, see [docs/future/stored-cargo-modes.md](docs/future/stored-cargo-modes.md)), predicts the unit's pay from source and target construction positions, and queues the curve's adjustment (a deduction or a bonus) in the game script state. `update` sums the queue per carrier and sends it to the player's account with `makeJournalBookAssetCmd`.
 
@@ -64,3 +64,12 @@ Game script constraints that shape this code (details in findings):
 - Keep the README short and put detail in `docs/`. Links to the sibling [tf3-save-format](https://github.com/WuphonsReach/tf3-save-format) repo are pinned to one commit (see [docs/README.md](docs/README.md)), not to its main branch.
 - Lay out every doc and README for a reader who wants the answer first: an "In short" section at the top (key drivers, how we think it works, how sure we are, what is unknown), then the detail, and test results, logs and run tables at the bottom. Update "In short" when a new run changes a conclusion. Applies to the notes you create or touch.
 - The mod ships no game files. `all_def.tl` and `tlconfig.example.lua` are for type checking only and point at the game's own type definitions.
+
+## Publishing
+
+Details and the step-by-step are in [docs/publishing.md](docs/publishing.md).
+
+- Uploads go only through the game's own uploader (Mod Hub, My Mods, the mod's dialog); the mod.io website refuses Transport Fever 3 uploads, and the website login does not reach the account that owns the mod. Uploading is outward-facing: the user does it, never a script.
+- The uploader reads `best_before_1/_metadata/modinfo.json` (name, summary, description, tags) and the images in `_metadata/`. Edit the listing text in `docs/publishing.md` first, then mirror it into `modinfo.json`.
+- `best_before_1/_metadata/mod.io_fileid.txt` holds the mod id and makes the dialog update the existing mod. Keep it committed and never delete it, or the next upload creates a second mod.
+- The upload takes the whole `best_before_1/` folder except `_metadata/` (checked on a subscribed copy of 1.0), so anything put there ships. `best_before_1/_content.json` lists the files under `content/`; the upload does not pick files by it, but keep it in step when a script file is added, renamed or removed.
