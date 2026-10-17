@@ -18,7 +18,8 @@ local settings = ug_require "best_before_1::/settings.tl" as Settings
 -- A deduction never takes more than this share of a unit's predicted pay (the prediction is good to about 1%).
 local maxDeductionShare = 0.99
 
--- What the engine applies after the income function (measured, cause unknown).
+-- What the engine applies after the income function when the real value cannot be read: 0.96426, measured on Normal
+-- saves at rank 3 (it is the Inflation Normal ticket price multiplier there, 1 - 2 x 0.25 / 14).
 local engineFactor = 0.96426
 local deliverTimeMultiplier = 1.5
 
@@ -48,6 +49,7 @@ local record BookingState
 	lastIncome : number
 	lastFinance : string
 	lastCompany : string
+	lastPayScale : string
 	logSeq : integer -- numbers the journal log lines, so a gap in the log shows dropped messages
 end
 
@@ -169,6 +171,37 @@ local logCompany = function(state : GameScriptState<BookingState>, bookingState 
 	state:set(bookingState)
 	local gameTime : Engine.Component.GameTime = api.engine.getComponent(api.engine.util.getWorld(), api.type.ComponentType.GAME_TIME)
 	log.message("BEST_BEFORE company t=" .. tostring(gameTime.gameTime) .. " " .. text)
+end
+
+-- The factor between a unit's pay from the income function's formula (price x distance) and what the game pays:
+-- difficultyFactor (the Cargo Income option, passed to the income function as a captured parameter) times the company's
+-- ticket price multiplier (the Inflation option, steps down with the earned rank; absent at rank 1 or Inflation None).
+-- Both are read at run time under pcall and fall back to difficulty 1 and the old fixed engineFactor, so a failed read
+-- costs accuracy and never the game script. `text` names each source for the log.
+local record PayScale
+	scale : number
+	text : string
+end
+
+local readPayScale = function() : PayScale
+	local difficulty : number = nil
+	local okConfig, params = pcall(function() : any
+		return api.res.getBaseConfig().economy.cargoIncomeScript.params
+	end)
+	if okConfig and params ~= nil then difficulty = (params as {string:number}).difficultyFactor end
+
+	local multiplier : number = nil
+	local loaded, util = pcall(ug_require, "::/game_mechanics/company/company_progression_util.tl")
+	if loaded and util ~= nil then
+		local ok, company = pcall((util as CompanyProgressionUtil).getCompanyProgressionState, api.engine.util.getPlayer())
+		if ok and company ~= nil then
+			multiplier = company.ticketPriceMultiplier or 1.0
+		end
+	end
+
+	local text = "difficulty=" .. (difficulty ~= nil and tostring(difficulty) or "unread:1")
+		.. " multiplier=" .. (multiplier ~= nil and tostring(multiplier) or "unread:" .. tostring(engineFactor))
+	return { scale = (difficulty or 1.0) * (multiplier or engineFactor), text = text }
 end
 
 local track = function(bookingState : BookingState, entity : Engine.Entity)
@@ -313,6 +346,13 @@ local probe : GameScript<BookingState> = {
 			= api.engine.getComponent(api.engine.util.getWorld(), api.type.ComponentType.GAME_TIME)
 		local now = gameTimeComponent.gameTime
 
+		local pay = readPayScale()
+		local payText = pay.text .. " scale=" .. tostring(pay.scale)
+		if payText ~= bookingState.lastPayScale then
+			bookingState.lastPayScale = payText
+			log.message("BEST_BEFORE payScale t=" .. tostring(now) .. " " .. payText)
+		end
+
 		local entities = (param as table).entities as {{Engine.Entity, {Engine.Entity, integer}}}
 		for _, unit in ipairs(entities) do
 			local cargoEntity = unit[1]
@@ -381,7 +421,7 @@ local probe : GameScript<BookingState> = {
 				if src ~= nil and dst ~= nil and priceFactor ~= nil then
 					local dx, dy, dz = dst[1] - src[1], dst[2] - src[2], dst[3] - src[3]
 					local d = math.sqrt(dx * dx + dy * dy + dz * dz) + 8. * math.max(dz, 0.)
-					local income = priceFactor * d * engineFactor
+					local income = priceFactor * d * pay.scale
 					predicted = tostring(income)
 					local exact = math.max(adjustment * income, -maxDeductionShare * income)
 					if math.abs(exact) >= 1 then
@@ -399,7 +439,7 @@ local probe : GameScript<BookingState> = {
 				end
 				correction = "ageMs=" .. tostring(ageMs) .. " limitMs=" .. tostring(limitMs)
 					.. " freshness=" .. tostring(freshness) .. " corrected=" .. tostring(correctedFreshness) .. " rate=" .. tostring(rate)
-					.. " predictedIncome=" .. predicted .. " deduction=" .. tostring(deduction)
+					.. " payScale=" .. tostring(pay.scale) .. " predictedIncome=" .. predicted .. " deduction=" .. tostring(deduction)
 					.. " bonus=" .. tostring(bonus) .. queued
 			end
 			log.message("BEST_BEFORE arrival unit=" .. tostring(cargoEntity)

@@ -23,7 +23,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ARRIVAL_COLUMNS = ["now", "unit", "cargoType", "carrier", "legs", "source", "target", "startTime", "pickupTime", "ext", "ageMs",
-                   "limitMs", "freshness", "corrected", "good", "rate", "predictedIncome", "deduction", "bonus",
+                   "limitMs", "freshness", "corrected", "good", "rate", "payScale", "predictedIncome", "deduction", "bonus",
                    "vehicle", "line", "lastVehicle", "lastLine", "chain"]
 SAVE_FORMAT_TOOLS = os.path.join(HERE, "..", "..", "tf3-save-format", "tools")
 SAVE_DIR_GLOB = os.path.expanduser("~/snap/steam/common/.local/share/Steam/userdata")
