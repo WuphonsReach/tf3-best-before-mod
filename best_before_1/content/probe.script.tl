@@ -37,8 +37,6 @@ local record PendingDeduction
 	z : number
 end
 
-local companyProgressionUtil = ug_require "/game_mechanics/company/company_progression_util.tl" as CompanyProgressionUtil
-
 local record BookingState
 	units : integer -- cargo units deducted so far
 	batches : integer
@@ -150,13 +148,21 @@ end
 -- income by it, so it may be the engine factor our pay prediction hard-codes). Logged at the first update and whenever it
 -- changes; `expected` is the game's own multiplier for the earned rank, to compare with the stored one.
 local logCompany = function(state : GameScriptState<BookingState>, bookingState : BookingState)
-	local ok, company = pcall(companyProgressionUtil.getCompanyProgressionState, api.engine.util.getPlayer())
+	-- Loaded here under pcall: a path that does not resolve must cost this log line only, never the game script (an
+	-- error in the game script module repeats on every update and froze the game at 4x).
 	local text = "unavailable"
-	if ok and company ~= nil then
-		local okExpected, expected = pcall(companyProgressionUtil.getTicketPriceMultiplierForLevel, company.potentialLevel)
-		text = "level=" .. tostring(company.level) .. " potentialLevel=" .. tostring(company.potentialLevel)
-			.. " experience=" .. tostring(company.experience) .. " ticketPriceMultiplier=" .. tostring(company.ticketPriceMultiplier)
-			.. " expected=" .. tostring(okExpected and expected or "err")
+	local loaded, util = pcall(ug_require, "::/game_mechanics/company/company_progression_util.tl")
+	if loaded and util ~= nil then
+		local companyProgressionUtil = util as CompanyProgressionUtil
+		local ok, company = pcall(companyProgressionUtil.getCompanyProgressionState, api.engine.util.getPlayer())
+		if ok and company ~= nil then
+			local okExpected, expected = pcall(companyProgressionUtil.getTicketPriceMultiplierForLevel, company.potentialLevel)
+			text = "level=" .. tostring(company.level) .. " potentialLevel=" .. tostring(company.potentialLevel)
+				.. " experience=" .. tostring(company.experience) .. " ticketPriceMultiplier=" .. tostring(company.ticketPriceMultiplier)
+				.. " expected=" .. tostring(okExpected and expected or "err")
+		end
+	else
+		text = "unavailable: " .. tostring(util)
 	end
 	if text == bookingState.lastCompany then return end
 	bookingState.lastCompany = text
