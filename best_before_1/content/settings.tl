@@ -7,20 +7,21 @@
 --   breakevenFreshness down to penaltyBelowFreshness        straight line from 0 to penaltyPercent
 --   below penaltyBelowFreshness and for spoiled units       penaltyPercent
 -- The two percent settings are fractions of the unit's pay: bonusPercent 0.5 is +50%, penaltyPercent -0.95 is -95%.
--- bonusPercent is 0 or more, penaltyPercent is 0 or less (-1 or more). Keep
--- 1 >= bonusDownToFreshness >= breakevenFreshness >= penaltyBelowFreshness >= 0.
--- A deduction never takes more than 99% of a unit's pay. Set bonusPercent = 0 for deductions only, penaltyPercent = 0
--- for bonuses only.
+-- bonusPercent runs from 0 to 2 (up to +200%, a unit paying 3x in the full bonus window), penaltyPercent from -1 to 0
+-- (-1 takes the whole pay); the mod clamps values outside those ranges. Keep
+-- 1 >= bonusDownToFreshness >= breakevenFreshness >= penaltyBelowFreshness >= 0 (the mod clamps these into that order).
+-- A deduction never takes more than 100% of a unit's predicted pay. Set bonusPercent = 0 for deductions only,
+-- penaltyPercent = 0 for bonuses only.
 --
 -- stored: what to do with cargo that waited in a warehouse. A specialized warehouse pauses a unit's spoil timer, so its
 -- age overstates how old it is: "corrected" takes the paused time off the age (deliveryExtensionDuration), "formula"
 -- uses the plain age, and for a unit the game flags good but whose plain age is past the limit, "zero" counts it as 0%
 -- fresh and "neutral" leaves its pay alone (both use the plain age for every other unit).
 return {
-	bonusPercent = 0.5,
-	bonusDownToFreshness = 0.5,
-	breakevenFreshness = 0.3,
+	bonusPercent = 0.3,
+	bonusDownToFreshness = 0.4,
+	breakevenFreshness = 0.2,
 	penaltyBelowFreshness = 0.0,
-	penaltyPercent = -0.95,
+	penaltyPercent = -1.0,
 	stored = "corrected",
 }
