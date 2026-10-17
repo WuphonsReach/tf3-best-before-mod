@@ -45,6 +45,12 @@ local normalizeCurve = function(raw : Curve) : Curve
 	}
 end
 
+local sameCurve = function(a : Curve, b : Curve) : boolean
+	return a.bonusPercent == b.bonusPercent and a.bonusDownToFreshness == b.bonusDownToFreshness
+		and a.breakevenFreshness == b.breakevenFreshness and a.penaltyBelowFreshness == b.penaltyBelowFreshness
+		and a.penaltyPercent == b.penaltyPercent and a.stored == b.stored
+end
+
 -- How a unit that waited in a warehouse is judged. Only "corrected" is offered (not a setting); the other modes are kept in
 -- curveAdjustment and the replay for later, see docs/future/stored-cargo-modes.md.
 local storedMode = "corrected"
@@ -104,6 +110,9 @@ local record BookingState
 	curve : Curve -- the pay curve in force, refreshed by update for handleEvent
 	lastCurveNote : string
 	lastCurveSource : string -- "params" or "settings.tl": where `curve` came from
+	payScaleValue : number -- the pay scale read at payScaleTime, see currentPayScale
+	payScaleText : string
+	payScaleTime : number
 	units : integer -- cargo units deducted so far
 	batches : integer
 	pending : {PendingDeduction}
@@ -273,6 +282,32 @@ local readPayScale = function() : PayScale
 	return { scale = (difficulty or 1.0) * (multiplier or engineFactor), text = text }
 end
 
+-- The company and the Cargo Income option change rarely (a rank-up, a setting changed on loading), so the pay scale is read
+-- at most once per companyInterval of game clock and kept in the state. A clock that went back (another save loaded) reads
+-- again at once. Reading also logs the payScale and company lines when they changed.
+local companyInterval = 10000
+
+local currentPayScale = function(state : GameScriptState<BookingState>, bookingState : BookingState, now : number) : PayScale
+	local at = bookingState.payScaleTime
+	if at ~= nil and bookingState.payScaleValue ~= nil and now >= at and now - at < companyInterval then
+		return { scale = bookingState.payScaleValue, text = bookingState.payScaleText }
+	end
+	local pay = readPayScale()
+	local text = pay.text .. " scale=" .. tostring(pay.scale)
+	bookingState.payScaleValue = pay.scale
+	bookingState.payScaleText = text
+	bookingState.payScaleTime = now
+	if logAny then
+		if text ~= bookingState.lastPayScale then
+			bookingState.lastPayScale = text
+			log.message("BEST_BEFORE payScale t=" .. tostring(now) .. " " .. text)
+		end
+		logCompany(state, bookingState)
+	end
+	state:set(bookingState)
+	return { scale = pay.scale, text = text }
+end
+
 local track = function(bookingState : BookingState, entity : Engine.Entity)
 	if entity == nil then return end
 	bookingState.tracked = bookingState.tracked or {}
@@ -350,7 +385,7 @@ end
 -- The mod's params as the game hands them to a game script: this mod's table of 1-based list positions (a slider or list
 -- entry's position, not its label), keyed as in mod.json. `numbers` is not passed, so the values are rebuilt here.
 -- Pay settings are positions of 5% steps: position 1 is 0% (100% for the bonus slider), so position - 1 steps of 0.05.
-local readParamCurve = function() : Curve
+local readParamCurve = function() : Curve, boolean
 	local ok, all = pcall(function() : {string : table}
 		return api.engine.config.getModParams()
 	end)
@@ -363,20 +398,16 @@ local readParamCurve = function() : Curve
 	local share = function(position : number) : number -- a 5% step position as a fraction, without float noise
 		return math.floor(position - 1 + 0.5) * 5 / 100
 	end
-	return normalizeCurve({
+	local raw : Curve = {
 		bonusPercent = share(fresh), -- pay at full freshness, 100% to 200%: the bonus is the part above 100%
 		bonusDownToFreshness = share(bonusDown),
 		breakevenFreshness = share(breakeven),
 		penaltyBelowFreshness = share(penaltyBelow),
 		penaltyPercent = share(spoiled) - 1.0, -- pay when spoiled, 0% to 100%: the penalty is the part taken away
 		stored = storedMode,
-	})
-end
-
-local sameCurve = function(a : Curve, b : Curve) : boolean
-	return a.bonusPercent == b.bonusPercent and a.bonusDownToFreshness == b.bonusDownToFreshness
-		and a.breakevenFreshness == b.breakevenFreshness and a.penaltyBelowFreshness == b.penaltyBelowFreshness
-		and a.penaltyPercent == b.penaltyPercent and a.stored == b.stored
+	}
+	local curve = normalizeCurve(raw)
+	return curve, not sameCurve(raw, curve) -- the second value: the freshness points were out of order and were lowered
 end
 
 -- The curve in force: the in-game settings (re-read here, so a change made on loading takes effect). The game hands a
@@ -384,7 +415,7 @@ end
 -- settings at all. The curve is kept in the state for handleEvent, and a line is logged whenever the source or the
 -- numbers change.
 local activeCurve = function(state : GameScriptState<BookingState>, bookingState : BookingState) : Curve
-	local curve = readParamCurve()
+	local curve, adjusted = readParamCurve()
 	local source = "params"
 	if curve == nil then
 		curve = fileCurve
@@ -395,7 +426,7 @@ local activeCurve = function(state : GameScriptState<BookingState>, bookingState
 		return curve
 	end
 	bookingState.lastCurveSource = source
-	local note = "source=" .. source .. " " .. describeCurve(curve)
+	local note = "source=" .. source .. " " .. describeCurve(curve) .. (adjusted and " adjusted=yes" or "")
 	bookingState.curve = curve
 	bookingState.lastCurveNote = note
 	state:set(bookingState)
@@ -466,7 +497,8 @@ local probe : GameScript<BookingState> = {
 		activeCurve(state, bookingState) -- reads the in-game settings, before any unit arrives
 		if logUnits then logJournalSnapshot(state, bookingState) end
 		if logAny then
-			logCompany(state, bookingState)
+			local gameTime : Engine.Component.GameTime = api.engine.getComponent(api.engine.util.getWorld(), api.type.ComponentType.GAME_TIME)
+			currentPayScale(state, bookingState, gameTime.gameTime) -- logs the company and pay scale when they changed
 			logSummary(state, bookingState)
 		end
 		if bookingState.pending == nil or #bookingState.pending == 0 then return end
@@ -497,18 +529,13 @@ local probe : GameScript<BookingState> = {
 		bookingState.units = bookingState.units or 0
 		bookingState.pending = bookingState.pending or {}
 		bookingState.loggedCargoTypes = bookingState.loggedCargoTypes or {}
-		local curve = bookingState.curve or activeCurve(state, bookingState) -- update refreshes it from the settings
+		local curve = activeCurve(state, bookingState) -- the settings may have changed on loading, before any update ran
 
 		local gameTimeComponent : Engine.Component.GameTime
 			= api.engine.getComponent(api.engine.util.getWorld(), api.type.ComponentType.GAME_TIME)
 		local now = gameTimeComponent.gameTime
 
-		local pay = readPayScale()
-		local payText = pay.text .. " scale=" .. tostring(pay.scale)
-		if logAny and payText ~= bookingState.lastPayScale then
-			bookingState.lastPayScale = payText
-			log.message("BEST_BEFORE payScale t=" .. tostring(now) .. " " .. payText)
-		end
+		local pay = currentPayScale(state, bookingState, now)
 
 		local entities = (param as table).entities as {{Engine.Entity, {Engine.Entity, integer}}}
 		for _, unit in ipairs(entities) do

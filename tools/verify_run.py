@@ -31,9 +31,11 @@ def kv(text):
 def main(path):
     lines = open(path, errors="replace").read().splitlines()
     start = max((i for i, ln in enumerate(lines) if "BEST_BEFORE preRunFn" in ln), default=0)
-    level = next((m.group(1) for ln in lines[start:] if (m := re.search(r"BEST_BEFORE settings .*\blogLevel=(\w+)", ln))), None)
-    if level is not None and level not in ("curve", "full"):
-        sys.exit(f"{path}: logLevel={level}; this check reads the per-unit lines, so set logLevel = \"curve\" or \"full\" in settings.tl and rerun")
+    # The level is judged from the log itself: the BEST_BEFORE settings line comes from mod.script.tl and runs one load behind the
+    # level the probe used, while the probe writes a line per unit only at "curve" and "full".
+    if not any("BEST_BEFORE arrival " in ln for ln in lines[start:]):
+        sys.exit(f"{path}: no per-unit arrival lines after the last load. This check reads them, so set logLevel = \"curve\" or "
+                 f"\"full\" in settings.tl, load the save (no restart needed) and run again")
     arrivals, sends, snaps, errors = [], [], [], []
     for i, ln in enumerate(lines[start:], start):
         if " - ERROR " in ln or "Error message" in ln:

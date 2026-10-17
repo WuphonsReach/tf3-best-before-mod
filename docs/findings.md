@@ -20,7 +20,7 @@ Facts checked in the game while building the probe, and the test runs behind the
 | 333 | 13 | 100% / Normal | mixed, includes air | air, a no-mod control |
 | Large flat (two saves) | 1 | 100% / High | rail > warehouse > road bricks | rank 1 pay scale, stored cargo |
 
-Runs were played at calendar speed 4x or 0. The primary runs (nine, 1.06 billion base pay) are pooled in `tools/replay_curve.py` for the defaults.
+Runs were played at calendar speed 4x or 0. The primary runs (nine, 1.06 billion base pay) are pooled in `tools/replay_curve.py` for the defaults (`--use-defaults`, since they were played on earlier curves).
 
 ## How pay works
 

@@ -29,7 +29,7 @@ local describe = function(value : any) : string
 	return tostring(value)
 end
 
-mod.preRunFn = function(_captureParams : {string:any}, _configDict : {{string, string}}, _allModParams : {string : {string : integer}}, baseConfig : BaseConfig)
+mod.preRunFn = function(_captureParams : {string:any}, _configDict : {{string, string}}, allModParams : {string : {string : integer}}, baseConfig : BaseConfig)
 	baseConfig.economy.cargoIncomeScript.fileName = "best_before_1::/mod.script@calcCargoIncomeFn"
 	log.message("BEST_BEFORE preRunFn: cargoIncomeScript replaced")
 	local names : {string} = {}
@@ -42,17 +42,20 @@ mod.preRunFn = function(_captureParams : {string:any}, _configDict : {{string, s
 	if level ~= "off" and level ~= "summary" and level ~= "curve" and level ~= "full" then
 		log.message("BEST_BEFORE settings logLevel=" .. tostring(level) .. " is not off, summary, curve or full and will count as summary")
 	end
-	-- probe.script.tl clamps to these limits; say so in the log when settings.tl asks for more.
-	local limits : {string : {number}} = {
-		bonusPercent = {0.0, 2.0}, penaltyPercent = {-1.0, 0.0},
-		bonusDownToFreshness = {0.0, 1.0}, breakevenFreshness = {0.0, 1.0}, penaltyBelowFreshness = {0.0, 1.0},
-	}
-	for name, limit in pairs(limits) do
-		local value = settings[name]
-		if type(value) == "number" and ((value as number) < limit[1] or (value as number) > limit[2]) then
-			log.message("BEST_BEFORE settings " .. name .. "=" .. tostring(value) .. " is outside " .. tostring(limit[1]) .. " to " .. tostring(limit[2]) .. " and will be clamped")
-		end
-	end
+	-- The in-game settings this load starts with, as the 1-based list positions the game stores (the keys without the
+	-- "bestBefore." prefix). One line per load, so tools/replay_curve.py and tools/extract_run.py know the curve a run was
+	-- played on. The probe's curveSettings line is logged only when the curve differs from the one stored in the save.
+	local okParams, paramsText = pcall(function() : string
+		local mine = allModParams["best_before_1"]
+		if mine == nil then return "none" end
+		local keys : {string} = {}
+		for key, _ in pairs(mine) do keys[#keys + 1] = key end
+		table.sort(keys)
+		local pairsText : {string} = {}
+		for _, key in ipairs(keys) do pairsText[#pairsText + 1] = (string.gsub(key, "^bestBefore%.", "")) .. "=" .. tostring(mine[key]) end
+		return table.concat(pairsText, " ")
+	end)
+	log.message("BEST_BEFORE loadParams " .. (okParams and paramsText or ("error: " .. tostring(paramsText))))
 end
 
 mod.calcCargoIncomeFn = function(captureParams : {string:any}, incomeFactor : number, posDifference : {number}) : number

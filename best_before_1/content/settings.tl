@@ -3,7 +3,7 @@
 -- only the last resort for when the game hands the mod no settings at all, and the numbers tools/replay_curve.py starts from;
 -- keep them equal to the defaults in mod.json. Editing them does not change a normal game. The log line BEST_BEFORE
 -- curveSettings says which source was used (params or settings.tl); the BEST_BEFORE settings line from mod.script.tl runs one
--- load behind, so trust curveSettings. logLevel is not an in-game setting and is read from this file on each load, no restart needed.
+-- load behind, so trust curveSettings (written when the curve changes) and loadParams (the in-game settings of every load). logLevel is not an in-game setting and is read from this file on each load, no restart needed.
 -- tools/replay_curve.py reads the same numbers (keep one "name = value," per line) to show the effect on logged runs.
 --
 -- Pay changes with the unit's freshness (1 = just picked up, 0 = at the delivery limit, negative = past it):

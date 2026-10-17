@@ -22,7 +22,7 @@ python3 tools/verify_run.py local/logs/stdout-<date>-<time>.txt
 # Cut a run out of a raw log into small files (local/runs/<date>-<time>-<slug>.arrivals.csv, .journal.csv, .json, plus index.csv) for
 # replay_curve.py. It rebuilds the pay scale from the save the run loaded, so run it while that save still exists.
 python3 tools/extract_run.py local/logs/stdout-<date>-<time>.txt [--note "no-mod control"]
-python3 tools/replay_curve.py local/runs/<name>.arrivals.csv [more]   # pool the runs marked primary in index.csv
+python3 tools/replay_curve.py local/runs/<name>.arrivals.csv [more]   # pool the runs marked primary in index.csv; each run on the curve it was played on (--use-defaults: on settings.tl's)
 
 # Compare the CPU cost of the log levels (sample while the game runs; report reads the game log for the game clock)
 python3 tools/cpu_sample.py sample local/cpu/<name> [--also "steam|code"]   # writes <name>.process.csv and <name>.system.csv; run at least 5 minutes
@@ -33,10 +33,10 @@ Run `tl check` on each script you touch; there is no single command for both.
 
 ## In-game test loop
 
-- `best_before_1/` is symlinked into the game's `staging_area/` folder, so edits show up without copying, but the game must be restarted to reload scripts.
+- `best_before_1/` is symlinked into the game's `staging_area/` folder, so edits show up without copying, but the game must be restarted to reload the scripts and `mod.json`. `settings.tl` is the exception: its edits (`logLevel`) take effect on the next load, no restart.
 - The game log is `crash_dump/stdout.txt` beside that folder and is overwritten at each launch. Copy it to `local/logs/` (gitignored) before reading or verifying it. It is written live, so a run can be read while the game is still running. Log timestamps are UTC.
-- `logLevel` in `settings.tl` (`off`, `summary`, `curve`, `full`) sets what is logged; set `curve` or `full` for any run that `verify_run.py`, `extract_run.py` or `replay_curve.py` will read (`verify_run.py` refuses a lower level). Log work is skipped, not just the write, so keep new per-unit log strings inside the `logUnits`/`logFull` checks in `probe.script.tl`.
-- Every line the mod writes starts with `BEST_BEFORE`. Keep that prefix and keep `tools/verify_run.py` and `tools/extract_run.py` in step when changing the log format: they parse `arrival`, `sending adjustment` and `journal` lines by their `key=value` fields. `finance` lines (the Finances tab's investment and other rows, logged at the first snapshot and whenever the balance moves by something other than income) are for reading by hand, as are `company` lines (the company's rank and ticket price multiplier, logged at the first update and when they change).
+- `logLevel` in `settings.tl` (`off`, `summary`, `curve`, `full`) sets what is logged; set `curve` or `full` for any run that `verify_run.py`, `extract_run.py` or `replay_curve.py` will read (`verify_run.py` refuses a log with no per-unit lines). Log work is skipped, not just the write, so keep new per-unit log strings inside the `logUnits`/`logFull` checks in `probe.script.tl`.
+- Every line the mod writes starts with `BEST_BEFORE`. Keep that prefix and keep `tools/verify_run.py` and `tools/extract_run.py` in step when changing the log format: they parse `arrival`, `sending adjustment`, `journal`, `loadParams` and `curveSettings` lines by their `key=value` fields. `loadParams` is written by `mod.script.tl`'s `preRunFn` once per load (the in-game settings as list positions, keys without the `bestBefore.` prefix) and is how the tools learn the curve a run was played on; `curveSettings` is written by the probe only when the curve differs from the one stored in the save, so a reload with unchanged settings logs none. `finance` lines (the Finances tab's investment and other rows, logged at the first snapshot and whenever the balance moves by something other than income) are for reading by hand, as are `company` lines (the company's rank and ticket price multiplier, logged at the first update and when they change).
 
 ## Architecture
 
