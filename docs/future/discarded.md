@@ -1,5 +1,9 @@
 # Considered and set aside
 
+## In short
+
+Nine routes were tried or weighed and are not pursued. Seven fail on what the game lets a mod do; two (swapping every cargo type's price function, and a step instead of a straight line) are choices not made. Each row gives the reason and what would bring it back.
+
 Routes we tried or weighed and are not pursuing now, with the reason, so they are not rediscovered. "Revisit if" says what would make us look again. Facts behind these are in [findings](../findings.md).
 
 | Idea | Why not now | Revisit if |
@@ -10,6 +14,6 @@ Routes we tried or weighed and are not pursuing now, with the reason, so they ar
 | **Read the vehicle's pending income at unloading** (`unloadPendingIncome`) | Nil at the time of the arrival event, and there is no command to change it. | The game exposes pending income in the event, or a command to scale it. |
 | **Share a global between the income function and the game script** | The two run in separate scripts, so a module-level value is not shared. | A supported channel between them appears. |
 | **Show the deduction in the vehicle's logbook** | The logbook holds counters (items transported and the like), not money, and journal entries carry no text. | The logbook gains money fields or journal entries gain a note. |
-| **Book each deduction to the first vehicle and line of the unit** (shipped in an earlier version, now removed) | The game pays a delivered unit once, at the consumer, and shares the pay along the chain by an unknown formula, so the first leg is the wrong ledger for any transferred cargo (road cargo 13 got 0.05 of its predicted pay while the rail vehicle got 3.6 times). It also crashed when a vehicle in the chain had been sold. | The split formula is known or exposed. See [revisit-later](revisit-later.md). |
+| **Book each deduction to the first vehicle and line of the unit** | The game pays a delivered unit once, at the consumer, and shares the pay along the chain by an unknown formula, so the first leg is the wrong ledger for any transferred cargo (road cargo 13 got 0.05 of its predicted pay while the rail vehicle got 3.6 times). It also crashed when a vehicle in the chain had been sold. | The split formula is known or exposed. See [revisit-later](revisit-later.md). |
 | **Send a booking with a result callback from `update`** | The engine refuses it ("Callbacks are currently disallowed"). Bookings go out without a callback and success is judged from the balance. | The restriction is lifted. |
 | **A step instead of a straight line for the pay curve** | A unit just either side of a step would differ by up to half its pay, and many deliveries sit near the 30 to 50% freshness range. | Players ask for it as an option; it needs no new mechanism. |

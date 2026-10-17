@@ -1,5 +1,9 @@
 # Notes
 
+## In short
+
+Start with [how-it-works.md](how-it-works.md) for what the mod does and where it can be wrong, then [findings.md](findings.md) for the verified game facts and test results. The `future/` notes hold what was set aside, what the game would need to offer, and the open questions. Each note opens with an "In short" section.
+
 | Note | Covers |
 |---|---|
 | [how-it-works.md](how-it-works.md) | How the mod turns freshness into a booking, and where it can over-penalize or miss |
