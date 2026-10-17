@@ -1,0 +1,63 @@
+# The mod.io listing text
+
+## In short
+
+- **What this is.** The text for the mod's mod.io page: name, summary, tags and description, kept here so it can be pasted into the listing and mirrored into [modinfo.json](../best_before_1/_metadata/modinfo.json). Edit it here first, then copy it to `modinfo.json`.
+- **Name:** "Best Before: Cargo Freshness". The Mod Hub search matches the name only, not the summary or the description, so the name carries the search words.
+- **Tags:** "Script Mod" only. It sits under the hub's Misc group. Other cargo mods listed there (Route-Based Cargo Income, Slower Town Cargo Demand) carry the same single tag; the mod changes no industries, so no Industry tag.
+- **How sure we are.** The search finding comes from searching the hub for words that appear only in another mod's summary or description (nothing found) and for words in names (found). The upload route, and whether the in-game upload tool reads `modinfo.json` or asks for the text in a form, are not known: a downloaded mod ships without a `_metadata` folder, so the hub page is built from mod.io's own copy of the text.
+- **Unknown.** Whether the in-game upload prefills from `modinfo.json`; whether mod.io's page can be edited after the upload.
+
+## Name
+
+Best Before: Cargo Freshness
+
+## Tags
+
+Script Mod
+
+## Summary
+
+Cargo pay follows freshness: fresh deliveries earn a bonus, slow or spoiled cargo earns less. Five adjustable settings.
+
+## Description
+
+The text below is what `modinfo.json` holds, with line breaks as `\n`.
+
+```
+Cargo pay follows freshness. Cargo delivered fresh earns a bonus on top of its normal pay, cargo that took too long earns less, and cargo that spoiled earns the lowest pay.
+
+EARLY TEST VERSION. This is early work, checked in the game on a handful of saves. Expect rough edges and changes. Keep a backup of any save you play with it.
+
+HOW IT WORKS
+- The game pays every delivered cargo unit in full, as usual. The mod then books one correcting entry to your account: a bonus for fresh cargo, a deduction for slow or spoiled cargo.
+- Freshness is 100% when cargo is picked up and falls to 0% at its delivery limit (1.5 times the cargo's delivery time). Cargo that waited in a warehouse is judged on its age with the warehouse pause taken off.
+- Only cargo is adjusted. Passenger income is not touched.
+
+THE DEFAULT CURVE
+- Freshness 40% and above: 120% of normal pay.
+- 40% down to 20%: falls in a straight line to normal pay.
+- 20% down to 0%: falls in a straight line to no pay.
+- Spoiled cargo: no pay.
+
+FIVE SETTINGS
+Set them under Mods, with the gear next to the mod, in New Game or in Load Game. The game keeps them in the save, so you can retune a save on any load. All sliders move in 5% steps.
+- Pay for fresh cargo: 100% to 200% (default 120%).
+- Full bonus down to freshness: 0% to 100% (default 40%).
+- Normal pay at freshness: 0% to 100% (default 20%).
+- Lowest pay below freshness: 0% to 100% (default 0%).
+- Pay for spoiled cargo: 0% to 100% (default 0%).
+
+GOOD TO KNOW
+- With the default settings a spoiled unit pays nothing, so a save with a lot of spoiled cargo can lose money. Raise the spoiled pay if that is too harsh.
+- The entry goes to your company account. The per-vehicle and per-line figures in the game still show the full pay.
+- A unit whose source or target building is gone before it arrives gets no entry.
+- Works on a save that did not have the mod before. Settings of a save from before the mod existed show the defaults.
+
+COMPATIBILITY
+- The mod replaces the game's cargo income function with a copy of the base formula, so that it can log what the engine passes in. Pay is unchanged. Another mod that replaces the cargo income calculation will conflict with it; use one or the other.
+- It contains no files from the game.
+- Gameplay mods may disable achievements.
+
+Source and notes: https://github.com/WuphonsReach/tf3-best-before-mod (MIT licence).
+```
