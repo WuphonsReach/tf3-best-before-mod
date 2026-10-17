@@ -150,7 +150,7 @@ def extract(path, out_dir, slug, note, min_arrivals):
         if m:
             save = m.group(1)                           # the last load is the one the slice follows
 
-    arrivals, journal, company, settings, sends, errors = [], [], None, None, [0, 0], 0
+    arrivals, journal, company, settings, curve_notes, sends, errors = [], [], None, None, [], [0, 0], 0
     for ln in lines[start:]:
         if " - ERROR " in ln or "Error message" in ln:
             errors += 1
@@ -170,6 +170,8 @@ def extract(path, out_dir, slug, note, min_arrivals):
             company = kv(rest)
         elif kind == "settings" and settings is None:
             settings = kv(rest)
+        elif kind == "curveSettings":                   # the curve a save actually used; settings.tl may differ once a save has its own
+            curve_notes.append(rest)
         elif kind == "sending":
             d = kv(rest)
             sends[0] += 1
@@ -211,7 +213,7 @@ def extract(path, out_dir, slug, note, min_arrivals):
     bon = sum(int(a["bonus"] or 0) for a in priced)
     meta = {"name": stem, "sourceLog": os.path.basename(path), "loadedAtUtc": loaded_at, "lastLineAtUtc": last_at,
             "save": save, "saveContext": ctx, "scaleSource": "/".join(sorted(sources)),
-            "payScaleRebuilt": rebuilt, "modSettings": settings, "company": company,
+            "payScaleRebuilt": rebuilt, "modSettings": settings, "curveSettings": curve_notes, "company": company,
             "arrivals": len(arrivals), "pricedArrivals": len(priced), "journalSnapshots": len(journal),
             "adjustmentEntriesSent": sends[0], "unitsInSentEntries": sends[1], "errorLines": errors,
             "predictedIncomeTotal": round(pred), "predictedCorrectedTotal": round(corrected),

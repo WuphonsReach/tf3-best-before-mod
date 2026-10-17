@@ -33,6 +33,34 @@ local settings : Settings = {
 	logLevel = (rawSettings.logLevel == "off" or rawSettings.logLevel == "curve" or rawSettings.logLevel == "full") and rawSettings.logLevel or "summary",
 }
 
+-- The pay curve as one save keeps it. The first time the game script runs on a save, the curve from settings.tl is copied
+-- into the game script state (which the game writes into the save); from then on the saved copy is used and settings.tl is
+-- ignored for that save, so a save keeps the curve it started with. logLevel is not part of it: it is a diagnostic switch
+-- that settings.tl keeps controlling.
+local record Curve
+	bonusPercent : number
+	bonusDownToFreshness : number
+	breakevenFreshness : number
+	penaltyBelowFreshness : number
+	penaltyPercent : number
+	stored : string
+end
+
+local fileCurve : Curve = {
+	bonusPercent = settings.bonusPercent,
+	bonusDownToFreshness = settings.bonusDownToFreshness,
+	breakevenFreshness = settings.breakevenFreshness,
+	penaltyBelowFreshness = settings.penaltyBelowFreshness,
+	penaltyPercent = settings.penaltyPercent,
+	stored = settings.stored,
+}
+
+local describeCurve = function(curve : Curve) : string
+	return "bonusPercent=" .. tostring(curve.bonusPercent) .. " bonusDownToFreshness=" .. tostring(curve.bonusDownToFreshness)
+		.. " breakevenFreshness=" .. tostring(curve.breakevenFreshness) .. " penaltyBelowFreshness=" .. tostring(curve.penaltyBelowFreshness)
+		.. " penaltyPercent=" .. tostring(curve.penaltyPercent) .. " stored=" .. tostring(curve.stored)
+end
+
 -- Log work is skipped, not just the write: building a unit's line costs more than writing it, and runs once per delivered unit.
 local logFull = settings.logLevel == "full" -- vehicle and line names, pickup chains, per-vehicle ledgers
 local logUnits = settings.logLevel == "curve" or logFull -- a line per delivered unit, per adjustment sent, per balance change
@@ -66,6 +94,8 @@ local record PendingDeduction
 end
 
 local record BookingState
+	curve : Curve -- the pay curve this save uses, set once from settings.tl
+	lastCurveNote : string
 	units : integer -- cargo units deducted so far
 	batches : integer
 	pending : {PendingDeduction}
@@ -311,21 +341,49 @@ local worldPosition = function(entity : Engine.Entity) : {number}
 	return { m[13], m[14], m[15] }
 end
 
+-- The curve this save uses: the saved one, or settings.tl's copied into the state on the first call for a save. A line is
+-- logged when that happens and when settings.tl later disagrees with the saved curve (the save keeps its own), so the
+-- log always says which numbers were in force.
+local activeCurve = function(state : GameScriptState<BookingState>, bookingState : BookingState) : Curve
+	local curve = bookingState.curve
+	local note : string
+	if curve == nil then
+		curve = {
+			bonusPercent = fileCurve.bonusPercent,
+			bonusDownToFreshness = fileCurve.bonusDownToFreshness,
+			breakevenFreshness = fileCurve.breakevenFreshness,
+			penaltyBelowFreshness = fileCurve.penaltyBelowFreshness,
+			penaltyPercent = fileCurve.penaltyPercent,
+			stored = fileCurve.stored,
+		}
+		bookingState.curve = curve
+		note = "source=settings.tl saved=yes " .. describeCurve(curve)
+	elseif describeCurve(curve) ~= describeCurve(fileCurve) then
+		note = "source=save saved=kept " .. describeCurve(curve) .. " settingsTl: " .. describeCurve(fileCurve)
+	end
+	if note ~= nil and note ~= bookingState.lastCurveNote then
+		bookingState.lastCurveNote = note
+		state:set(bookingState)
+		if logAny then log.message("BEST_BEFORE curveSettings " .. note) end
+	end
+	return curve
+end
+
 -- The share of a unit's pay the curve adds (positive) or takes away (negative). `good` is the game's own quality flag.
-local curveAdjustment = function(freshness : number, good : boolean) : number
-	if not good then return settings.penaltyPercent end
+local curveAdjustment = function(curve : Curve, freshness : number, good : boolean) : number
+	if not good then return curve.penaltyPercent end
 	if freshness < 0 then -- flagged good by the game although its age says it is past the limit: stored cargo
-		if settings.stored == "neutral" then return 0.0 end
-		if settings.stored == "zero" then freshness = 0.0 end
+		if curve.stored == "neutral" then return 0.0 end
+		if curve.stored == "zero" then freshness = 0.0 end
 	end
-	if freshness >= settings.bonusDownToFreshness then return settings.bonusPercent end
-	if freshness >= settings.breakevenFreshness then
-		return settings.bonusPercent * (freshness - settings.breakevenFreshness) / (settings.bonusDownToFreshness - settings.breakevenFreshness)
+	if freshness >= curve.bonusDownToFreshness then return curve.bonusPercent end
+	if freshness >= curve.breakevenFreshness then
+		return curve.bonusPercent * (freshness - curve.breakevenFreshness) / (curve.bonusDownToFreshness - curve.breakevenFreshness)
 	end
-	if freshness >= settings.penaltyBelowFreshness then
-		return settings.penaltyPercent * (settings.breakevenFreshness - freshness) / (settings.breakevenFreshness - settings.penaltyBelowFreshness)
+	if freshness >= curve.penaltyBelowFreshness then
+		return curve.penaltyPercent * (curve.breakevenFreshness - freshness) / (curve.breakevenFreshness - curve.penaltyBelowFreshness)
 	end
-	return settings.penaltyPercent
+	return curve.penaltyPercent
 end
 
 -- "key=value,key=value" with the keys sorted, for the one-time cargo type log line.
@@ -371,6 +429,7 @@ local probe : GameScript<BookingState> = {
 			state:subscribeToEvent("OnToArriveAtDestination")
 		end
 		local bookingState = state:get()
+		activeCurve(state, bookingState) -- stamps the curve into a save that has none yet, before any unit arrives
 		updateCalls = updateCalls + 1
 		if logUnits then logJournalSnapshot(state, bookingState) end
 		if logAny then
@@ -405,6 +464,7 @@ local probe : GameScript<BookingState> = {
 		bookingState.units = bookingState.units or 0
 		bookingState.pending = bookingState.pending or {}
 		bookingState.loggedCargoTypes = bookingState.loggedCargoTypes or {}
+		local curve = activeCurve(state, bookingState)
 
 		local gameTimeComponent : Engine.Component.GameTime
 			= api.engine.getComponent(api.engine.util.getWorld(), api.type.ComponentType.GAME_TIME)
@@ -480,7 +540,7 @@ local probe : GameScript<BookingState> = {
 				-- A unit that waited in a specialized warehouse has its timer paused; deliveryExtensionDuration holds that
 				-- time, so the corrected age is the age minus it (checked against the game's good flag on logged runs).
 				local correctedFreshness = limitMs > 0 and (1.0 - (ageMs - simCargo.deliveryExtensionDuration) / limitMs) or 1.0
-				local adjustment = curveAdjustment(settings.stored == "corrected" and correctedFreshness or freshness, good)
+				local adjustment = curveAdjustment(curve, curve.stored == "corrected" and correctedFreshness or freshness, good)
 				local rate = 1.0 + adjustment
 				local src = worldPosition(simCargo.sourceEntity)
 				local dst = worldPosition(unit[2][1])

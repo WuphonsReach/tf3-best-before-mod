@@ -1,4 +1,7 @@
--- Freshness curve settings. Edit the numbers, restart the game and load a save to test them.
+-- Freshness curve settings. Edit the numbers, restart the game and start a new game (or load a save the mod has not run on) to test them.
+-- The curve settings and stored (everything but logLevel) are copied into a save the first time the mod runs on it, and the
+-- save keeps them: later edits here do not change a save that already has its own copy. The log says which were in force
+-- (BEST_BEFORE curveSettings). logLevel is read from this file on every start.
 -- tools/replay_curve.py reads the same numbers (keep one "name = value," per line) to show the effect on logged runs.
 --
 -- Pay changes with the unit's freshness (1 = just picked up, 0 = at the delivery limit, negative = past it):
