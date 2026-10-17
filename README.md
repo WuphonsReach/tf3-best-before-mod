@@ -6,7 +6,7 @@ Transport Fever 3 mod: cargo pay scales with freshness. Fresh cargo earns a bonu
 
 - **What it does.** The game pays every cargo unit in full. For each arriving unit the mod works out a freshness adjustment (a bonus or a deduction) and books it as one income entry to the player's account. It logs everything with lines starting `BEST_BEFORE`.
 - **Status: early work.** `best_before_1/` is a test probe, not a release. The mechanism is checked in the game on nine saves: bonuses, deductions up to -100%, chains of three legs, six calendar years against a no-mod control. The default curve (+20% bonus, break-even at 80% of the spoil limit used, -100% penalty) is a candidate; it nets +8.0% of base pay over those saves.
-- **Not done.** A decision on how stored cargo is judged (the in-game settings for the curve are built, pay with them is untested), and splitting a deduction along a transferred unit's chain (the mod books to the player only).
+- **Not done.** Splitting a deduction along a transferred unit's chain (the mod books to the player only).
 - This is an unofficial mod. It contains no files from the game.
 
 ## The pay curve

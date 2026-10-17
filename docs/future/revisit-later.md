@@ -15,7 +15,7 @@ Each item says what would settle it.
 - **Why player income exceeds the prediction on some saves** (1.145 on the small save without the mod, 1.575 on QZZZ; the two flat saves match at 1.001). Passenger income is not logged, so a run that logs it would show whether that is the gap.
 
 ## Freshness
-- **Stored cargo.** The `stored = "corrected"` setting takes `deliveryExtensionDuration` off a unit's age, which removes every disagreement with the game's good flag on the logged runs (see [findings](../findings.md)). Open: the exact spoil rule for paused cargo (spoiled units start at about 0.845 of the limit on the corrected age, not at 1.0), and runs of several game years to see how much stored cargo there is.
+- **Stored cargo.** The `corrected` mode (the only one offered, see [stored-cargo-modes.md](stored-cargo-modes.md)) takes `deliveryExtensionDuration` off a unit's age, which removes every disagreement with the game's good flag on the logged runs (see [findings](../findings.md)). Open: the exact spoil rule for paused cargo (spoiled units start at about 0.845 of the limit on the corrected age, not at 1.0), and runs of several game years to see how much stored cargo there is.
 - **Limits per cargo.** Eleven cargo types have been seen with limits from 1,687,500 ms to 6,750,000 ms; the 1.5 x delivery time rule is confirmed against the game's flag for fish and vegetables only. Check that it holds for the other types, ideally on a run without warehouses.
 
 ## The curve and its defaults

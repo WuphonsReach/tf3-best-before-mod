@@ -163,21 +163,6 @@
             "defaultIndex": 0,
             "yearFrom": 0,
             "yearTo": 0
-        },
-        {
-            "key": "bestBefore.stored",
-            "name": "Best Before: cargo that waited in a warehouse",
-            "tooltip": "A specialized warehouse pauses the spoil timer, so a unit's plain age overstates how old it is. Corrected: take the paused time off the age. Plain age: use the age as is. Count as 0%: a unit the game calls good but whose age is past the limit counts as 0% fresh. No change: such a unit keeps normal pay.",
-            "uiType": "ComboBox",
-            "values": [
-                "Corrected for time in the warehouse",
-                "Plain age",
-                "Count as 0% fresh",
-                "No change to pay"
-            ],
-            "defaultIndex": 0,
-            "yearFrom": 0,
-            "yearTo": 0
         }
     ],
     "postRunScript": {

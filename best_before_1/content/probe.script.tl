@@ -22,7 +22,6 @@ local record Settings
 	breakevenFreshness : number
 	penaltyBelowFreshness : number
 	penaltyPercent : number
-	stored : string
 	logLevel : string
 end
 local rawSettings = ug_require "best_before_1::/settings.tl" as Settings
@@ -46,13 +45,17 @@ local normalizeCurve = function(raw : Curve) : Curve
 	}
 end
 
+-- How a unit that waited in a warehouse is judged. Only "corrected" is offered (not a setting); the other modes are kept in
+-- curveAdjustment and the replay for later, see docs/future/stored-cargo-modes.md.
+local storedMode = "corrected"
+
 local fileCurve : Curve = normalizeCurve({
 	bonusPercent = rawSettings.bonusPercent,
 	bonusDownToFreshness = rawSettings.bonusDownToFreshness,
 	breakevenFreshness = rawSettings.breakevenFreshness,
 	penaltyBelowFreshness = rawSettings.penaltyBelowFreshness,
 	penaltyPercent = rawSettings.penaltyPercent,
-	stored = rawSettings.stored,
+	stored = storedMode,
 })
 
 local settings : Settings = {
@@ -348,8 +351,6 @@ end
 -- The mod's params as the game hands them to a game script: this mod's table of 1-based list positions (a slider or list
 -- entry's position, not its label), keyed as in mod.json. `numbers` is not passed, so the values are rebuilt here.
 -- Pay settings are positions of 5% steps: position 1 is 0% (100% for the bonus slider), so position - 1 steps of 0.05.
-local storedModes : {string} = {"corrected", "formula", "zero", "neutral"}
-
 local readParamCurve = function() : Curve
 	local ok, all = pcall(function() : {string : table}
 		return api.engine.config.getModParams()
@@ -358,8 +359,8 @@ local readParamCurve = function() : Curve
 	local mine = all["best_before_1"] as {string : number}
 	if mine == nil then return nil end
 	local fresh, bonusDown, breakeven = mine["bestBefore.freshPay"], mine["bestBefore.bonusDownTo"], mine["bestBefore.breakeven"]
-	local penaltyBelow, spoiled, stored = mine["bestBefore.penaltyBelow"], mine["bestBefore.spoiledPay"], mine["bestBefore.stored"]
-	if fresh == nil or bonusDown == nil or breakeven == nil or penaltyBelow == nil or spoiled == nil or stored == nil then return nil end
+	local penaltyBelow, spoiled = mine["bestBefore.penaltyBelow"], mine["bestBefore.spoiledPay"]
+	if fresh == nil or bonusDown == nil or breakeven == nil or penaltyBelow == nil or spoiled == nil then return nil end
 	local share = function(position : number) : number -- a 5% step position as a fraction, without float noise
 		return math.floor(position - 1 + 0.5) * 5 / 100
 	end
@@ -369,7 +370,7 @@ local readParamCurve = function() : Curve
 		breakevenFreshness = share(breakeven),
 		penaltyBelowFreshness = share(penaltyBelow),
 		penaltyPercent = share(spoiled) - 1.0, -- pay when spoiled, 0% to 100%: the penalty is the part taken away
-		stored = storedModes[math.floor(stored + 0.5)] or "corrected",
+		stored = storedMode,
 	})
 end
 

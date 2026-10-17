@@ -57,7 +57,7 @@ def file_defaults():
     """The numbers in the mod's settings.tl (one `name = value,` per line), so the replay starts from the mod's own."""
     found = dict(re.findall(r'^\s*(\w+)\s*=\s*("?[-\w.]+"?),', open(SETTINGS_FILE).read(), re.M))
     numbers = {name: float(found[camel(name)]) for name in SETTINGS}
-    return numbers, found.get("stored", '"formula"').strip('"')
+    return numbers, "corrected"   # the mod judges stored cargo as corrected; --stored tries the other modes
 
 
 DEFAULTS, DEFAULT_STORED = file_defaults()

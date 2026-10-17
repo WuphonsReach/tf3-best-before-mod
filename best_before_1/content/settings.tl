@@ -18,11 +18,6 @@
 -- A deduction never takes more than 100% of a unit's predicted pay. Set bonusPercent = 0 for deductions only,
 -- penaltyPercent = 0 for bonuses only.
 --
--- stored: what to do with cargo that waited in a warehouse. A specialized warehouse pauses a unit's spoil timer, so its
--- age overstates how old it is: "corrected" takes the paused time off the age (deliveryExtensionDuration), "formula"
--- uses the plain age, and for a unit the game flags good but whose plain age is past the limit, "zero" counts it as 0%
--- fresh and "neutral" leaves its pay alone (both use the plain age for every other unit).
---
 -- logLevel: how much the mod writes to the game log (every line starts with BEST_BEFORE). Any other value counts as "summary".
 --   "off"      the start-up lines only (the settings in use, warnings about settings the mod clamps)
 --   "summary"  plus a totals line about once a game month (units delivered, pay taken away, bonus paid), the company's rank and
@@ -38,5 +33,4 @@ return {
 	breakevenFreshness = 0.2,
 	penaltyBelowFreshness = 0.0,
 	penaltyPercent = -1.0,
-	stored = "corrected",
 }
