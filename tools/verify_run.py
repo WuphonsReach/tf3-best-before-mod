@@ -6,7 +6,7 @@ Usage: tools/verify_run.py local/logs/stdout-....txt
 The probe books every freshness deduction to the player only (the game pays a delivered unit once and shares it along
 the supply chain by a formula we do not know). The run passes when
   - the log has no error lines and no gaps in the journal sequence numbers,
-  - the units deducted in the arrival lines equal the units in the "sending deduction" lines (nothing lost in the
+  - the units adjusted (deducted or given a bonus) in the arrival lines equal the units in the "sending adjustment" lines (nothing lost in the
     per-update aggregation, apart from the last few still queued), and
   - the booked amounts show up in the player's balance: most entries appear as an exact step of playerBalance or
     playerIncomeTotal in one of the next four snapshots (the rest share a step with pay, so the rate stays below 100%).
@@ -43,7 +43,7 @@ def main(path):
             d = kv(rest)
             if "predictedIncome" in d and d["predictedIncome"] != "n/a":
                 arrivals.append({"i": i, "t": int(d["now"]), "vehicle": d.get("vehicle"), "line": d.get("line"),
-                                 "pred": float(d["predictedIncome"]), "ded": int(d.get("deduction", 0)),
+                                 "pred": float(d["predictedIncome"]), "ded": int(d.get("deduction", 0)), "bonus": int(d.get("bonus", 0)),
                                  "carrier": d.get("carrier", "?")})
         elif kind == "sending":
             d = kv(rest)
@@ -56,7 +56,7 @@ def main(path):
             snaps.append({"i": i, "seq": seq, "t": t, "bal": bal})
 
     print(f"{path}: {len(lines) - start} lines after the last load, {len(arrivals)} arrivals, "
-          f"{len(sends)} deduction entries sent, {len(snaps)} journal snapshots")
+          f"{len(sends)} adjustment entries sent, {len(snaps)} journal snapshots")
     ok = True
 
     if errors:
@@ -69,11 +69,11 @@ def main(path):
     missing = sorted(set(range(min(seqs), max(seqs) + 1)) - set(seqs)) if seqs else []
     print(("PASS" if not missing else "FAIL") + f"  journal sequence numbers: {len(missing)} gaps")
     if len(snaps) < 3 or not sends:
-        print("FAIL  too little data (no snapshots or no deductions sent)")
+        print("FAIL  too little data (no snapshots or no adjustments sent)")
         return 1
 
-    units = sum(a["ded"] > 0 for a in arrivals)
-    print(f"      {units} units deducted, {sum(a['ded'] for a in arrivals):,} in total; "
+    units = sum(a["ded"] > 0 or a["bonus"] > 0 for a in arrivals)
+    print(f"      {units} units adjusted, {sum(a['ded'] for a in arrivals):,} deducted and {sum(a['bonus'] for a in arrivals):,} added; "
           f"carriers {sorted(set(a['carrier'] for a in arrivals))}")
 
     end = snaps[-1]
@@ -132,16 +132,16 @@ def main(path):
     sent = sum(s["amount"] for s in sends if s["ledger"] == "player" and s["i"] < prior_snap_index)
     expected = sum(a["pred"] for a in arrivals if base["t"] <= a["t"] <= last["t"] - MARGIN)
     pay = delta + costs - sent
-    print(f"INFO  player: delta {delta:,}, running costs {costs:,}, deductions {sent:,}, predicted pay of all arrivals "
+    print(f"INFO  player: delta {delta:,}, running costs {costs:,}, adjustments {sent:,}, predicted pay of all arrivals "
           f"{expected:,.0f}; derived pay / predicted {pay / expected:.3f} (without deductions "
           f"{(delta + costs) / expected:.3f}). Income the arrivals do not predict makes this above 1 "
           f"(1.145 in the 05:00 control run with no player deductions).")
 
     # Units: the arrival lines and the sent entries must agree.
-    queued_units = sum(1 for a in arrivals if a["ded"] > 0)
+    queued_units = sum(1 for a in arrivals if a["ded"] > 0 or a["bonus"] > 0)
     sent_units = sum(s["units"] for s in sends if s["ledger"] == "player")
     unsent_ok = 0 <= queued_units - sent_units <= MAX_UNSENT
-    print(("PASS" if unsent_ok else "FAIL") + f"  units: {queued_units} deducted in the arrival lines, "
+    print(("PASS" if unsent_ok else "FAIL") + f"  units: {queued_units} adjusted in the arrival lines, "
           f"{sent_units} sent to the player")
     ok = ok and unsent_ok
 

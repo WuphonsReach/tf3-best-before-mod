@@ -4,12 +4,22 @@
 -- know, so the deduction is not tied to a vehicle or line. The log names every vehicle and line of the unit's pickup
 -- chain so the split can be studied. Log lines start with "BEST_BEFORE"; tools/verify_run.py checks a run from the log.
 
--- Pay curve settings.
-local fullPayAbove = 0.5      -- freshness at or above this pays 100%
-local payAtZero = 0.3         -- pay rate at 0% freshness
-local payWhenSpoiled = 0.0    -- pay rate once the unit is flagged spoiled
+-- Pay curve settings, in settings.tl (the curve is described there).
+local record Settings
+	bonusPercent : number
+	bonusDownToFreshness : number
+	breakevenFreshness : number
+	penaltyBelowFreshness : number
+	penaltyPercent : number
+	stored : string
+end
+local settings = ug_require "best_before_1::/settings.tl" as Settings
 
--- What the engine applies after the income function (measured, cause unknown).
+-- A deduction never takes more than this share of a unit's predicted pay (the prediction is good to about 1%).
+local maxDeductionShare = 0.99
+
+-- What the engine applies after the income function when the real value cannot be read: 0.96426, measured on Normal
+-- saves at rank 3 (it is the Inflation Normal ticket price multiplier there, 1 - 2 x 0.25 / 14).
 local engineFactor = 0.96426
 local deliverTimeMultiplier = 1.5
 
@@ -21,7 +31,7 @@ local maxTracked = 200
 -- sends them. The queue lives in the game script state: module-level variables do not survive between calls.
 local record PendingDeduction
 	number : integer
-	amount : integer -- negative
+	amount : integer -- negative for a deduction, positive for a bonus
 	carrier : string
 	x : number
 	y : number
@@ -35,6 +45,11 @@ local record BookingState
 	tracked : {Engine.Entity}
 	loggedCargoTypes : {string : boolean}
 	lastSnapshot : string
+	lastBalance : number -- the player's balance and income total at the previous snapshot
+	lastIncome : number
+	lastFinance : string
+	lastCompany : string
+	lastPayScale : string
 	logSeq : integer -- numbers the journal log lines, so a gap in the log shows dropped messages
 end
 
@@ -62,6 +77,32 @@ local balanceOf = function(entity : Engine.Entity) : string
 	return account ~= nil and tostring(account.balance) or "n/a"
 end
 
+-- The Finances tab's investment and "other" rows (construction, upkeep, subsidies), one list of per-period amounts per
+-- row, as the game's own finance table computes them. Used to see what a non-income balance change was.
+local describeFinance = function(player : Engine.Entity) : string
+	local config = api.type.ChartConfig.new()
+	config.interval = 1461000 -- one calendar year of game clock units
+	config.count = 4
+	config.minCount = 4
+	config.yStepScale = 1.0
+	local ok, data = pcall(api.engine.util.finance.computeFinanceTable, player, config)
+	if not ok then return "unavailable" end
+	local parts : {string} = {}
+	local amounts = function(values : {integer}) : string
+		local text : {string} = {}
+		for _, v in ipairs(values) do text[#text + 1] = tostring(v) end
+		return table.concat(text, ",")
+	end
+	data:foreach_investment(function(key : integer, values : {integer})
+		local kind = data:unfoldKey(key)
+		parts[#parts + 1] = "investment[" .. tostring(kind[1]) .. "/" .. tostring(kind[2]) .. "/" .. tostring(kind[3]) .. "]=" .. amounts(values)
+	end)
+	data:foreach_other(function(other : JournalEntry.Other, values : {integer})
+		parts[#parts + 1] = "other[" .. tostring(other) .. "]=" .. amounts(values)
+	end)
+	return table.concat(parts, " ")
+end
+
 -- Logs the player's balance and income figures plus the tracked ledgers, but only when something changed.
 local logJournalSnapshot = function(state : GameScriptState<BookingState>, bookingState : BookingState)
 	local player = api.engine.util.getPlayer()
@@ -79,9 +120,88 @@ local logJournalSnapshot = function(state : GameScriptState<BookingState>, booki
 	if snapshot ~= bookingState.lastSnapshot then
 		bookingState.lastSnapshot = snapshot
 		bookingState.logSeq = (bookingState.logSeq or 0) + 1
+		-- A balance step that is not income is a cost. Costs come with the running-cost tick, so a construction or
+		-- other booking cannot be told apart from it in the balance; the finance table can, so log it when it changes.
+		local nonIncomeStep : number = 0
+		if ok and okIncome and bookingState.lastBalance ~= nil and bookingState.lastIncome ~= nil then
+			nonIncomeStep = (balance - bookingState.lastBalance) - (income - bookingState.lastIncome)
+		end
+		if ok then bookingState.lastBalance = balance end
+		if okIncome then bookingState.lastIncome = income end
+		local finance : string = nil
+		if bookingState.lastFinance == nil or nonIncomeStep ~= 0 then
+			finance = describeFinance(player)
+			if finance ~= bookingState.lastFinance then
+				bookingState.lastFinance = finance
+			else
+				finance = nil
+			end
+		end
 		state:set(bookingState)
 		log.message("BEST_BEFORE journal #" .. bookingState.logSeq .. " t=" .. tostring(gameTime.gameTime) .. " " .. snapshot)
+		if finance ~= nil then
+			log.message("BEST_BEFORE finance after journal #" .. bookingState.logSeq .. " t=" .. tostring(gameTime.gameTime)
+				.. " nonIncomeStep=" .. tostring(nonIncomeStep) .. " " .. finance)
+		end
 	end
+end
+
+-- The company's rank and the ticket price multiplier the game derives from it (the Inflation option cuts every vehicle's
+-- income by it, so it may be the engine factor our pay prediction hard-codes). Logged at the first update and whenever it
+-- changes; `expected` is the game's own multiplier for the earned rank, to compare with the stored one.
+local logCompany = function(state : GameScriptState<BookingState>, bookingState : BookingState)
+	-- Loaded here under pcall: a path that does not resolve must cost this log line only, never the game script (an
+	-- error in the game script module repeats on every update and froze the game at 4x).
+	local text = "unavailable"
+	local loaded, util = pcall(ug_require, "::/game_mechanics/company/company_progression_util.tl")
+	if loaded and util ~= nil then
+		local companyProgressionUtil = util as CompanyProgressionUtil
+		local ok, company = pcall(companyProgressionUtil.getCompanyProgressionState, api.engine.util.getPlayer())
+		if ok and company ~= nil then
+			local okExpected, expected = pcall(companyProgressionUtil.getTicketPriceMultiplierForLevel, company.potentialLevel)
+			text = "level=" .. tostring(company.level) .. " potentialLevel=" .. tostring(company.potentialLevel)
+				.. " experience=" .. tostring(company.experience) .. " ticketPriceMultiplier=" .. tostring(company.ticketPriceMultiplier)
+				.. " expected=" .. tostring(okExpected and expected or "err")
+		end
+	else
+		text = "unavailable: " .. tostring(util)
+	end
+	if text == bookingState.lastCompany then return end
+	bookingState.lastCompany = text
+	state:set(bookingState)
+	local gameTime : Engine.Component.GameTime = api.engine.getComponent(api.engine.util.getWorld(), api.type.ComponentType.GAME_TIME)
+	log.message("BEST_BEFORE company t=" .. tostring(gameTime.gameTime) .. " " .. text)
+end
+
+-- The factor between a unit's pay from the income function's formula (price x distance) and what the game pays:
+-- difficultyFactor (the Cargo Income option, passed to the income function as a captured parameter) times the company's
+-- ticket price multiplier (the Inflation option, steps down with the earned rank; absent at rank 1 or Inflation None).
+-- Both are read at run time under pcall and fall back to difficulty 1 and the old fixed engineFactor, so a failed read
+-- costs accuracy and never the game script. `text` names each source for the log.
+local record PayScale
+	scale : number
+	text : string
+end
+
+local readPayScale = function() : PayScale
+	local difficulty : number = nil
+	local okConfig, params = pcall(function() : any
+		return api.res.getBaseConfig().economy.cargoIncomeScript.params
+	end)
+	if okConfig and params ~= nil then difficulty = (params as {string:number}).difficultyFactor end
+
+	local multiplier : number = nil
+	local loaded, util = pcall(ug_require, "::/game_mechanics/company/company_progression_util.tl")
+	if loaded and util ~= nil then
+		local ok, company = pcall((util as CompanyProgressionUtil).getCompanyProgressionState, api.engine.util.getPlayer())
+		if ok and company ~= nil then
+			multiplier = company.ticketPriceMultiplier or 1.0
+		end
+	end
+
+	local text = "difficulty=" .. (difficulty ~= nil and tostring(difficulty) or "unread:1")
+		.. " multiplier=" .. (multiplier ~= nil and tostring(multiplier) or "unread:" .. tostring(engineFactor))
+	return { scale = (difficulty or 1.0) * (multiplier or engineFactor), text = text }
 end
 
 local track = function(bookingState : BookingState, entity : Engine.Entity)
@@ -158,11 +278,21 @@ local worldPosition = function(entity : Engine.Entity) : {number}
 	return { m[13], m[14], m[15] }
 end
 
-local payRate = function(freshness : number, spoiled : boolean) : number
-	if spoiled then return payWhenSpoiled end
-	if freshness >= fullPayAbove then return 1.0 end
-	local f = math.max(freshness, 0.0)
-	return payAtZero + (1.0 - payAtZero) * f / fullPayAbove
+-- The share of a unit's pay the curve adds (positive) or takes away (negative). `good` is the game's own quality flag.
+local curveAdjustment = function(freshness : number, good : boolean) : number
+	if not good then return settings.penaltyPercent end
+	if freshness < 0 then -- flagged good by the game although its age says it is past the limit: stored cargo
+		if settings.stored == "neutral" then return 0.0 end
+		if settings.stored == "zero" then freshness = 0.0 end
+	end
+	if freshness >= settings.bonusDownToFreshness then return settings.bonusPercent end
+	if freshness >= settings.breakevenFreshness then
+		return settings.bonusPercent * (freshness - settings.breakevenFreshness) / (settings.bonusDownToFreshness - settings.breakevenFreshness)
+	end
+	if freshness >= settings.penaltyBelowFreshness then
+		return settings.penaltyPercent * (settings.breakevenFreshness - freshness) / (settings.breakevenFreshness - settings.penaltyBelowFreshness)
+	end
+	return settings.penaltyPercent
 end
 
 -- "key=value,key=value" with the keys sorted, for the one-time cargo type log line.
@@ -184,6 +314,7 @@ local probe : GameScript<BookingState> = {
 		local bookingState = state:get()
 		updateCalls = updateCalls + 1
 		logJournalSnapshot(state, bookingState)
+		logCompany(state, bookingState)
 		if bookingState.pending == nil or #bookingState.pending == 0 then return end
 		local queue = bookingState.pending
 		bookingState.pending = {}
@@ -197,7 +328,7 @@ local probe : GameScript<BookingState> = {
 			entry.category.type = api.type.JournalEntry.Type.INCOME
 			entry.category.carrier = journalCarrier(a.carrier)
 			local cmd = api.cmd.makeJournalBookAssetCmd(player, entry, api.type.Vec3f.new(a.x, a.y, a.z))
-			log.message("BEST_BEFORE sending deduction batch=" .. bookingState.batches .. " ledger=player"
+			log.message("BEST_BEFORE sending adjustment batch=" .. bookingState.batches .. " ledger=player"
 				.. " entity=" .. tostring(player) .. " carrier=" .. a.carrier
 				.. " amount=" .. tostring(a.amount) .. " units=" .. tostring(a.units))
 			api.cmd.sendCommand(cmd)
@@ -214,6 +345,13 @@ local probe : GameScript<BookingState> = {
 		local gameTimeComponent : Engine.Component.GameTime
 			= api.engine.getComponent(api.engine.util.getWorld(), api.type.ComponentType.GAME_TIME)
 		local now = gameTimeComponent.gameTime
+
+		local pay = readPayScale()
+		local payText = pay.text .. " scale=" .. tostring(pay.scale)
+		if payText ~= bookingState.lastPayScale then
+			bookingState.lastPayScale = payText
+			log.message("BEST_BEFORE payScale t=" .. tostring(now) .. " " .. payText)
+		end
 
 		local entities = (param as table).entities as {{Engine.Entity, {Engine.Entity, integer}}}
 		for _, unit in ipairs(entities) do
@@ -269,33 +407,40 @@ local probe : GameScript<BookingState> = {
 				local limitMs = cargoType.timeToDeliverInSeconds * 1000.0 * deliverTimeMultiplier
 				local ageMs = now - simCargo.pickupTime
 				local freshness = limitMs > 0 and (1.0 - ageMs / limitMs) or 1.0
-				local rate = payRate(freshness, not good)
+				-- A unit that waited in a specialized warehouse has its timer paused; deliveryExtensionDuration holds that
+				-- time, so the corrected age is the age minus it (checked against the game's good flag on logged runs).
+				local correctedFreshness = limitMs > 0 and (1.0 - (ageMs - simCargo.deliveryExtensionDuration) / limitMs) or 1.0
+				local adjustment = curveAdjustment(settings.stored == "corrected" and correctedFreshness or freshness, good)
+				local rate = 1.0 + adjustment
 				local src = worldPosition(simCargo.sourceEntity)
 				local dst = worldPosition(unit[2][1])
 				local predicted = "n/a"
 				local deduction = 0
+				local bonus = 0
 				local queued = ""
 				if src ~= nil and dst ~= nil and priceFactor ~= nil then
 					local dx, dy, dz = dst[1] - src[1], dst[2] - src[2], dst[3] - src[3]
 					local d = math.sqrt(dx * dx + dy * dy + dz * dz) + 8. * math.max(dz, 0.)
-					local income = priceFactor * d * engineFactor
+					local income = priceFactor * d * pay.scale
 					predicted = tostring(income)
-					local exact = (1.0 - rate) * income
-					if exact >= 1 then
+					local exact = math.max(adjustment * income, -maxDeductionShare * income)
+					if math.abs(exact) >= 1 then
 						bookingState.units = bookingState.units + 1
-						deduction = math.floor(exact + 0.5)
+						local amount = exact < 0 and -math.floor(-exact + 0.5) or math.floor(exact + 0.5)
+						if amount < 0 then deduction = -amount else bonus = amount end
 						bookingState.pending[#bookingState.pending + 1] = {
 							number = bookingState.units,
-							amount = -deduction,
+							amount = amount,
 							carrier = carrier,
 							x = dst[1], y = dst[2], z = dst[3],
 						}
-						queued = " DEDUCT#" .. bookingState.units
+						queued = (amount < 0 and " DEDUCT#" or " BONUS#") .. bookingState.units
 					end
 				end
 				correction = "ageMs=" .. tostring(ageMs) .. " limitMs=" .. tostring(limitMs)
-					.. " freshness=" .. tostring(freshness) .. " rate=" .. tostring(rate)
-					.. " predictedIncome=" .. predicted .. " deduction=" .. tostring(deduction) .. queued
+					.. " freshness=" .. tostring(freshness) .. " corrected=" .. tostring(correctedFreshness) .. " rate=" .. tostring(rate)
+					.. " payScale=" .. tostring(pay.scale) .. " predictedIncome=" .. predicted .. " deduction=" .. tostring(deduction)
+					.. " bonus=" .. tostring(bonus) .. queued
 			end
 			log.message("BEST_BEFORE arrival unit=" .. tostring(cargoEntity)
 				.. " target=" .. tostring(unit[2][1])

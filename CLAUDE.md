@@ -18,6 +18,11 @@ tl check best_before_1/content/probe.script.tl
 
 # Check a test run from the game log alone
 python3 tools/verify_run.py local/logs/stdout-<date>-<time>.txt
+
+# Cut a run out of a raw log into small files (local/runs/<date>-<time>-<slug>.arrivals.csv, .journal.csv, .json, plus index.csv) for
+# replay_curve.py. It rebuilds the pay scale from the save the run loaded, so run it while that save still exists.
+python3 tools/extract_run.py local/logs/stdout-<date>-<time>.txt [--note "no-mod control"]
+python3 tools/replay_curve.py local/runs/<name>.arrivals.csv [more]   # pool the runs marked primary in index.csv
 ```
 
 Run `tl check` on each script you touch; there is no single command for both.
@@ -26,7 +31,7 @@ Run `tl check` on each script you touch; there is no single command for both.
 
 - `best_before_1/` is symlinked into the game's `staging_area/` folder, so edits show up without copying, but the game must be restarted to reload scripts.
 - The game log is `crash_dump/stdout.txt` beside that folder and is overwritten at each launch. Copy it to `local/logs/` (gitignored) before reading or verifying it. It is written live, so a run can be read while the game is still running. Log timestamps are UTC.
-- Every line the mod writes starts with `BEST_BEFORE`. Keep that prefix and keep `tools/verify_run.py` in step when changing the log format: it parses `arrival`, `sending deduction` and `journal` lines by their `key=value` fields.
+- Every line the mod writes starts with `BEST_BEFORE`. Keep that prefix and keep `tools/verify_run.py` and `tools/extract_run.py` in step when changing the log format: they parse `arrival`, `sending adjustment` and `journal` lines by their `key=value` fields. `finance` lines (the Finances tab's investment and other rows, logged at the first snapshot and whenever the balance moves by something other than income) are for reading by hand, as are `company` lines (the company's rank and ticket price multiplier, logged at the first update and when they change).
 
 ## Architecture
 
@@ -46,6 +51,7 @@ Game script constraints that shape this code (details in findings):
 
 ## Conventions
 
-- The probe's pay curve (full pay above 50% freshness, 30% at 0%, 0% when spoiled) and the 0.96426 engine factor are test values at the top of `probe.script.tl`, not final settings. The planned five-setting curve is in the README.
+- The pay curve's five settings (plus the stored-cargo mode) live in `best_before_1/content/settings.tl`, loaded with `ug_require "best_before_1::/settings.tl"` (the `::/` shorthand does not resolve in the mod scripts) by the probe and by `mod.script.tl` (which logs them once per game start as `BEST_BEFORE settings`); `tools/replay_curve.py` reads the same file for its defaults. The 0.96426 engine factor is a test value at the top of `probe.script.tl`.
 - Keep the README short and put detail in `docs/`. Links to the sibling [tf3-save-format](https://github.com/WuphonsReach/tf3-save-format) repo are pinned to one commit (see [docs/README.md](docs/README.md)), not to its main branch.
+- Lay out every doc and README for a reader who wants the answer first: an "In short" section at the top (key drivers, how we think it works, how sure we are, what is unknown), then the detail, and test results, logs and run tables at the bottom. Update "In short" when a new run changes a conclusion. Applies to the notes you create or touch.
 - The mod ships no game files. `all_def.tl` and `tlconfig.example.lua` are for type checking only and point at the game's own type definitions.
