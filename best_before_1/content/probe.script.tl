@@ -231,6 +231,7 @@ local logCompany = function(state : GameScriptState<BookingState>, bookingState 
 	-- Loaded here under pcall: a path that does not resolve must cost this log line only, never the game script (an
 	-- error in the game script module repeats on every update and froze the game at 4x).
 	local text = "unavailable"
+	local key = text -- what the line is compared on: experience changes all the time and would log a line per update
 	local loaded, util = pcall(ug_require, "::/game_mechanics/company/company_progression_util.tl")
 	if loaded and util ~= nil then
 		local companyProgressionUtil = util as CompanyProgressionUtil
@@ -240,12 +241,15 @@ local logCompany = function(state : GameScriptState<BookingState>, bookingState 
 			text = "level=" .. tostring(company.level) .. " potentialLevel=" .. tostring(company.potentialLevel)
 				.. " experience=" .. tostring(company.experience) .. " ticketPriceMultiplier=" .. tostring(company.ticketPriceMultiplier)
 				.. " expected=" .. tostring(okExpected and expected or "err")
+			key = tostring(company.level) .. "/" .. tostring(company.potentialLevel) .. "/" .. tostring(company.ticketPriceMultiplier)
+				.. "/" .. tostring(okExpected and expected or "err")
 		end
 	else
 		text = "unavailable: " .. tostring(util)
+		key = text
 	end
-	if text == bookingState.lastCompany then return end
-	bookingState.lastCompany = text
+	if key == bookingState.lastCompany then return end
+	bookingState.lastCompany = key
 	state:set(bookingState)
 	local gameTime : Engine.Component.GameTime = api.engine.getComponent(api.engine.util.getWorld(), api.type.ComponentType.GAME_TIME)
 	log.message("BEST_BEFORE company t=" .. tostring(gameTime.gameTime) .. " " .. text)
