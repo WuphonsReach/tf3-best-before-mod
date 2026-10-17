@@ -32,6 +32,16 @@ end
 mod.preRunFn = function(_captureParams : {string:any}, _configDict : {{string, string}}, _allModParams : {string : {string : integer}}, baseConfig : BaseConfig)
 	baseConfig.economy.cargoIncomeScript.fileName = "best_before_1::/mod.script@calcCargoIncomeFn"
 	log.message("BEST_BEFORE preRunFn: cargoIncomeScript replaced")
+	-- Probe for in-game settings: what preRunFn receives for the params in mod.json.
+	local okParams, paramsText = pcall(function() : string
+		local ids : {string} = {}
+		for id, _ in pairs(_allModParams) do ids[#ids + 1] = id end
+		table.sort(ids)
+		local parts : {string} = {}
+		for _, id in ipairs(ids) do parts[#parts + 1] = id .. "=" .. describe(_allModParams[id]) end
+		return table.concat(parts, " ")
+	end)
+	log.message("BEST_BEFORE modParams source=preRunFn " .. (okParams and paramsText or ("error: " .. tostring(paramsText))))
 	local names : {string} = {}
 	for name, _ in pairs(settings) do names[#names + 1] = name end
 	table.sort(names)

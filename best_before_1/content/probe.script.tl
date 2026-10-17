@@ -96,6 +96,7 @@ end
 local record BookingState
 	curve : Curve -- the pay curve this save uses, set once from settings.tl
 	lastCurveNote : string
+	lastModParams : string
 	units : integer -- cargo units deducted so far
 	batches : integer
 	pending : {PendingDeduction}
@@ -397,6 +398,31 @@ local describeParams = function(params : {string : number}) : string
 	return table.concat(parts, ",")
 end
 
+-- Probe for in-game settings: what the game hands a game script as the mod params (the New Game screen's choices for the
+-- params in mod.json). Logged at the first update and whenever the text changes. Under pcall, like logCompany: log-only code
+-- must never cost the game script.
+local describeAny : function(value : any) : string
+describeAny = function(value : any) : string
+	if type(value) ~= "table" then return type(value) .. ":" .. tostring(value) end
+	local keys : {any} = {}
+	for key, _ in pairs(value as {any:any}) do keys[#keys + 1] = key end
+	table.sort(keys, function(a : any, b : any) : boolean return tostring(a) < tostring(b) end)
+	local parts : {string} = {}
+	for _, key in ipairs(keys) do parts[#parts + 1] = tostring(key) .. "=" .. describeAny((value as {any:any})[key]) end
+	return "{" .. table.concat(parts, ",") .. "}"
+end
+
+local logModParams = function(state : GameScriptState<BookingState>, bookingState : BookingState)
+	local ok, text = pcall(function() : string
+		return describeAny(api.engine.config.getModParams())
+	end)
+	local line = ok and text or ("error: " .. tostring(text))
+	if line == bookingState.lastModParams then return end
+	bookingState.lastModParams = line
+	state:set(bookingState)
+	log.message("BEST_BEFORE modParams source=getModParams " .. line)
+end
+
 -- One totals line per game month with units arrived since the previous one; quiet months log nothing.
 local logSummary = function(state : GameScriptState<BookingState>, bookingState : BookingState)
 	local gameTime : Engine.Component.GameTime = api.engine.getComponent(api.engine.util.getWorld(), api.type.ComponentType.GAME_TIME)
@@ -429,6 +455,7 @@ local probe : GameScript<BookingState> = {
 			state:subscribeToEvent("OnToArriveAtDestination")
 		end
 		local bookingState = state:get()
+		logModParams(state, bookingState)
 		activeCurve(state, bookingState) -- stamps the curve into a save that has none yet, before any unit arrives
 		updateCalls = updateCalls + 1
 		if logUnits then logJournalSnapshot(state, bookingState) end
