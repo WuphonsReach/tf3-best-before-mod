@@ -25,6 +25,7 @@ The probe in `best_before_1/content/probe.script.tl` computes the adjustment for
 
 ## Documentation
 
+- [docs/changing-settings.md](docs/changing-settings.md): how to change the curve settings on a new game and on a saved game, with screenshots.
 - [docs/how-it-works.md](docs/how-it-works.md): how the mod turns freshness into a booking and where it can over-penalize.
 - [docs/findings.md](docs/findings.md): what we have verified in the game and the results of the test runs.
 - [docs/future/](docs/future/): ideas set aside, things that need support from the game, and open questions. The index is [docs/README.md](docs/README.md).

@@ -6,6 +6,7 @@ Start with [how-it-works.md](how-it-works.md) for what the mod does and where it
 
 | Note | Covers |
 |---|---|
+| [changing-settings.md](changing-settings.md) | How a player changes the mod's settings on a new game and on a saved game, with screenshots, and what each setting does |
 | [how-it-works.md](how-it-works.md) | How the mod turns freshness into a booking, and where it can over-penalize or miss |
 | [findings.md](findings.md) | What we have verified in the game: how pay works, cargo units and freshness, what a mod can and cannot do, test results |
 | [future/discarded.md](future/discarded.md) | Ideas we tried or weighed and set aside, why, and what would bring them back |
