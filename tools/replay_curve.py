@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Replay logged cargo arrivals through a freshness pay curve and print what it would add or take away.
 
-Usage: tools/replay_curve.py [options] local/logs/stdout-....txt [more logs]
+Usage: tools/replay_curve.py [options] local/logs/stdout-....txt | local/runs/<name>.arrivals.csv [more files]
 
-Reads the `BEST_BEFORE arrival` lines after the last load in each log (the same slice tools/verify_run.py reads) and
+Reads the `BEST_BEFORE arrival` lines after the last load in each log (the same slice tools/verify_run.py reads), or the
+`.arrivals.csv` that tools/extract_run.py cut from one (the same rows, far smaller and faster to read), and
 applies the five-setting curve to every unit, so the defaults can be tuned without the game:
 
   bonus-percent            pay bonus at 100% freshness, as a fraction of the unit's pay (0.5 = +50%)
@@ -34,6 +35,7 @@ test). Examples:
   tools/replay_curve.py --sweep breakeven-freshness=0.2,0.3,0.4,0.5 local/logs/stdout-20261016-0651.txt
 """
 import argparse
+import csv
 import os
 import re
 import sys
@@ -64,14 +66,22 @@ def kv(text):
     return dict(re.findall(r'(\w+)=("[^"]*"|\S+)', text))
 
 
-def read_arrivals(path):
+def arrival_fields(path):
+    """The key=value fields of every arrival: from an extracted `.arrivals.csv` (tools/extract_run.py) or from a raw log."""
+    if path.endswith(".csv"):
+        for row in csv.DictReader(open(path, newline="")):
+            yield {k: v for k, v in row.items() if v != ""}
+        return
     lines = open(path, errors="replace").read().splitlines()
     start = max((i for i, ln in enumerate(lines) if "BEST_BEFORE preRunFn" in ln), default=0)
-    out = []
     for ln in lines[start:]:
-        if "BEST_BEFORE arrival " not in ln:
-            continue
-        d = kv(ln.split("BEST_BEFORE arrival ", 1)[1])
+        if "BEST_BEFORE arrival " in ln:
+            yield kv(ln.split("BEST_BEFORE arrival ", 1)[1])
+
+
+def read_arrivals(path):
+    out = []
+    for d in arrival_fields(path):
         pred = d.get("predictedIncome", "n/a")
         if pred == "n/a" or "freshness" not in d:
             continue

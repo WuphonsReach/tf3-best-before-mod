@@ -18,6 +18,9 @@ tl check best_before_1/content/probe.script.tl
 
 # Check a test run from the game log alone
 python3 tools/verify_run.py local/logs/stdout-<date>-<time>.txt
+
+# Cut a run out of a raw log into small files (local/runs/<date>-<time>-<slug>.arrivals.csv, .journal.csv, .json) for replay_curve.py
+python3 tools/extract_run.py local/logs/stdout-<date>-<time>.txt [--note "no-mod control"]
 ```
 
 Run `tl check` on each script you touch; there is no single command for both.
@@ -26,7 +29,7 @@ Run `tl check` on each script you touch; there is no single command for both.
 
 - `best_before_1/` is symlinked into the game's `staging_area/` folder, so edits show up without copying, but the game must be restarted to reload scripts.
 - The game log is `crash_dump/stdout.txt` beside that folder and is overwritten at each launch. Copy it to `local/logs/` (gitignored) before reading or verifying it. It is written live, so a run can be read while the game is still running. Log timestamps are UTC.
-- Every line the mod writes starts with `BEST_BEFORE`. Keep that prefix and keep `tools/verify_run.py` in step when changing the log format: it parses `arrival`, `sending adjustment` and `journal` lines by their `key=value` fields. `finance` lines (the Finances tab's investment and other rows, logged at the first snapshot and whenever the balance moves by something other than income) are for reading by hand, as are `company` lines (the company's rank and ticket price multiplier, logged at the first update and when they change).
+- Every line the mod writes starts with `BEST_BEFORE`. Keep that prefix and keep `tools/verify_run.py` and `tools/extract_run.py` in step when changing the log format: they parse `arrival`, `sending adjustment` and `journal` lines by their `key=value` fields. `finance` lines (the Finances tab's investment and other rows, logged at the first snapshot and whenever the balance moves by something other than income) are for reading by hand, as are `company` lines (the company's rank and ticket price multiplier, logged at the first update and when they change).
 
 ## Architecture
 

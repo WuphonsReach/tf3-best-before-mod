@@ -30,6 +30,8 @@ The probe in `best_before_1/content/probe.script.tl` computes the freshness dedu
 
 `tools/verify_run.py` checks a run from the game log alone (no error lines, no gaps, units sent equal units deducted, bookings visible in the player's balance). Run it on a copy of `crash_dump/stdout.txt`.
 
-`tools/replay_curve.py` applies the five-setting curve to the arrivals in one or more logs and prints the net change in pay (`--sweep`, `--solve-bonus` and `--tables` help tune the defaults without the game).
+`tools/extract_run.py` cuts a run's arrivals, balance snapshots and facts (save, settings, totals) out of a raw log into small CSV and JSON files under `local/runs/`.
+
+`tools/replay_curve.py` applies the five-setting curve to the arrivals in one or more logs or extracted `.arrivals.csv` files and prints the net change in pay (`--sweep`, `--solve-bonus` and `--tables` help tune the defaults without the game).
 
 Next: test the curve in the game (the bonus has never been booked), in-game settings through `mod.json` instead of the file, and a decision on freshness for cargo that waited in a warehouse (the `stored` setting). The plan and the open questions are in [docs/future/](docs/future/).
