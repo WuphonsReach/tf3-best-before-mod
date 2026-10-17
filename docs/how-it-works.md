@@ -6,7 +6,8 @@
 - **What drives the result.** Freshness (how much of the unit's delivery time limit was used), the five curve settings in `settings.tl`, and the mod's prediction of what the game paid for that unit (price x distance x the Cargo Income setting x the company's ticket price multiplier).
 - **Where it can over-penalize.** Three places, all small or rare. The prediction is only good to about 1% per unit, so a full (-100%) deduction can take a hair more than the unit paid. A unit flagged spoiled by the game takes the full penalty whatever its age. Cargo that waited in a warehouse is judged on a corrected age, and if that correction were wrong it would over-penalize (the settings keep a `formula` mode to compare).
 - **Where it under-penalizes instead.** A unit whose source or target building cannot be found (sold or rebuilt in transit) gets no entry. Pay the game gives beyond the prediction is not adjusted.
-- **How sure we are.** The prediction matched the ledger at 1.001 (player level) on the rank 1, High Inflation flat save, and 0.99 to 1.00 on earlier saves, with individual vehicles between 0.92 and 1.21. Bonuses and deductions land in the account as booked. A -100% deduction has not been run in the game yet.
+- **How sure we are.** The prediction matched the ledger at 1.001 (player level) on the rank 1, High Inflation flat save, and 0.99 to 1.00 on earlier saves, with individual vehicles between 0.92 and 1.21. Bonuses and deductions land in the account as booked. A -100% deduction has been run in the game (QZZZ, 2,850 spoiled units, each deducted 99.99% to 100.01% of its predicted pay).
+- **Side effect to know.** With the default -100% penalty a save that spoils a lot can drive the account negative (QZZZ went to -$7.9M in one run). The mod does not cap deductions at the balance; see [future/revisit-later.md](future/revisit-later.md).
 - **Unknown.** How the game splits the pay of a transferred unit along its chain (the mod books to the player, not to vehicles or lines), where the roughly 1.1x of income above the prediction in the control runs comes from, and whether the 1% prediction error is random or biased.
 
 ## The steps
@@ -35,6 +36,7 @@ Ranges the mod enforces: bonus 0 to +200% (a unit can pay 3x in the full bonus w
 
 ## Evidence
 
+- QZZZ, +30%/-100% curve: 7,921 units, 2,850 spoiled, each deducted its whole predicted pay (ratio 0.99988 to 1.00009), none beyond rounding; the player ratio is 1.575 there because that save has income the prediction does not cover, so it says nothing about the margin.
 - Flat large save, rank 1, Inflation High, +50%/-95% curve: 1,572 units, all sent, derived/predicted pay 1.001 at player level (1.441 without the deductions), 99% of booked entries landed as exact steps of the balance.
 - Earlier saves (rank 3 to 13): 0.99 to 1.00 once the mod read the Cargo Income setting and the ticket price multiplier at run time, see [findings.md](findings.md).
 - Curve replays across the saved runs: [future/revisit-later.md](future/revisit-later.md).
