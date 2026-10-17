@@ -15,7 +15,7 @@ Each item says what would settle it.
 - **Why player income exceeds the prediction on some saves** (1.145 on the small save without the mod, 1.575 on QZZZ; the two flat saves match at 1.001). Passenger income is not logged, so a run that logs it would show whether that is the gap.
 
 ## Freshness
-- **Stored cargo.** The `stored = "corrected"` setting takes `deliveryExtensionDuration` off a unit's age, which removes every disagreement with the game's good flag on the logged runs (see [findings](../findings.md)). Open: the exact spoil rule for paused cargo (spoiled units start at about 0.845 of the limit on the corrected age, not at 1.0), and runs of several game years to see how much stored cargo there is.
+- **Stored cargo.** The `corrected` mode (the only one offered, see [stored-cargo-modes.md](stored-cargo-modes.md)) takes `deliveryExtensionDuration` off a unit's age, which removes every disagreement with the game's good flag on the logged runs (see [findings](../findings.md)). Open: the exact spoil rule for paused cargo (spoiled units start at about 0.845 of the limit on the corrected age, not at 1.0), and runs of several game years to see how much stored cargo there is.
 - **Limits per cargo.** Eleven cargo types have been seen with limits from 1,687,500 ms to 6,750,000 ms; the 1.5 x delivery time rule is confirmed against the game's flag for fish and vegetables only. Check that it holds for the other types, ideally on a run without warehouses.
 
 ## The curve and its defaults
@@ -31,5 +31,6 @@ Each item says what would settle it.
 - **Still unknown.** What the game does with a negative account over a longer time (loans, bankruptcy, vehicle sales). Only worth a longer run or a read of the game's bankruptcy rules if it turns out to matter for players.
 
 ## Housekeeping
+- **The CPU cost of the log levels** is small. `full` against `off`, same save and same game dates (Mar 1937 to Jul 1940, 4x, about 6 minutes each, `tools/cpu_sample.py`): simulation-thread CPU per game month 23.7 against 23.1 s early in the stretch (+2.6%) and 32.6 against 32.1 s after Jan 1940 (+1.7%); game speed the same (7.5 months a minute, then 3.6 after Jan 1940 in both, so that slowdown is the save, not the log). Run-to-run noise looks like about 7%. Not yet tried: a save with far more deliveries (the test saw about 270 delivered units per game month, the 61 MB logs came from busier saves), and `summary` and `curve` (expected between the two).
 - **The income-function logging stub** in `mod.script.tl` replaces `cargoIncomeScript`, which only one mod can do. Keep it while the logging is useful; remove it before a release.
 - **The landing check in the verifier** is a rate of exact steps (about 0.6 to 0.96) because deductions can share a step with pay. A controlled save with one flow would allow an exact check.

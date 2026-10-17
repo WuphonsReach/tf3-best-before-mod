@@ -1,4 +1,9 @@
--- Freshness curve settings. Edit the numbers, restart the game and load a save to test them.
+-- Freshness curve defaults. The curve is set in game: New Game (or Load Game) > Mods > the mod's gear > Settings, and the game keeps
+-- those values in the save, and the game gives a save that lacks them the defaults from mod.json. So the curve numbers here are
+-- only the last resort for when the game hands the mod no settings at all, and the numbers tools/replay_curve.py starts from;
+-- keep them equal to the defaults in mod.json. Editing them does not change a normal game. The log line BEST_BEFORE
+-- curveSettings says which source was used (params or settings.tl); the BEST_BEFORE settings line from mod.script.tl runs one
+-- load behind, so trust curveSettings. logLevel is not an in-game setting and is read from this file on each load, no restart needed.
 -- tools/replay_curve.py reads the same numbers (keep one "name = value," per line) to show the effect on logged runs.
 --
 -- Pay changes with the unit's freshness (1 = just picked up, 0 = at the delivery limit, negative = past it):
@@ -13,15 +18,19 @@
 -- A deduction never takes more than 100% of a unit's predicted pay. Set bonusPercent = 0 for deductions only,
 -- penaltyPercent = 0 for bonuses only.
 --
--- stored: what to do with cargo that waited in a warehouse. A specialized warehouse pauses a unit's spoil timer, so its
--- age overstates how old it is: "corrected" takes the paused time off the age (deliveryExtensionDuration), "formula"
--- uses the plain age, and for a unit the game flags good but whose plain age is past the limit, "zero" counts it as 0%
--- fresh and "neutral" leaves its pay alone (both use the plain age for every other unit).
+-- logLevel: how much the mod writes to the game log (every line starts with BEST_BEFORE). Any other value counts as "summary".
+--   "off"      the start-up lines only (the settings in use, warnings about settings the mod clamps)
+--   "summary"  plus a totals line about once a game month (units delivered, pay taken away, bonus paid), the company's rank and
+--              pay scale when they change, and the first sighting of each cargo type
+--   "curve"    plus a line for every delivered unit with what the curve replay needs (age, limit, predicted pay, adjustment),
+--              every adjustment sent and every balance change; no vehicle or line names, chains or per-vehicle ledgers
+--   "full"     plus those names, chains and ledgers, for studying how the pay splits along a chain; the biggest log
+--              (tens of MB in a long session) and the slowest. tools/verify_run.py and tools/extract_run.py read "curve" and "full".
 return {
+	logLevel = "summary",
 	bonusPercent = 0.2,
 	bonusDownToFreshness = 0.4,
 	breakevenFreshness = 0.2,
 	penaltyBelowFreshness = 0.0,
 	penaltyPercent = -1.0,
-	stored = "corrected",
 }
