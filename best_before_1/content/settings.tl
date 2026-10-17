@@ -18,7 +18,7 @@
 -- uses the plain age, and for a unit the game flags good but whose plain age is past the limit, "zero" counts it as 0%
 -- fresh and "neutral" leaves its pay alone (both use the plain age for every other unit).
 return {
-	bonusPercent = 0.3,
+	bonusPercent = 0.2,
 	bonusDownToFreshness = 0.4,
 	breakevenFreshness = 0.2,
 	penaltyBelowFreshness = 0.0,
