@@ -9,7 +9,8 @@ the supply chain by a formula we do not know). The run passes when
   - the units adjusted (deducted or given a bonus) in the arrival lines equal the units in the "sending adjustment" lines (nothing lost in the
     per-update aggregation, apart from the last few still queued), and
   - the booked amounts show up in the player's balance: most entries appear as an exact step of playerBalance or
-    playerIncomeTotal in one of the next four snapshots (the rest share a step with pay, so the rate stays below 100%).
+    playerIncomeTotal in one of the next four snapshots (the rest share a step with pay, so the rate stays below 100%). On a busy
+    save the rate falls further, so it also passes when the exact hits outnumber those of the same amounts shifted by one 50 to 1.
 Vehicle and line ledgers are reported for information only: pay for a transferred unit is split along its chain, so a
 first-leg ledger does not receive the whole predicted pay.
 """
@@ -21,6 +22,8 @@ MARGIN = 10000          # clock units: pay of units that arrived this close to t
 #                         (measured: pay shows in the next snapshot, at most about 5,200 after the arrival)
 BATCH = 60000           # running costs are booked every 60,000 clock units
 MIN_LANDED = 0.4        # share of the booked entries that must show up as an exact step (about 0.6 to 0.96 seen)
+MIN_BUSY_HITS = 100     # a busy save passes on this many exact hits when the shifted-amount control hits BUSY_RATIO times less
+BUSY_RATIO = 50
 MAX_UNSENT = 5          # units that may still be queued when the log ends
 
 
@@ -31,9 +34,11 @@ def kv(text):
 def main(path):
     lines = open(path, errors="replace").read().splitlines()
     start = max((i for i, ln in enumerate(lines) if "BEST_BEFORE preRunFn" in ln), default=0)
-    level = next((m.group(1) for ln in lines[start:] if (m := re.search(r"BEST_BEFORE settings .*\blogLevel=(\w+)", ln))), None)
-    if level is not None and level not in ("curve", "full"):
-        sys.exit(f"{path}: logLevel={level}; this check reads the per-unit lines, so set logLevel = \"curve\" or \"full\" in settings.tl and rerun")
+    # The level is judged from the log itself: the BEST_BEFORE settings line comes from mod.script.tl and runs one load behind the
+    # level the probe used, while the probe writes a line per unit only at "curve" and "full".
+    if not any("BEST_BEFORE arrival " in ln for ln in lines[start:]):
+        sys.exit(f"{path}: no per-unit arrival lines after the last load. This check reads them, so set logLevel = \"curve\" or "
+                 f"\"full\" in settings.tl, load the save (no restart needed) and run again")
     arrivals, sends, snaps, errors = [], [], [], []
     for i, ln in enumerate(lines[start:], start):
         if " - ERROR " in ln or "Error message" in ln:
@@ -148,32 +153,44 @@ def main(path):
           f"{sent_units} sent to the player")
     ok = ok and unsent_ok
 
-    # Did each entry land exactly, at once? (it can share a step with pay, so this is only a rate)
-    landed, checked = 0, 0
-    for s in sends:
-        if s["ledger"] != "player":
-            continue
-        later = [x for x in snaps if x["i"] > s["i"]][:4]
-        prevs = [x for x in snaps if x["i"] < s["i"]]
-        if not later or not prevs:
-            continue
-        checked += 1
-        for field in ("playerBalance", "playerIncomeTotal"):
-            before = prevs[-1]["bal"].get(field)
-            hit = False
-            for x in later:
-                value = x["bal"].get(field)
-                if before is not None and value is not None and value - before == s["amount"]:
-                    hit = True
+    # Did each entry land exactly, at once? An entry can share a step with pay, so this is only a rate, and on a busy save (many
+    # arrivals per snapshot) it falls well below the quiet-save rate. A control tells the two apart: the same count with every
+    # amount moved by one currency unit can only hit by chance, so a busy save passes when the real amounts hit many times
+    # more often than the shifted ones (and at least MIN_BUSY_HITS times).
+    def count_landed(shift):
+        landed, checked = 0, 0
+        for s in sends:
+            if s["ledger"] != "player":
+                continue
+            later = [x for x in snaps if x["i"] > s["i"]][:4]
+            prevs = [x for x in snaps if x["i"] < s["i"]]
+            if not later or not prevs:
+                continue
+            checked += 1
+            for field in ("playerBalance", "playerIncomeTotal"):
+                before = prevs[-1]["bal"].get(field)
+                hit = False
+                for x in later:
+                    value = x["bal"].get(field)
+                    if before is not None and value is not None and value - before == s["amount"] + shift:
+                        hit = True
+                        break
+                    before = value
+                if hit:
+                    landed += 1
                     break
-                before = value
-            if hit:
-                landed += 1
-                break
+        return landed, checked
+
+    landed, checked = count_landed(0)
+    chance, _ = count_landed(1)
     rate = landed / checked if checked else 0.0
-    landed_ok = rate >= MIN_LANDED
+    quiet_ok = rate >= MIN_LANDED
+    busy_ok = landed >= MIN_BUSY_HITS and chance * BUSY_RATIO <= landed
+    landed_ok = quiet_ok or busy_ok
+    how = "" if quiet_ok else (f"; busy save, {landed} exact hits against {chance} for amounts shifted by one" if busy_ok
+                               else f"; control: {chance} hits for amounts shifted by one")
     print(("PASS" if landed_ok else "FAIL") + f"  landing: {landed} of {checked} player entries showed up as an exact "
-          f"step of the balance or income total in the next four snapshots ({rate:.0%}, needs {MIN_LANDED:.0%})")
+          f"step of the balance or income total in the next four snapshots ({rate:.0%}, needs {MIN_LANDED:.0%}{how})")
     ok = ok and landed_ok
     print("RESULT " + ("PASS" if ok else "FAIL"))
     return 0 if ok else 1

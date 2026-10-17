@@ -10,8 +10,9 @@ and writes, named after the log (`<date>-<time>` first, then the slug):
                         `predictedIncome` is as logged; `predictedCorrected` is the pay prediction at the right scale (see below) and is
                         what tools/replay_curve.py reads
   <name>.journal.csv    one row per `BEST_BEFORE journal` snapshot: seq, t, playerBalance, playerIncomeTotal (the per-entity ledgers are left out)
-  <name>.json           the run's facts: source log, save, the save's header settings, the mod's curve settings, the company line,
-                        counts and totals, and your note
+  <name>.json           the run's facts: source log, save, the save's header settings, the curve the run was played on (`curve`, read
+                        from the `loadParams` line, which tools/replay_curve.py replays on), the company line, counts and totals,
+                        and your note
 
 Pay scale. The engine pays (price x distance) x difficultyFactor (the Cargo Income option) x ticketPriceMultiplier (the Inflation
 option, set from the earned rank). The first probes logged a prediction with a fixed 0.96426 (Normal, rank 3) instead, which is
@@ -45,6 +46,8 @@ ARRIVAL_COLUMNS = ["now", "unit", "cargoType", "carrier", "legs", "source", "tar
 SAVE_FORMAT_TOOLS = os.path.join(HERE, "..", "..", "tf3-save-format", "tools")
 SAVE_DIR_GLOB = os.path.expanduser("~/snap/steam/common/.local/share/Steam/userdata")
 sys.path.insert(0, SAVE_FORMAT_TOOLS)
+sys.path.insert(0, HERE)
+from replay_curve import curve_from_lines               # the curve a run was played on, shared with the replay
 try:                                                    # the sibling repo's readers; without them runs are extracted uncorrected
     from save_header import read_header
     from tf3save import date_of_day, decompress, script_state
@@ -151,6 +154,7 @@ def extract(path, out_dir, slug, note, min_arrivals):
             save = m.group(1)                           # the last load is the one the slice follows
 
     arrivals, journal, company, settings, curve_notes, sends, errors = [], [], None, None, [], [0, 0], 0
+    load_params = None
     for ln in lines[start:]:
         if " - ERROR " in ln or "Error message" in ln:
             errors += 1
@@ -170,6 +174,8 @@ def extract(path, out_dir, slug, note, min_arrivals):
             company = kv(rest)
         elif kind == "settings" and settings is None:
             settings = kv(rest)
+        elif kind == "loadParams":                      # the in-game settings the load started with, as list positions
+            load_params = rest
         elif kind == "curveSettings":                   # the curve a save actually used; settings.tl may differ once the game hands the mod its in-game settings
             curve_notes.append(rest)
         elif kind == "sending":
@@ -207,13 +213,21 @@ def extract(path, out_dir, slug, note, min_arrivals):
             w.writeheader()
             w.writerows(rows)
 
+    curve, curve_source = curve_from_lines(lines[start:])
+    if curve_source == "loadParams" and curve_notes:    # the probe's own note of the curve in force should agree with it
+        noted = curve_from_lines([f"BEST_BEFORE curveSettings {curve_notes[-1]}"])[0]
+        if noted and any(abs(noted[k] - curve[k]) > 1e-9 for k in curve):
+            print(f"  warning: the last curveSettings line ({curve_notes[-1]}) differs from the loadParams curve {curve}")
+    if curve is None:
+        print("  note: no loadParams or curveSettings line, so the curve this run was played on is unknown (replay_curve.py uses settings.tl)")
     pred = sum(float(a["predictedIncome"]) for a in priced)
     corrected = sum(float(a["predictedCorrected"]) for a in priced)
     ded = sum(int(a["deduction"] or 0) for a in priced)
     bon = sum(int(a["bonus"] or 0) for a in priced)
     meta = {"name": stem, "sourceLog": os.path.basename(path), "loadedAtUtc": loaded_at, "lastLineAtUtc": last_at,
             "save": save, "saveContext": ctx, "scaleSource": "/".join(sorted(sources)),
-            "payScaleRebuilt": rebuilt, "modSettings": settings, "curveSettings": curve_notes, "company": company,
+            "payScaleRebuilt": rebuilt, "modSettings": settings, "loadParams": load_params, "curve": curve, "curveSource": curve_source,
+            "curveSettings": curve_notes, "company": company,
             "arrivals": len(arrivals), "pricedArrivals": len(priced), "journalSnapshots": len(journal),
             "adjustmentEntriesSent": sends[0], "unitsInSentEntries": sends[1], "errorLines": errors,
             "predictedIncomeTotal": round(pred), "predictedCorrectedTotal": round(corrected),

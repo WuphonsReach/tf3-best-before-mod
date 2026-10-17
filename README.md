@@ -19,7 +19,7 @@ The probe in `best_before_1/content/probe.script.tl` computes the adjustment for
 
 - `tools/verify_run.py` checks a run from the game log alone (no error lines, no gaps, units sent equal units adjusted, bookings visible in the player's balance). Run it on a copy of `crash_dump/stdout.txt` made at `logLevel` `curve` or `full`.
 - `tools/extract_run.py` cuts a run's arrivals, balance snapshots and facts (save, settings, totals) out of a raw log into small CSV and JSON files under `local/runs/`, and corrects the pay prediction to the save's Cargo Income setting and earned rank, so runs from different saves can be replayed together.
-- `tools/replay_curve.py` applies the five-setting curve to the arrivals in one or more logs or extracted `.arrivals.csv` files and prints the net change in pay (`--sweep`, `--solve-bonus` and `--tables` help tune the defaults without the game).
+- `tools/replay_curve.py` applies the five-setting curve to the arrivals in one or more logs or extracted `.arrivals.csv` files and prints the net change in pay, each run on the curve it was played on (`--use-defaults` replays on `settings.tl`'s numbers instead; `--sweep`, `--solve-bonus` and `--tables` help tune the defaults without the game).
 
 - `tools/cpu_sample.py` samples the game's simulation and main threads and the whole machine's CPU every few seconds while you play (two appended CSV files under `local/cpu/`), and reports CPU seconds per game month, to compare log levels (`sample` while the game runs for at least 5 minutes, then `report` with the game log).
 
