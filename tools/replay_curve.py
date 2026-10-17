@@ -4,7 +4,8 @@
 Usage: tools/replay_curve.py [options] local/logs/stdout-....txt | local/runs/<name>.arrivals.csv [more files]
 
 Reads the `BEST_BEFORE arrival` lines after the last load in each log (the same slice tools/verify_run.py reads), or the
-`.arrivals.csv` that tools/extract_run.py cut from one (the same rows, far smaller and faster to read), and
+`.arrivals.csv` that tools/extract_run.py cut from one (the same rows, far smaller and faster to read, and with the pay
+prediction corrected to the save's Cargo Income setting and earned rank: prefer these), and
 applies the five-setting curve to every unit, so the defaults can be tuned without the game:
 
   bonus-percent            pay bonus at 100% freshness, as a fraction of the unit's pay (0.5 = +50%)
@@ -82,7 +83,9 @@ def arrival_fields(path):
 def read_arrivals(path):
     out = []
     for d in arrival_fields(path):
-        pred = d.get("predictedIncome", "n/a")
+        # an extracted csv carries `predictedCorrected`, the pay prediction at the right scale (difficulty x rank multiplier);
+        # a raw log has only `predictedIncome`, which the probes before commit c976cfd computed with a fixed 0.96426
+        pred = d.get("predictedCorrected") or d.get("predictedIncome", "n/a")
         if pred == "n/a" or "freshness" not in d:
             continue
         fresh = float(d["freshness"])
@@ -95,7 +98,8 @@ def read_arrivals(path):
             corrected = fresh
         out.append({"pred": float(pred), "fresh": fresh, "corrected": corrected, "good": d.get("good") == "true",
                     "cargo": d.get("cargoType", "?"), "carrier": d.get("carrier", "?"),
-                    "logged": int(d.get("deduction", 0))})
+                    "logged": int(d.get("deduction", 0)),
+                    "pred_logged": float(d.get("predictedIncome", pred))})
     return out
 
 
@@ -164,7 +168,8 @@ def report(name, units, s, stored, tables):
     print(f"{name}: {len(units)} units, base pay {base:,.0f}, {spoiled} flagged spoiled, "
           f"{stored_units} flagged good at negative freshness")
     print(f"  curve: bonus {gain:+,.0f}, deduction {loss:+,.0f}, net {gain + loss:+,.0f} = {pct(gain + loss, base)} of base pay")
-    print(f"  (as logged by the probe that ran: deduction {-logged:+,.0f} = {pct(-logged, base)})")
+    print(f"  (as logged by the probe that ran: deduction {-logged:+,.0f} = {pct(-logged, sum(u['pred_logged'] for u in units))}"
+          f" of the pay it predicted)")
     if tables:
         table(units, s, stored, "carrier", "carrier")
         table(units, s, stored, "cargo", "cargo")

@@ -19,8 +19,10 @@ tl check best_before_1/content/probe.script.tl
 # Check a test run from the game log alone
 python3 tools/verify_run.py local/logs/stdout-<date>-<time>.txt
 
-# Cut a run out of a raw log into small files (local/runs/<date>-<time>-<slug>.arrivals.csv, .journal.csv, .json) for replay_curve.py
+# Cut a run out of a raw log into small files (local/runs/<date>-<time>-<slug>.arrivals.csv, .journal.csv, .json, plus index.csv) for
+# replay_curve.py. It rebuilds the pay scale from the save the run loaded, so run it while that save still exists.
 python3 tools/extract_run.py local/logs/stdout-<date>-<time>.txt [--note "no-mod control"]
+python3 tools/replay_curve.py local/runs/<name>.arrivals.csv [more]   # pool the runs marked primary in index.csv
 ```
 
 Run `tl check` on each script you touch; there is no single command for both.

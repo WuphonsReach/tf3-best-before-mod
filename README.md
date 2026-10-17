@@ -30,7 +30,7 @@ The probe in `best_before_1/content/probe.script.tl` computes the freshness dedu
 
 `tools/verify_run.py` checks a run from the game log alone (no error lines, no gaps, units sent equal units deducted, bookings visible in the player's balance). Run it on a copy of `crash_dump/stdout.txt`.
 
-`tools/extract_run.py` cuts a run's arrivals, balance snapshots and facts (save, settings, totals) out of a raw log into small CSV and JSON files under `local/runs/`.
+`tools/extract_run.py` cuts a run's arrivals, balance snapshots and facts (save, settings, totals) out of a raw log into small CSV and JSON files under `local/runs/`, and corrects the pay prediction to the save's Cargo Income setting and earned rank, so runs from different saves can be replayed together.
 
 `tools/replay_curve.py` applies the five-setting curve to the arrivals in one or more logs or extracted `.arrivals.csv` files and prints the net change in pay (`--sweep`, `--solve-bonus` and `--tables` help tune the defaults without the game).
 
