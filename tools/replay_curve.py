@@ -193,7 +193,8 @@ def main():
     data = [(p, read_arrivals(p)) for p in args.logs]
     data = [(p, u) for p, u in data if u]
     for p, _ in data:
-        if "ext=" not in open(p, errors="replace").read(2_000_000) and args.stored == "corrected":
+        marker = ",ext," if p.endswith(".csv") else "ext="           # a csv names its columns in the header line
+        if marker not in open(p, errors="replace").read(2_000_000) and args.stored == "corrected":
             print(f"note: {p} has no `ext` field (older probe), so `corrected` equals the plain age there", file=sys.stderr)
     if not data:
         sys.exit("no arrivals with a predicted income found")
