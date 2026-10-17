@@ -2,11 +2,13 @@
 
 Transport Fever 3 mod: cargo pay scales with freshness. Fresh cargo earns a bonus, slow or spoiled cargo earns a penalty. Adjustable curve.
 
+**Get it:** [Best Before: Cargo Freshness on mod.io](https://mod.io/g/transportfever3/m/best-before-cargo-freshness) (mod id 6459472). Subscribe there or in the game's Mod Hub (search for "Best Before"), then activate it under Mods in New Game or Load Game.
+
 ## In short
 
 - **What it does.** The game pays every cargo unit in full. For each arriving unit the mod works out a freshness adjustment (a bonus or a deduction) and books it as one income entry to the player's account. It logs everything with lines starting `BEST_BEFORE`.
-- **Status: early work.** `best_before_1/` is a test probe, not a release. The mechanism is checked in the game on nine saves: bonuses, deductions up to -100%, chains of three legs, six calendar years against a no-mod control. The default curve (+20% bonus, break-even at 80% of the spoil limit used, -100% penalty) is a candidate; it nets +8.0% of base pay over those saves.
-- **Not done.** Splitting a deduction along a transferred unit's chain (the mod books to the player only).
+- **Status: early test version, public on mod.io** (1.0, 17 Oct 2026, PC and console). The mechanism is checked in the game on nine saves: bonuses, deductions up to -100%, chains of three legs, six calendar years against a no-mod control. The default curve (+20% bonus, break-even at 80% of the spoil limit used, -100% penalty) is a candidate; it nets +8.0% of base pay over those saves.
+- **Not done.** Splitting a deduction along a transferred unit's chain (the mod books to the player only). The mod still replaces the game's cargo income function with a logging copy, so it conflicts with other mods that replace it.
 - This is an unofficial mod. It contains no files from the game.
 
 ## The pay curve
@@ -20,15 +22,15 @@ The probe in `best_before_1/content/probe.script.tl` computes the adjustment for
 - `tools/verify_run.py` checks a run from the game log alone (no error lines, no gaps, units sent equal units adjusted, bookings visible in the player's balance). Run it on a copy of `crash_dump/stdout.txt` made at `logLevel` `curve` or `full`.
 - `tools/extract_run.py` cuts a run's arrivals, balance snapshots and facts (save, settings, totals) out of a raw log into small CSV and JSON files under `local/runs/`, and corrects the pay prediction to the save's Cargo Income setting and earned rank, so runs from different saves can be replayed together.
 - `tools/replay_curve.py` applies the five-setting curve to the arrivals in one or more logs or extracted `.arrivals.csv` files and prints the net change in pay, each run on the curve it was played on (`--use-defaults` replays on `settings.tl`'s numbers instead; `--sweep`, `--solve-bonus` and `--tables` help tune the defaults without the game).
-
 - `tools/cpu_sample.py` samples the game's simulation and main threads and the whole machine's CPU every few seconds while you play (two appended CSV files under `local/cpu/`), and reports CPU seconds per game month, to compare log levels (`sample` while the game runs for at least 5 minutes, then `report` with the game log).
+- `tools/make_preview.py` draws the listing's preview image, `best_before_1/_metadata/workshop_preview.jpg`.
 
 ## Documentation
 
 - [docs/changing-settings.md](docs/changing-settings.md): how to change the curve settings on a new game and on a saved game, with screenshots.
 - [docs/how-it-works.md](docs/how-it-works.md): how the mod turns freshness into a booking and where it can over-penalize.
 - [docs/findings.md](docs/findings.md): what we have verified in the game and the results of the test runs.
-- [docs/modio-description.md](docs/modio-description.md): the text of the mod.io listing (name, summary, tags, description).
+- [docs/publishing.md](docs/publishing.md): the mod.io listing (name, summary, tags, description), how to upload an update with the game's uploader, what ships, and what is known about hub search.
 - [docs/future/](docs/future/): ideas set aside, things that need support from the game, and open questions. The index is [docs/README.md](docs/README.md).
 
 ## Development
