@@ -37,6 +37,8 @@ local record PendingDeduction
 	z : number
 end
 
+local companyProgressionUtil = ug_require "/game_mechanics/company/company_progression_util.tl" as CompanyProgressionUtil
+
 local record BookingState
 	units : integer -- cargo units deducted so far
 	batches : integer
@@ -47,6 +49,7 @@ local record BookingState
 	lastBalance : number -- the player's balance and income total at the previous snapshot
 	lastIncome : number
 	lastFinance : string
+	lastCompany : string
 	logSeq : integer -- numbers the journal log lines, so a gap in the log shows dropped messages
 end
 
@@ -141,6 +144,25 @@ local logJournalSnapshot = function(state : GameScriptState<BookingState>, booki
 				.. " nonIncomeStep=" .. tostring(nonIncomeStep) .. " " .. finance)
 		end
 	end
+end
+
+-- The company's rank and the ticket price multiplier the game derives from it (the Inflation option cuts every vehicle's
+-- income by it, so it may be the engine factor our pay prediction hard-codes). Logged at the first update and whenever it
+-- changes; `expected` is the game's own multiplier for the earned rank, to compare with the stored one.
+local logCompany = function(state : GameScriptState<BookingState>, bookingState : BookingState)
+	local ok, company = pcall(companyProgressionUtil.getCompanyProgressionState, api.engine.util.getPlayer())
+	local text = "unavailable"
+	if ok and company ~= nil then
+		local okExpected, expected = pcall(companyProgressionUtil.getTicketPriceMultiplierForLevel, company.potentialLevel)
+		text = "level=" .. tostring(company.level) .. " potentialLevel=" .. tostring(company.potentialLevel)
+			.. " experience=" .. tostring(company.experience) .. " ticketPriceMultiplier=" .. tostring(company.ticketPriceMultiplier)
+			.. " expected=" .. tostring(okExpected and expected or "err")
+	end
+	if text == bookingState.lastCompany then return end
+	bookingState.lastCompany = text
+	state:set(bookingState)
+	local gameTime : Engine.Component.GameTime = api.engine.getComponent(api.engine.util.getWorld(), api.type.ComponentType.GAME_TIME)
+	log.message("BEST_BEFORE company t=" .. tostring(gameTime.gameTime) .. " " .. text)
 end
 
 local track = function(bookingState : BookingState, entity : Engine.Entity)
@@ -253,6 +275,7 @@ local probe : GameScript<BookingState> = {
 		local bookingState = state:get()
 		updateCalls = updateCalls + 1
 		logJournalSnapshot(state, bookingState)
+		logCompany(state, bookingState)
 		if bookingState.pending == nil or #bookingState.pending == 0 then return end
 		local queue = bookingState.pending
 		bookingState.pending = {}
