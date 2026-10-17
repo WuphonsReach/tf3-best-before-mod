@@ -11,15 +11,17 @@ Transport Fever 3 mod: cargo pay scales with freshness. Fresh cargo earns a bonu
 
 ## The pay curve
 
-Pay changes with the unit's freshness (1 at pickup, 0 at the spoil limit of 1.5 x the cargo's delivery time): a bonus at full freshness that stays level down to a first freshness point, a straight line down to the break-even point (full pay), a straight line on to a maximum penalty at a second freshness point, then the same penalty down to 0% freshness and for spoiled cargo. Five settings: the maximum bonus, the three freshness points and the maximum penalty, in `best_before_1/content/settings.tl` (edit, restart the game and load a save). A sixth, `stored`, picks how cargo that waited in a warehouse is judged.
+Pay changes with the unit's freshness (1 at pickup, 0 at the spoil limit of 1.5 x the cargo's delivery time): a bonus at full freshness that stays level down to a first freshness point, a straight line down to the break-even point (full pay), a straight line on to a maximum penalty at a second freshness point, then the same penalty down to 0% freshness and for spoiled cargo. Five settings: the maximum bonus, the three freshness points and the maximum penalty, in `best_before_1/content/settings.tl` (edit, restart the game and load a save). A sixth, `stored`, picks how cargo that waited in a warehouse is judged. A seventh, `logLevel`, picks how much the mod writes to the game log: `off`, `summary` (a totals line about once a game month, the default), `curve` (a line per delivered unit, enough for the tools below) or `full` (adds vehicle and line names, chains and per-vehicle ledgers). The cost of each level in CPU is not measured yet.
 
-The probe in `best_before_1/content/probe.script.tl` computes the adjustment for each arriving unit, queues it in the game script state, and `update` sends it, summed per carrier, to the player's account with no result callback. The log names every vehicle and line a unit travelled on, each cargo type's delivery time and price function, and the balance of every vehicle and line involved, so the split of pay along a chain can be studied.
+The probe in `best_before_1/content/probe.script.tl` computes the adjustment for each arriving unit, queues it in the game script state, and `update` sends it, summed per carrier, to the player's account with no result callback. At `logLevel = "full"` the log names every vehicle and line a unit travelled on and the balance of every vehicle and line involved, so the split of pay along a chain can be studied.
 
 ## Tools
 
-- `tools/verify_run.py` checks a run from the game log alone (no error lines, no gaps, units sent equal units adjusted, bookings visible in the player's balance). Run it on a copy of `crash_dump/stdout.txt`.
+- `tools/verify_run.py` checks a run from the game log alone (no error lines, no gaps, units sent equal units adjusted, bookings visible in the player's balance). Run it on a copy of `crash_dump/stdout.txt` made at `logLevel` `curve` or `full`.
 - `tools/extract_run.py` cuts a run's arrivals, balance snapshots and facts (save, settings, totals) out of a raw log into small CSV and JSON files under `local/runs/`, and corrects the pay prediction to the save's Cargo Income setting and earned rank, so runs from different saves can be replayed together.
 - `tools/replay_curve.py` applies the five-setting curve to the arrivals in one or more logs or extracted `.arrivals.csv` files and prints the net change in pay (`--sweep`, `--solve-bonus` and `--tables` help tune the defaults without the game).
+
+- `tools/cpu_sample.py` samples the game's CPU use per thread while you play and reports CPU seconds per game month, to compare log levels (`sample` while the game runs, then `report` with the game log).
 
 ## Documentation
 

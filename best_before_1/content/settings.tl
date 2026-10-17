@@ -17,7 +17,17 @@
 -- age overstates how old it is: "corrected" takes the paused time off the age (deliveryExtensionDuration), "formula"
 -- uses the plain age, and for a unit the game flags good but whose plain age is past the limit, "zero" counts it as 0%
 -- fresh and "neutral" leaves its pay alone (both use the plain age for every other unit).
+--
+-- logLevel: how much the mod writes to the game log (every line starts with BEST_BEFORE). Any other value counts as "summary".
+--   "off"      the start-up lines only (the settings in use, warnings about settings the mod clamps)
+--   "summary"  plus a totals line about once a game month (units delivered, pay taken away, bonus paid), the company's rank and
+--              pay scale when they change, and the first sighting of each cargo type
+--   "curve"    plus a line for every delivered unit with what the curve replay needs (age, limit, predicted pay, adjustment),
+--              every adjustment sent and every balance change; no vehicle or line names, chains or per-vehicle ledgers
+--   "full"     plus those names, chains and ledgers, for studying how the pay splits along a chain; the biggest log
+--              (tens of MB in a long session) and the slowest. tools/verify_run.py and tools/extract_run.py read "curve" and "full".
 return {
+	logLevel = "summary",
 	bonusPercent = 0.2,
 	bonusDownToFreshness = 0.4,
 	breakevenFreshness = 0.2,

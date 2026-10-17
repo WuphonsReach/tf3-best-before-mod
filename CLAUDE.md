@@ -23,6 +23,10 @@ python3 tools/verify_run.py local/logs/stdout-<date>-<time>.txt
 # replay_curve.py. It rebuilds the pay scale from the save the run loaded, so run it while that save still exists.
 python3 tools/extract_run.py local/logs/stdout-<date>-<time>.txt [--note "no-mod control"]
 python3 tools/replay_curve.py local/runs/<name>.arrivals.csv [more]   # pool the runs marked primary in index.csv
+
+# Compare the CPU cost of the log levels (sample while the game runs; report reads the game log for the game clock)
+python3 tools/cpu_sample.py sample local/cpu/<name>.csv
+python3 tools/cpu_sample.py report local/cpu/<name>.csv [--log local/logs/<log>.txt | --game-months N]
 ```
 
 Run `tl check` on each script you touch; there is no single command for both.
@@ -31,6 +35,7 @@ Run `tl check` on each script you touch; there is no single command for both.
 
 - `best_before_1/` is symlinked into the game's `staging_area/` folder, so edits show up without copying, but the game must be restarted to reload scripts.
 - The game log is `crash_dump/stdout.txt` beside that folder and is overwritten at each launch. Copy it to `local/logs/` (gitignored) before reading or verifying it. It is written live, so a run can be read while the game is still running. Log timestamps are UTC.
+- `logLevel` in `settings.tl` (`off`, `summary`, `curve`, `full`) sets what is logged; set `curve` or `full` for any run that `verify_run.py`, `extract_run.py` or `replay_curve.py` will read (`verify_run.py` refuses a lower level). Log work is skipped, not just the write, so keep new per-unit log strings inside the `logUnits`/`logFull` checks in `probe.script.tl`.
 - Every line the mod writes starts with `BEST_BEFORE`. Keep that prefix and keep `tools/verify_run.py` and `tools/extract_run.py` in step when changing the log format: they parse `arrival`, `sending adjustment` and `journal` lines by their `key=value` fields. `finance` lines (the Finances tab's investment and other rows, logged at the first snapshot and whenever the balance moves by something other than income) are for reading by hand, as are `company` lines (the company's rank and ticket price multiplier, logged at the first update and when they change).
 
 ## Architecture

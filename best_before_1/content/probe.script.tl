@@ -12,6 +12,7 @@ local record Settings
 	penaltyBelowFreshness : number
 	penaltyPercent : number
 	stored : string
+	logLevel : string
 end
 local rawSettings = ug_require "best_before_1::/settings.tl" as Settings
 
@@ -29,7 +30,16 @@ local settings : Settings = {
 		clamp(rawSettings.breakevenFreshness, 0.0, clamp(rawSettings.bonusDownToFreshness, 0.0, 1.0))),
 	penaltyPercent = clamp(rawSettings.penaltyPercent, -1.0, 0.0),
 	stored = rawSettings.stored,
+	logLevel = (rawSettings.logLevel == "off" or rawSettings.logLevel == "curve" or rawSettings.logLevel == "full") and rawSettings.logLevel or "summary",
 }
+
+-- Log work is skipped, not just the write: building a unit's line costs more than writing it, and runs once per delivered unit.
+local logFull = settings.logLevel == "full" -- vehicle and line names, pickup chains, per-vehicle ledgers
+local logUnits = settings.logLevel == "curve" or logFull -- a line per delivered unit, per adjustment sent, per balance change
+local logAny = settings.logLevel ~= "off"
+
+-- The "summary" totals line comes about once per game month (a year is 1,461,000 clock units).
+local summaryInterval = 121750
 
 -- A deduction never takes more than this share of a unit's predicted pay. At 1.0 a full deduction on a prediction a
 -- little above the real pay (it is good to about 1%) can leave the unit a hair negative.
@@ -68,6 +78,12 @@ local record BookingState
 	lastCompany : string
 	lastPayScale : string
 	logSeq : integer -- numbers the journal log lines, so a gap in the log shows dropped messages
+	-- Totals since the last "summary" line.
+	summaryTime : number
+	sumArrivals : integer
+	sumAdjusted : integer
+	sumDeducted : integer
+	sumBonus : integer
 end
 
 -- One entry per carrier, summed over the queue.
@@ -323,6 +339,32 @@ local describeParams = function(params : {string : number}) : string
 	return table.concat(parts, ",")
 end
 
+-- One totals line per game month with units arrived since the previous one; quiet months log nothing.
+local logSummary = function(state : GameScriptState<BookingState>, bookingState : BookingState)
+	local gameTime : Engine.Component.GameTime = api.engine.getComponent(api.engine.util.getWorld(), api.type.ComponentType.GAME_TIME)
+	local now = gameTime.gameTime
+	if bookingState.summaryTime == nil then
+		bookingState.summaryTime = now
+		state:set(bookingState)
+		return
+	end
+	if now - bookingState.summaryTime < summaryInterval then return end
+	local arrivals = bookingState.sumArrivals or 0
+	if arrivals > 0 then
+		local deducted = bookingState.sumDeducted or 0
+		local bonus = bookingState.sumBonus or 0
+		log.message("BEST_BEFORE summary t=" .. tostring(now) .. " sinceT=" .. tostring(bookingState.summaryTime)
+			.. " arrivals=" .. arrivals .. " adjusted=" .. tostring(bookingState.sumAdjusted or 0)
+			.. " deducted=" .. deducted .. " bonus=" .. bonus .. " net=" .. (bonus - deducted))
+	end
+	bookingState.summaryTime = now
+	bookingState.sumArrivals = 0
+	bookingState.sumAdjusted = 0
+	bookingState.sumDeducted = 0
+	bookingState.sumBonus = 0
+	state:set(bookingState)
+end
+
 local probe : GameScript<BookingState> = {
 	update = function(_userParams : table, state : GameScriptState<BookingState>, _dt : number) : any
 		if not state:hasEventSubscriptions() then
@@ -330,8 +372,11 @@ local probe : GameScript<BookingState> = {
 		end
 		local bookingState = state:get()
 		updateCalls = updateCalls + 1
-		logJournalSnapshot(state, bookingState)
-		logCompany(state, bookingState)
+		if logUnits then logJournalSnapshot(state, bookingState) end
+		if logAny then
+			logCompany(state, bookingState)
+			logSummary(state, bookingState)
+		end
 		if bookingState.pending == nil or #bookingState.pending == 0 then return end
 		local queue = bookingState.pending
 		bookingState.pending = {}
@@ -345,9 +390,11 @@ local probe : GameScript<BookingState> = {
 			entry.category.type = api.type.JournalEntry.Type.INCOME
 			entry.category.carrier = journalCarrier(a.carrier)
 			local cmd = api.cmd.makeJournalBookAssetCmd(player, entry, api.type.Vec3f.new(a.x, a.y, a.z))
-			log.message("BEST_BEFORE sending adjustment batch=" .. bookingState.batches .. " ledger=player"
-				.. " entity=" .. tostring(player) .. " carrier=" .. a.carrier
-				.. " amount=" .. tostring(a.amount) .. " units=" .. tostring(a.units))
+			if logUnits then
+				log.message("BEST_BEFORE sending adjustment batch=" .. bookingState.batches .. " ledger=player"
+					.. " entity=" .. tostring(player) .. " carrier=" .. a.carrier
+					.. " amount=" .. tostring(a.amount) .. " units=" .. tostring(a.units))
+			end
 			api.cmd.sendCommand(cmd)
 		end
 	end,
@@ -365,7 +412,7 @@ local probe : GameScript<BookingState> = {
 
 		local pay = readPayScale()
 		local payText = pay.text .. " scale=" .. tostring(pay.scale)
-		if payText ~= bookingState.lastPayScale then
+		if logAny and payText ~= bookingState.lastPayScale then
 			bookingState.lastPayScale = payText
 			log.message("BEST_BEFORE payScale t=" .. tostring(now) .. " " .. payText)
 		end
@@ -377,41 +424,47 @@ local probe : GameScript<BookingState> = {
 			local simCargo : Engine.Component.SimCargo = api.engine.getComponent(cargoEntity, api.type.ComponentType.SIM_CARGO)
 			local detail = "no SimCargo"
 			local correction = "correction=n/a"
+			bookingState.sumArrivals = (bookingState.sumArrivals or 0) + 1
 			if simCargo ~= nil then
 				-- The unit may have changed vehicles: the first pickup point is the first leg, the last the leg that
 				-- delivered it, and the carrier of the last leg is the one the deduction is booked under.
 				local points = simCargo.pickupPoints or {}
-				local first = points[1]
 				local last = points[#points]
-				local vehicle : Engine.Entity = first and first.vehicle
-				local line : Engine.Entity = first and first.line
-				local lastVehicle : Engine.Entity = last and last.vehicle
-				local lastLine : Engine.Entity = last and last.line
 				local carrier = last ~= nil and carrierNameOf(last.carrier) or "OTHER"
-				local chain : {string} = {}
-				for _, point in ipairs(points) do
-					track(bookingState, point.vehicle)
-					track(bookingState, point.line)
-					chain[#chain + 1] = tostring(point.vehicle) .. ":" .. tostring(point.line) .. ":" .. carrierNameOf(point.carrier)
+				if logUnits then
+					detail = "cargoType=" .. tostring(simCargo.cargoType)
+						.. " startTime=" .. tostring(simCargo.startTime)
+						.. " pickupTime=" .. tostring(simCargo.pickupTime)
+						.. " ext=" .. tostring(simCargo.deliveryExtensionDuration)
+						.. " source=" .. tostring(simCargo.sourceEntity)
+						.. " legs=" .. tostring(#points)
+						.. " carrier=" .. carrier
 				end
-				detail = "cargoType=" .. tostring(simCargo.cargoType)
-					.. " startTime=" .. tostring(simCargo.startTime)
-					.. " pickupTime=" .. tostring(simCargo.pickupTime)
-					.. " ext=" .. tostring(simCargo.deliveryExtensionDuration)
-					.. " source=" .. tostring(simCargo.sourceEntity)
-					.. " vehicle=" .. tostring(vehicle)
-					.. " vehicleName=\"" .. nameOf(vehicle) .. "\""
-					.. " line=" .. tostring(line)
-					.. " lineName=\"" .. nameOf(line) .. "\""
-					.. " lastVehicle=" .. tostring(lastVehicle)
-					.. " lastLine=" .. tostring(lastLine)
-					.. " legs=" .. tostring(#points)
-					.. " chain=" .. (#chain > 0 and table.concat(chain, ">") or "none")
-					.. " carrier=" .. carrier
+				if logFull then
+					local first = points[1]
+					local vehicle : Engine.Entity = first and first.vehicle
+					local line : Engine.Entity = first and first.line
+					local lastVehicle : Engine.Entity = last and last.vehicle
+					local lastLine : Engine.Entity = last and last.line
+					local chain : {string} = {}
+					for _, point in ipairs(points) do
+						track(bookingState, point.vehicle)
+						track(bookingState, point.line)
+						chain[#chain + 1] = tostring(point.vehicle) .. ":" .. tostring(point.line) .. ":" .. carrierNameOf(point.carrier)
+					end
+					detail = detail
+						.. " vehicle=" .. tostring(vehicle)
+						.. " vehicleName=\"" .. nameOf(vehicle) .. "\""
+						.. " line=" .. tostring(line)
+						.. " lineName=\"" .. nameOf(line) .. "\""
+						.. " lastVehicle=" .. tostring(lastVehicle)
+						.. " lastLine=" .. tostring(lastLine)
+						.. " chain=" .. (#chain > 0 and table.concat(chain, ">") or "none")
+				end
 
 				local cargoType = api.res.cargoTypeRep.get(simCargo.cargoType)
 				local typeKey = tostring(simCargo.cargoType)
-				if not bookingState.loggedCargoTypes[typeKey] then
+				if logAny and not bookingState.loggedCargoTypes[typeKey] then
 					bookingState.loggedCargoTypes[typeKey] = true
 					log.message("BEST_BEFORE cargoType id=" .. typeKey
 						.. " timeToDeliverSeconds=" .. tostring(cargoType.timeToDeliverInSeconds)
@@ -439,12 +492,15 @@ local probe : GameScript<BookingState> = {
 					local dx, dy, dz = dst[1] - src[1], dst[2] - src[2], dst[3] - src[3]
 					local d = math.sqrt(dx * dx + dy * dy + dz * dz) + 8. * math.max(dz, 0.)
 					local income = priceFactor * d * pay.scale
-					predicted = tostring(income)
+					if logUnits then predicted = tostring(income) end
 					local exact = math.max(adjustment * income, -maxDeductionShare * income)
 					if math.abs(exact) >= 1 then
 						bookingState.units = bookingState.units + 1
 						local amount = exact < 0 and -math.floor(-exact + 0.5) or math.floor(exact + 0.5)
 						if amount < 0 then deduction = -amount else bonus = amount end
+						bookingState.sumAdjusted = (bookingState.sumAdjusted or 0) + 1
+						bookingState.sumDeducted = (bookingState.sumDeducted or 0) + deduction
+						bookingState.sumBonus = (bookingState.sumBonus or 0) + bonus
 						bookingState.pending[#bookingState.pending + 1] = {
 							number = bookingState.units,
 							amount = amount,
@@ -454,17 +510,21 @@ local probe : GameScript<BookingState> = {
 						queued = (amount < 0 and " DEDUCT#" or " BONUS#") .. bookingState.units
 					end
 				end
-				correction = "ageMs=" .. tostring(ageMs) .. " limitMs=" .. tostring(limitMs)
-					.. " freshness=" .. tostring(freshness) .. " corrected=" .. tostring(correctedFreshness) .. " rate=" .. tostring(rate)
-					.. " payScale=" .. tostring(pay.scale) .. " predictedIncome=" .. predicted .. " deduction=" .. tostring(deduction)
-					.. " bonus=" .. tostring(bonus) .. queued
+				if logUnits then
+					correction = "ageMs=" .. tostring(ageMs) .. " limitMs=" .. tostring(limitMs)
+						.. " freshness=" .. tostring(freshness) .. " corrected=" .. tostring(correctedFreshness) .. " rate=" .. tostring(rate)
+						.. " payScale=" .. tostring(pay.scale) .. " predictedIncome=" .. predicted .. " deduction=" .. tostring(deduction)
+						.. " bonus=" .. tostring(bonus) .. queued
+				end
 			end
-			log.message("BEST_BEFORE arrival unit=" .. tostring(cargoEntity)
-				.. " target=" .. tostring(unit[2][1])
-				.. " good=" .. tostring(good)
-				.. " now=" .. tostring(now)
-				.. " " .. detail
-				.. " " .. correction)
+			if logUnits then
+				log.message("BEST_BEFORE arrival unit=" .. tostring(cargoEntity)
+					.. " target=" .. tostring(unit[2][1])
+					.. " good=" .. tostring(good)
+					.. " now=" .. tostring(now)
+					.. " " .. detail
+					.. " " .. correction)
+			end
 		end
 		state:set(bookingState)
 	end,

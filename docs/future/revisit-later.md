@@ -31,5 +31,6 @@ Each item says what would settle it.
 - **Still unknown.** What the game does with a negative account over a longer time (loans, bankruptcy, vehicle sales). Only worth a longer run or a read of the game's bankruptcy rules if it turns out to matter for players.
 
 ## Housekeeping
+- **The CPU cost of the log levels** is unmeasured. Plan: the same save and the same game-time stretch at `off`, `summary`, `curve` and `full`, each at least twice, with `tools/cpu_sample.py` running; compare the simulation threads' CPU seconds per game month. If the levels differ by less than two runs of one level do, the cost does not matter.
 - **The income-function logging stub** in `mod.script.tl` replaces `cargoIncomeScript`, which only one mod can do. Keep it while the logging is useful; remove it before a release.
 - **The landing check in the verifier** is a rate of exact steps (about 0.6 to 0.96) because deductions can share a step with pay. A controlled save with one flow would allow an exact check.

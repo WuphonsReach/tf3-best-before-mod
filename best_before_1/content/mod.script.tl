@@ -38,6 +38,10 @@ mod.preRunFn = function(_captureParams : {string:any}, _configDict : {{string, s
 	local parts : {string} = {}
 	for _, name in ipairs(names) do parts[#parts + 1] = name .. "=" .. tostring(settings[name]) end
 	log.message("BEST_BEFORE settings " .. table.concat(parts, " "))
+	local level = settings.logLevel
+	if level ~= "off" and level ~= "summary" and level ~= "curve" and level ~= "full" then
+		log.message("BEST_BEFORE settings logLevel=" .. tostring(level) .. " is not off, summary, curve or full and will count as summary")
+	end
 	-- probe.script.tl clamps to these limits; say so in the log when settings.tl asks for more.
 	local limits : {string : {number}} = {
 		bonusPercent = {0.0, 2.0}, penaltyPercent = {-1.0, 0.0},
@@ -53,7 +57,7 @@ end
 
 mod.calcCargoIncomeFn = function(captureParams : {string:any}, incomeFactor : number, posDifference : {number}) : number
 	local income = incomeFactor * (captureParams.difficultyFactor as number) * travelDistance(posDifference)
-	if loggedCalls < maxLoggedCalls then
+	if (settings.logLevel == "full" or settings.logLevel == "curve") and loggedCalls < maxLoggedCalls then
 		loggedCalls = loggedCalls + 1
 		log.message("BEST_BEFORE income call " .. loggedCalls
 			.. " captureParams=" .. describe(captureParams)
