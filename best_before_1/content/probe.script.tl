@@ -103,6 +103,7 @@ end
 local record BookingState
 	curve : Curve -- the pay curve in force, refreshed by update for handleEvent
 	lastCurveNote : string
+	lastCurveSource : string -- "params" or "settings.tl": where `curve` came from
 	units : integer -- cargo units deducted so far
 	batches : integer
 	pending : {PendingDeduction}
@@ -132,8 +133,6 @@ local record Aggregate
 	y : number
 	z : number
 end
-
-local updateCalls = 0
 
 -- Vehicles and lines can be sold while their cargo is still on its way, and asking the engine about a vanished entity
 -- raises "Invalid entity", which would abort the whole event.
@@ -374,6 +373,12 @@ local readParamCurve = function() : Curve
 	})
 end
 
+local sameCurve = function(a : Curve, b : Curve) : boolean
+	return a.bonusPercent == b.bonusPercent and a.bonusDownToFreshness == b.bonusDownToFreshness
+		and a.breakevenFreshness == b.breakevenFreshness and a.penaltyBelowFreshness == b.penaltyBelowFreshness
+		and a.penaltyPercent == b.penaltyPercent and a.stored == b.stored
+end
+
 -- The curve in force: the in-game settings (re-read here, so a change made on loading takes effect). The game hands a
 -- save that lacks them the defaults, so settings.tl's curve is only the last resort for when the game hands over no
 -- settings at all. The curve is kept in the state for handleEvent, and a line is logged whenever the source or the
@@ -385,13 +390,16 @@ local activeCurve = function(state : GameScriptState<BookingState>, bookingState
 		curve = fileCurve
 		source = "settings.tl"
 	end
-	local note = "source=" .. source .. " " .. describeCurve(curve)
-	if note ~= bookingState.lastCurveNote then
-		bookingState.curve = curve
-		bookingState.lastCurveNote = note
-		state:set(bookingState)
-		if logAny then log.message("BEST_BEFORE curveSettings " .. note) end
+	-- Runs on every update: compare the numbers and build the log note only when they changed.
+	if bookingState.curve ~= nil and bookingState.lastCurveSource == source and sameCurve(curve, bookingState.curve) then
+		return curve
 	end
+	bookingState.lastCurveSource = source
+	local note = "source=" .. source .. " " .. describeCurve(curve)
+	bookingState.curve = curve
+	bookingState.lastCurveNote = note
+	state:set(bookingState)
+	if logAny then log.message("BEST_BEFORE curveSettings " .. note) end
 	return curve
 end
 
@@ -456,7 +464,6 @@ local probe : GameScript<BookingState> = {
 		end
 		local bookingState = state:get()
 		activeCurve(state, bookingState) -- reads the in-game settings, before any unit arrives
-		updateCalls = updateCalls + 1
 		if logUnits then logJournalSnapshot(state, bookingState) end
 		if logAny then
 			logCompany(state, bookingState)
@@ -593,7 +600,7 @@ local probe : GameScript<BookingState> = {
 							carrier = carrier,
 							x = dst[1], y = dst[2], z = dst[3],
 						}
-						queued = (amount < 0 and " DEDUCT#" or " BONUS#") .. bookingState.units
+						if logUnits then queued = (amount < 0 and " DEDUCT#" or " BONUS#") .. bookingState.units end
 					end
 				end
 				if logUnits then
