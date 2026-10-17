@@ -2,10 +2,12 @@
 
 The background curve is the default curve from mod.json. The upper right corner is kept clear for a version number.
 
-Usage: python3 tools/make_preview.py [OUT_FILE] [--version 0.1]
+Usage: python3 tools/make_preview.py [OUT_FILE] [--version 0.1] [--keep-svg SVG_FILE]
+--keep-svg also writes the SVG the image is rendered from (for example to local/preview/workshop_preview.svg); keep it out of best_before_1/.
 OUT_FILE defaults to best_before_1/_metadata/workshop_preview.jpg, where the game looks for a mod's preview.
 """
 import math
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -327,11 +329,19 @@ def main():
         i = args.index("--version")
         version = args[i + 1]
         del args[i:i + 2]
+    keep_svg = None
+    if "--keep-svg" in args:
+        i = args.index("--keep-svg")
+        keep_svg = Path(args[i + 1])
+        del args[i:i + 2]
     out = Path(args[0] if args else Path(__file__).resolve().parent.parent / "best_before_1/_metadata/workshop_preview.jpg")
     from PIL import Image
     with tempfile.TemporaryDirectory() as tmp:
         svg, png = Path(tmp) / "preview.svg", Path(tmp) / "preview.png"
         svg.write_text(build(version))
+        if keep_svg:
+            keep_svg.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(svg, keep_svg)
         subprocess.run(["rsvg-convert", "-w", str(W), "-h", str(H), "-o", str(png), str(svg)], check=True)
         Image.open(png).convert("RGB").save(out, quality=92, optimize=True, progressive=True)
     print(out)
