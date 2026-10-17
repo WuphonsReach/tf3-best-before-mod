@@ -6,11 +6,11 @@
 
 -- Pay curve settings, in settings.tl (the curve is described there).
 local record Settings
-	bonus : number
-	bonusFrom : number
-	breakeven : number
-	penaltyFrom : number
-	penalty : number
+	bonusPercent : number
+	bonusDownToFreshness : number
+	breakevenFreshness : number
+	penaltyBelowFreshness : number
+	penaltyPercent : number
 	stored : string
 end
 local settings = ug_require "best_before_1::/settings.tl" as Settings
@@ -219,19 +219,19 @@ end
 
 -- The share of a unit's pay the curve adds (positive) or takes away (negative). `good` is the game's own quality flag.
 local curveAdjustment = function(freshness : number, good : boolean) : number
-	if not good then return -settings.penalty end
+	if not good then return settings.penaltyPercent end
 	if freshness < 0 then -- flagged good by the game although its age says it is past the limit: stored cargo
 		if settings.stored == "neutral" then return 0.0 end
 		if settings.stored == "zero" then freshness = 0.0 end
 	end
-	if freshness >= settings.bonusFrom then return settings.bonus end
-	if freshness >= settings.breakeven then
-		return settings.bonus * (freshness - settings.breakeven) / (settings.bonusFrom - settings.breakeven)
+	if freshness >= settings.bonusDownToFreshness then return settings.bonusPercent end
+	if freshness >= settings.breakevenFreshness then
+		return settings.bonusPercent * (freshness - settings.breakevenFreshness) / (settings.bonusDownToFreshness - settings.breakevenFreshness)
 	end
-	if freshness >= settings.penaltyFrom then
-		return -settings.penalty * (settings.breakeven - freshness) / (settings.breakeven - settings.penaltyFrom)
+	if freshness >= settings.penaltyBelowFreshness then
+		return settings.penaltyPercent * (settings.breakevenFreshness - freshness) / (settings.breakevenFreshness - settings.penaltyBelowFreshness)
 	end
-	return -settings.penalty
+	return settings.penaltyPercent
 end
 
 -- "key=value,key=value" with the keys sorted, for the one-time cargo type log line.
