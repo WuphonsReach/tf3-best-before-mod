@@ -4,8 +4,9 @@
 
 - **Where.** The curve is set in game, in the mod's own settings dialog: the **Mods** tab, then the gear next to the mod. It is there in both **New Game** and **Load Game**. It is not under Gameplay Settings, which only holds the base game's settings.
 - **How it works.** The game stores each setting in the save, shows the save's own values when you open the dialog, and hands the values to the mod when the save loads. Change a value before pressing **Load Game** and the mod uses it from that load on; the next save you make keeps it. A player can retune a save as often as they like.
-- **How sure we are.** The route and the behaviour (the dialog shows the save's values, a change made before loading reaches the mod and is saved) were checked in the game with test settings on five saves. The mod's six real settings have not been run in the game yet.
-- **Unknown.** Whether backing out of the dialog without pressing Load Game leaves the save untouched (not tried), and what a save from before the settings existed shows in the dialog.
+- **How sure we are.** The route and the behaviour (the dialog shows the save's values, a change made before loading reaches the mod and is saved) were checked in the game with test settings on five saves. The mod's six real settings were run once, on a new game left at the defaults: the dialog showed the defaults, the save stored them, and the mod read back exactly the values in [settings.tl](../best_before_1/content/settings.tl). Two more new games with non-default values checked the conversion. 105%, 35%, 45%, 70%, 95% gave the right value for every setting that was not clamped, and the mod moved the out-of-order points as described below. 110%, 55%, 45%, 30%, 90% (in order) matched on all five sliders: dialog, saved header and the values the mod logged. Not yet run: a stored-cargo mode other than Corrected, and a run long enough to book adjustments with a non-default curve.
+- **Old saves.** A save from before the settings existed shows the defaults in the dialog and loads on the default curve, whatever curve it used before; the next save you make stores them. Set the values you want before pressing Load Game.
+- **Unknown.** Whether backing out of the dialog without pressing Load Game leaves the save untouched (not tried), and whether a save that carries an older file-based curve stamp is replaced the same way (expected, not tried).
 
 ## On a new game
 
@@ -17,7 +18,10 @@
 
    ![The Activated button and gear on a mod's card](images/mod-card-gear.png)
 
-3. The dialog lists the mod's settings under **Settings**. Set the sliders and the list, then close the dialog with the X at its top right.
+3. The dialog lists the mod's settings under **Settings**. Set the sliders and the list, then close the dialog with the X at its top right. The dialog opens with the values of the last new game you set up, not the defaults, because the game keeps the New Game screen's choices in its `settings.lua` in your user folder. Check them before you start.
+
+   ![The mod's six settings at their defaults](images/mod-settings-dialog.png)
+
 4. Start the game as usual.
 
 ## On a saved game
@@ -47,6 +51,6 @@ Pay is shown as a share of normal pay, so 100% is the pay the game gives and 150
 | Pay for spoiled cargo | 0% to 100% | 0% | The lowest pay: 0% takes the whole pay of a unit. Also used for cargo the game marks as spoiled. |
 | Cargo that waited in a warehouse | list | Corrected | How a warehouse stay counts: corrected for the paused time, plain age, count as 0% fresh, or no change to pay. |
 
-If the freshness points are not in order (full bonus >= normal pay >= lowest pay), the mod moves them into order. The mod writes the values it used to the game log as `BEST_BEFORE curveSettings`, with the source (`params` for the in-game settings).
+If the freshness points are not in order (full bonus >= normal pay >= lowest pay), the mod lowers the later point to the earlier one: with 35%, 45% and 70% it runs on 35%, 35% and 35%, while the dialog keeps showing what was set. The mod writes the values it used to the game log as `BEST_BEFORE curveSettings`, with the source (`params` for the in-game settings).
 
-Saves made before the settings existed have none, so the mod keeps the curve they last used, or the defaults in [settings.tl](../best_before_1/content/settings.tl) for one the mod has never run on.
+Saves made before the settings existed have none, and the game fills in the defaults, so the mod plays them on the default curve (checked on one such save). The curve in [settings.tl](../best_before_1/content/settings.tl) is only a fallback for when the game hands over no settings.
