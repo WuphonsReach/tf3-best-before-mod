@@ -4,7 +4,18 @@
 -- know, so the deduction is not tied to a vehicle or line. The log names every vehicle and line of the unit's pickup
 -- chain so the split can be studied. Log lines start with "BEST_BEFORE"; tools/verify_run.py checks a run from the log.
 
--- Pay curve settings, in settings.tl (the curve is described there).
+-- The pay curve (described in settings.tl). It comes from the mod's in-game settings (the params in mod.json, which the game
+-- stores in the save and lets the player change on any load) and falls back to settings.tl for a save without them.
+local record Curve
+	bonusPercent : number
+	bonusDownToFreshness : number
+	breakevenFreshness : number
+	penaltyBelowFreshness : number
+	penaltyPercent : number
+	stored : string
+end
+
+-- The file's values; settings.tl also holds logLevel, a diagnostic switch that is not part of the curve.
 local record Settings
 	bonusPercent : number
 	bonusDownToFreshness : number
@@ -21,38 +32,31 @@ local clamp = function(value : number, low : number, high : number) : number
 end
 
 -- The curve as used: the bonus is never negative (up to +200%), the penalty never positive (down to -100%), and the
--- three freshness points stay in the order 1 >= bonusDown >= breakeven >= penaltyBelow >= 0 whatever settings.tl says.
-local settings : Settings = {
-	bonusPercent = clamp(rawSettings.bonusPercent, 0.0, 2.0),
-	bonusDownToFreshness = clamp(rawSettings.bonusDownToFreshness, 0.0, 1.0),
-	breakevenFreshness = clamp(rawSettings.breakevenFreshness, 0.0, clamp(rawSettings.bonusDownToFreshness, 0.0, 1.0)),
-	penaltyBelowFreshness = clamp(rawSettings.penaltyBelowFreshness, 0.0,
-		clamp(rawSettings.breakevenFreshness, 0.0, clamp(rawSettings.bonusDownToFreshness, 0.0, 1.0))),
-	penaltyPercent = clamp(rawSettings.penaltyPercent, -1.0, 0.0),
-	stored = rawSettings.stored,
-	logLevel = (rawSettings.logLevel == "off" or rawSettings.logLevel == "curve" or rawSettings.logLevel == "full") and rawSettings.logLevel or "summary",
-}
-
--- The pay curve as one save keeps it. The first time the game script runs on a save, the curve from settings.tl is copied
--- into the game script state (which the game writes into the save); from then on the saved copy is used and settings.tl is
--- ignored for that save, so a save keeps the curve it started with. logLevel is not part of it: it is a diagnostic switch
--- that settings.tl keeps controlling.
-local record Curve
-	bonusPercent : number
-	bonusDownToFreshness : number
-	breakevenFreshness : number
-	penaltyBelowFreshness : number
-	penaltyPercent : number
-	stored : string
+-- three freshness points stay in the order 1 >= bonusDown >= breakeven >= penaltyBelow >= 0 whatever the source says.
+local normalizeCurve = function(raw : Curve) : Curve
+	local bonusDown = clamp(raw.bonusDownToFreshness, 0.0, 1.0)
+	local breakeven = clamp(raw.breakevenFreshness, 0.0, bonusDown)
+	return {
+		bonusPercent = clamp(raw.bonusPercent, 0.0, 2.0),
+		bonusDownToFreshness = bonusDown,
+		breakevenFreshness = breakeven,
+		penaltyBelowFreshness = clamp(raw.penaltyBelowFreshness, 0.0, breakeven),
+		penaltyPercent = clamp(raw.penaltyPercent, -1.0, 0.0),
+		stored = raw.stored,
+	}
 end
 
-local fileCurve : Curve = {
-	bonusPercent = settings.bonusPercent,
-	bonusDownToFreshness = settings.bonusDownToFreshness,
-	breakevenFreshness = settings.breakevenFreshness,
-	penaltyBelowFreshness = settings.penaltyBelowFreshness,
-	penaltyPercent = settings.penaltyPercent,
-	stored = settings.stored,
+local fileCurve : Curve = normalizeCurve({
+	bonusPercent = rawSettings.bonusPercent,
+	bonusDownToFreshness = rawSettings.bonusDownToFreshness,
+	breakevenFreshness = rawSettings.breakevenFreshness,
+	penaltyBelowFreshness = rawSettings.penaltyBelowFreshness,
+	penaltyPercent = rawSettings.penaltyPercent,
+	stored = rawSettings.stored,
+})
+
+local settings : Settings = {
+	logLevel = (rawSettings.logLevel == "off" or rawSettings.logLevel == "curve" or rawSettings.logLevel == "full") and rawSettings.logLevel or "summary",
 }
 
 local describeCurve = function(curve : Curve) : string
@@ -96,7 +100,6 @@ end
 local record BookingState
 	curve : Curve -- the pay curve this save uses, set once from settings.tl
 	lastCurveNote : string
-	lastModParams : string
 	units : integer -- cargo units deducted so far
 	batches : integer
 	pending : {PendingDeduction}
@@ -342,12 +345,44 @@ local worldPosition = function(entity : Engine.Entity) : {number}
 	return { m[13], m[14], m[15] }
 end
 
--- The curve this save uses: the saved one, or settings.tl's copied into the state on the first call for a save. A line is
--- logged when that happens and when settings.tl later disagrees with the saved curve (the save keeps its own), so the
--- log always says which numbers were in force.
+-- The mod's params as the game hands them to a game script: this mod's table of 1-based list positions (a slider or list
+-- entry's position, not its label), keyed as in mod.json. `numbers` is not passed, so the values are rebuilt here.
+-- Pay settings are positions of 5% steps: position 1 is 0% (100% for the bonus slider), so position - 1 steps of 0.05.
+local storedModes : {string} = {"corrected", "formula", "zero", "neutral"}
+
+local readParamCurve = function() : Curve
+	local ok, all = pcall(function() : {string : table}
+		return api.engine.config.getModParams()
+	end)
+	if not ok or all == nil then return nil end
+	local mine = all["best_before_1"] as {string : number}
+	if mine == nil then return nil end
+	local fresh, bonusDown, breakeven = mine["bestBefore.freshPay"], mine["bestBefore.bonusDownTo"], mine["bestBefore.breakeven"]
+	local penaltyBelow, spoiled, stored = mine["bestBefore.penaltyBelow"], mine["bestBefore.spoiledPay"], mine["bestBefore.stored"]
+	if fresh == nil or bonusDown == nil or breakeven == nil or penaltyBelow == nil or spoiled == nil or stored == nil then return nil end
+	local share = function(position : number) : number -- a 5% step position as a fraction, without float noise
+		return math.floor(position - 1 + 0.5) * 5 / 100
+	end
+	return normalizeCurve({
+		bonusPercent = share(fresh), -- pay at full freshness, 100% to 200%: the bonus is the part above 100%
+		bonusDownToFreshness = share(bonusDown),
+		breakevenFreshness = share(breakeven),
+		penaltyBelowFreshness = share(penaltyBelow),
+		penaltyPercent = share(spoiled) - 1.0, -- pay when spoiled, 0% to 100%: the penalty is the part taken away
+		stored = storedModes[math.floor(stored + 0.5)] or "corrected",
+	})
+end
+
+-- The curve in force: the in-game settings when the save has them (re-read here, so a change made on loading takes
+-- effect), else the last curve this save used (saves from before the settings existed), else settings.tl's. It is kept in
+-- the state so the next call starts from it. A line is logged whenever the source or the numbers change.
 local activeCurve = function(state : GameScriptState<BookingState>, bookingState : BookingState) : Curve
-	local curve = bookingState.curve
-	local note : string
+	local curve = readParamCurve()
+	local source = "params"
+	if curve == nil then
+		curve = bookingState.curve
+		source = "save"
+	end
 	if curve == nil then
 		curve = {
 			bonusPercent = fileCurve.bonusPercent,
@@ -357,12 +392,11 @@ local activeCurve = function(state : GameScriptState<BookingState>, bookingState
 			penaltyPercent = fileCurve.penaltyPercent,
 			stored = fileCurve.stored,
 		}
-		bookingState.curve = curve
-		note = "source=settings.tl saved=yes " .. describeCurve(curve)
-	elseif describeCurve(curve) ~= describeCurve(fileCurve) then
-		note = "source=save saved=kept " .. describeCurve(curve) .. " settingsTl: " .. describeCurve(fileCurve)
+		source = "settings.tl"
 	end
-	if note ~= nil and note ~= bookingState.lastCurveNote then
+	local note = "source=" .. source .. " " .. describeCurve(curve)
+	if note ~= bookingState.lastCurveNote then
+		bookingState.curve = curve
 		bookingState.lastCurveNote = note
 		state:set(bookingState)
 		if logAny then log.message("BEST_BEFORE curveSettings " .. note) end
@@ -398,31 +432,6 @@ local describeParams = function(params : {string : number}) : string
 	return table.concat(parts, ",")
 end
 
--- Probe for in-game settings: what the game hands a game script as the mod params (the New Game screen's choices for the
--- params in mod.json). Logged at the first update and whenever the text changes. Under pcall, like logCompany: log-only code
--- must never cost the game script.
-local describeAny : function(value : any) : string
-describeAny = function(value : any) : string
-	if type(value) ~= "table" then return type(value) .. ":" .. tostring(value) end
-	local keys : {any} = {}
-	for key, _ in pairs(value as {any:any}) do keys[#keys + 1] = key end
-	table.sort(keys, function(a : any, b : any) : boolean return tostring(a) < tostring(b) end)
-	local parts : {string} = {}
-	for _, key in ipairs(keys) do parts[#parts + 1] = tostring(key) .. "=" .. describeAny((value as {any:any})[key]) end
-	return "{" .. table.concat(parts, ",") .. "}"
-end
-
-local logModParams = function(state : GameScriptState<BookingState>, bookingState : BookingState)
-	local ok, text = pcall(function() : string
-		return describeAny(api.engine.config.getModParams())
-	end)
-	local line = ok and text or ("error: " .. tostring(text))
-	if line == bookingState.lastModParams then return end
-	bookingState.lastModParams = line
-	state:set(bookingState)
-	log.message("BEST_BEFORE modParams source=getModParams " .. line)
-end
-
 -- One totals line per game month with units arrived since the previous one; quiet months log nothing.
 local logSummary = function(state : GameScriptState<BookingState>, bookingState : BookingState)
 	local gameTime : Engine.Component.GameTime = api.engine.getComponent(api.engine.util.getWorld(), api.type.ComponentType.GAME_TIME)
@@ -455,8 +464,7 @@ local probe : GameScript<BookingState> = {
 			state:subscribeToEvent("OnToArriveAtDestination")
 		end
 		local bookingState = state:get()
-		logModParams(state, bookingState)
-		activeCurve(state, bookingState) -- stamps the curve into a save that has none yet, before any unit arrives
+		activeCurve(state, bookingState) -- reads the in-game settings, before any unit arrives
 		updateCalls = updateCalls + 1
 		if logUnits then logJournalSnapshot(state, bookingState) end
 		if logAny then
@@ -491,7 +499,7 @@ local probe : GameScript<BookingState> = {
 		bookingState.units = bookingState.units or 0
 		bookingState.pending = bookingState.pending or {}
 		bookingState.loggedCargoTypes = bookingState.loggedCargoTypes or {}
-		local curve = activeCurve(state, bookingState)
+		local curve = bookingState.curve or activeCurve(state, bookingState) -- update refreshes it from the settings
 
 		local gameTimeComponent : Engine.Component.GameTime
 			= api.engine.getComponent(api.engine.util.getWorld(), api.type.ComponentType.GAME_TIME)
