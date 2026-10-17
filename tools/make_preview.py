@@ -249,14 +249,14 @@ def fresh_stack():
             + steak(1150, top - 46, 1.05, 4, shape=1))
     fsh = (fish(710 - 30, top - 14, 1.15, 10) + fish(710 + 40, top - 24, 1.15, -12) + fish(710, top - 56, 1.2, 4))
     out += [crate(710, g, w, h, fsh), crate(930, g, w, h, veg), crate(1150, g, w, h, meat)]
-    out.append(face(690, bk - 2 * h + 40, 64, "happy"))
+    out.append(face(720, bk - 2 * h + 5, 64, "happy"))
     return f'<g transform="translate(-500 0)">{"".join(out)}</g>'
 
 
 def garbage():
     """Spoiled goods on the right, where the curve falls to no pay: an overflowing bin and a pile beside it,
     drawn 1.15x so it weighs about the same as the fresh stack."""
-    cx, g, w, h, k = 1475, FLOOR, 210, 250, 1.15
+    cx, g, w, h, k = 1581, FLOOR, 210, 250, 1.15
     top = g - h
     inside = (lettuce(cx - 50, top - 8, 46, spoiled=True) + fish(cx + 30, top - 30, 1.15, -28, spoiled=True)
               + steak(cx + 62, top - 4, .95, 30, spoiled=True))
@@ -269,7 +269,7 @@ def garbage():
            steak(cx - 200, g - 26, 1.0, -8, spoiled=True, shape=1),
            lettuce(cx - 115, g - 34, 40, spoiled=True)]
     scaled = f'<g transform="translate({cx} {g}) scale({k}) translate({-cx} {-g})">{"".join(out)}</g>'
-    return scaled + face(cx + 150 * k, g - (h + 90) * k, 64, "sad")
+    return scaled + face(cx + 150 * k + 20, g - (h + 90) * k, 64, "sad")
 
 
 def caption(cx, text):
@@ -281,9 +281,12 @@ def time_arrow(x0, x1, y):
     """Dashed arrow from the fresh stack to the bin, with an hourglass: cargo goes this way as it ages."""
     mid = (x0 + x1) / 2
     hx, hy = mid, y - 64
+    ex = x1 - 8
+    ang = math.degrees(math.atan2(34, ex - mid))   # the curve's direction where it ends, so the head follows it
+    tx, ty = ex + 12 * math.cos(math.radians(ang)), y + 12 * math.sin(math.radians(ang))
     return f'''<g opacity=".6">
-  <path d="M {x0} {y} Q {mid} {y - 34} {x1 - 8} {y}" fill="none" stroke="#fff" stroke-width="6" stroke-dasharray="14 11" stroke-linecap="round"/>
-  <path d="M {x1 - 30} {y - 18} L {x1 + 4} {y + 2} L {x1 - 26} {y + 20}" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M {x0} {y} Q {mid} {y - 34} {ex} {y}" fill="none" stroke="#fff" stroke-width="6" stroke-dasharray="14 11" stroke-linecap="round"/>
+  <path d="M {tx - 32:.1f} {ty - 19:.1f} L {tx:.1f} {ty:.1f} L {tx - 32:.1f} {ty + 19:.1f}" transform="rotate({ang:.1f} {tx:.1f} {ty:.1f})" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
   <g transform="translate({hx} {hy})">
     <line x1="-18" y1="-26" x2="18" y2="-26" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
     <line x1="-18" y1="26" x2="18" y2="26" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
@@ -311,10 +314,10 @@ def build(version=None):
         f'<g filter="url(#shadow)"><text x="70" y="250" font-family="Lato" font-weight="900" font-size="196" fill="#fff" letter-spacing="2">BEST BEFORE</text></g>',
         f'<text x="78" y="345" font-family="Lato" font-weight="800" font-size="70" fill="{AMBER}" letter-spacing="12">CARGO FRESHNESS</text>',
         fresh_stack(),
-        time_arrow(905, 1150, FLOOR - 140),
+        time_arrow(958, 1203, FLOOR - 140),
         garbage(),
         caption(480, "Fresh cargo earns a bonus."),
-        caption(1440, "Spoiled cargo earns nothing."),
+        caption(1546, "Spoiled cargo earns nothing."),
     ]
     if version:  # upper right corner, kept clear for it
         parts.append(f'<text x="{W - 56}" y="100" text-anchor="end" font-family="Lato" font-weight="700" font-size="54" fill="#fff" fill-opacity=".85">v{version}</text>')
