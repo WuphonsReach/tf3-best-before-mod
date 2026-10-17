@@ -3,6 +3,7 @@
     "files": [
         "mod.script.tl",
         "probe.gs.lua",
-        "probe.script.tl"
+        "probe.script.tl",
+        "settings.tl"
     ]
 }
