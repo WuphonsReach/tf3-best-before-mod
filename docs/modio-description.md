@@ -5,8 +5,8 @@
 - **What this is.** The text for the mod's mod.io page: name, summary, tags and description, kept here so it can be pasted into the listing and mirrored into [modinfo.json](../best_before_1/_metadata/modinfo.json). Edit it here first, then copy it to `modinfo.json`.
 - **Name:** "Best Before: Cargo Freshness". The Mod Hub search matches the name only, not the summary or the description, so the name carries the search words.
 - **Tags:** "Script Mod" only. It sits under the hub's Misc group. Other cargo mods listed there (Route-Based Cargo Income, Slower Town Cargo Demand) carry the same single tag; the mod changes no industries, so no Industry tag.
-- **How sure we are.** The search finding comes from searching the hub for words that appear only in another mod's summary or description (nothing found) and for words in names (found). The upload route, and whether the in-game upload tool reads `modinfo.json` or asks for the text in a form, are not known: a downloaded mod ships without a `_metadata` folder, so the hub page is built from mod.io's own copy of the text.
-- **Unknown.** Whether the in-game upload prefills from `modinfo.json`; whether mod.io's page can be edited after the upload.
+- **How sure we are.** The search finding comes from searching the hub for words that appear only in another mod's summary or description (nothing found) and for words in names (found). The in-game upload tool (Mod Hub, My Mods) reads `modinfo.json`: it showed our name, tag and description, and picked up `workshop_preview.jpg` as a gallery image. The cover (its Preview slot) is set in that dialog by clicking the slot. A downloaded mod ships without a `_metadata` folder, so the hub page is built from mod.io's own copy of the text.
+- **Unknown.** Whether mod.io's page can be edited after the upload; whether cargo from other mods works in the game (the description says it is expected to).
 
 ## Name
 
@@ -33,6 +33,9 @@ HOW IT WORKS
 - The game pays every delivered cargo unit in full, as usual. The mod then books one correcting entry to your account: a bonus for fresh cargo, a deduction for slow or spoiled cargo.
 - Freshness is 100% when cargo is picked up and falls to 0% at its delivery limit (1.5 times the cargo's delivery time). Cargo that waited in a warehouse is judged on its age with the warehouse pause taken off.
 - Only cargo is adjusted. Passenger income is not touched.
+
+CARGO FROM OTHER MODS
+- Expected to work, for example the cargo of the Sugar Cane Industry mod (sugar cane, sugar, molasses, rum). The mod reads each cargo's own delivery time and price from the game's cargo list and has no list of cargo names, so a cargo that sets those the usual way is judged like the base game's. This has not been tried in the game yet.
 
 THE DEFAULT CURVE
 - Freshness 40% and above: 120% of normal pay.
