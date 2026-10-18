@@ -666,7 +666,7 @@ local sendStaleWarnings = function(bookingState : BookingState, keys : {string},
 	end
 end
 
-local updateStaleLines = function(state : GameScriptState<BookingState>, bookingState : BookingState, now : number)
+local updateStaleLines = function(state : GameScriptState<BookingState>, bookingState : BookingState, now : number, curve : Curve)
 	if not staleSettings.on then
 		-- Turned off: take down the warnings shown and forget the history, so turning it on again starts fresh.
 		if bookingState.staleSent ~= nil and bookingState.staleSent ~= "" then
@@ -695,7 +695,8 @@ local updateStaleLines = function(state : GameScriptState<BookingState>, booking
 	if logUnits then
 		log.message("BEST_BEFORE staleRoll t=" .. tostring(now) .. " month=" .. tostring(month) .. " steps=" .. tostring(steps)
 			.. " lines=" .. tostring(#keys) .. " months=" .. tostring(staleSettings.months) .. " minUnits=" .. tostring(staleSettings.minUnits)
-			.. " shareOfBreakeven=" .. tostring(staleSettings.shareOfBreakeven) .. " warnAbove=" .. tostring(staleSettings.warnAbove)
+			.. " shareOfBreakeven=" .. tostring(staleSettings.shareOfBreakeven) .. " breakeven=" .. tostring(curve.breakevenFreshness)
+			.. " staleBelow=" .. tostring(curve.breakevenFreshness * staleSettings.shareOfBreakeven) .. " warnAbove=" .. tostring(staleSettings.warnAbove)
 			.. " clearBelow=" .. tostring(staleSettings.clearBelow))
 	end
 	local warned : {string} = {}
@@ -747,14 +748,14 @@ local probe : GameScript<BookingState> = {
 			state:subscribeToEvent("OnToArriveAtDestination")
 		end
 		local bookingState = state:get()
-		activeCurve(state, bookingState) -- reads the in-game settings, before any unit arrives
+		local curve = activeCurve(state, bookingState) -- reads the in-game settings, before any unit arrives
 		if logUnits then logJournalSnapshot(state, bookingState) end
 		local gameTime : Engine.Component.GameTime = api.engine.getComponent(api.engine.util.getWorld(), api.type.ComponentType.GAME_TIME)
 		if logAny then
 			currentPayScale(state, bookingState, gameTime.gameTime) -- logs the company and pay scale when they changed
 			logSummary(state, bookingState)
 		end
-		updateStaleLines(state, bookingState, gameTime.gameTime)
+		updateStaleLines(state, bookingState, gameTime.gameTime, curve)
 		if bookingState.pending == nil or #bookingState.pending == 0 then return end
 		local queue = bookingState.pending
 		bookingState.pending = {}

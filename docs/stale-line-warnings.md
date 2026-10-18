@@ -39,7 +39,7 @@ Log lines (all start with `BEST_BEFORE`):
 
 | Line | When | Level |
 |---|---|---|
-| `staleRoll` | once a game month, with the thresholds in force | `curve`, `full` |
+| `staleRoll` | once a game month, with the thresholds in force: `breakeven` (the curve's, from the in-game settings) and `staleBelow` (`breakeven` x `shareOfBreakeven`, the freshness a unit has to fall below to count as stale) | `curve`, `full` |
 | `staleLine decision=new` | a line's first delivery | `curve`, `full` |
 | `staleLine decision=hold\|warn\|clear\|reset\|gone` | each line at each roll, with its share, buckets (`m0.2500,i0.2500,...`) and carried counters; `reset` gives `reason=route\|revision`; the line name at `full` | every roll at `curve` and `full`; at `summary` only a warning that comes or goes |
 | `staleWarnings` | the warned set sent | all but `off` |
@@ -89,7 +89,7 @@ Save "WR26A Giga-T 1900 v2 1017 2016" (a 1900 save, the mod new to it, so every 
 | 191956 | 462 | 74.6% | 125.0% | no |
 | 221500 (SHE Crops 1) | 80 (all flagged spoiled) | -41.6% | 0% | **yes, at month 130** |
 
-- This save plays on its own in-game curve (the save's state: +25% bonus down to 50% freshness, break-even 30%, -100% below 0%), not the defaults, so the stale threshold here is 0.5 x 30% = 15% freshness, not 10%. Lines at 25% to 33% freshness pay less (down to 79% of base) but are not stale. A line has to deliver below 15%, or spoiled cargo, to warn. The log's `BEST_BEFORE settings` line prints the `settings.tl` fallback (break-even 0.2), not the curve in force; the save's `probe.gs` state (`curve`) and the `rate=` and `loadParams` fields show the one in force.
+- This save plays on its own in-game curve (the save's state: +25% bonus down to 50% freshness, break-even 30%, -100% below 0%), not the defaults, so the stale threshold here is 0.5 x 30% = 15% freshness, not 10%. Lines at 25% to 33% freshness pay less (down to 79% of base) but are not stale. A line has to deliver below 15%, or spoiled cargo, to warn. The log's `BEST_BEFORE settings` line (labelled "settings.tl; its curve is only the fallback" since this run) prints the `settings.tl` numbers (break-even 0.2), not the curve in force. The curve in force is in the `loadParams` line and the `curveSettings` lines, in the save's `probe.gs` state (`curve`), and each `staleRoll` line now carries `breakeven` and `staleBelow`.
 - Line 221500 (SHE Crops 1): first delivery at month 123, then 5 measured months at 100% stale and 2 inherited (a month without deliveries). Shares 8%, 17%, 25%, 33%, 42%, 50% (all `hold`), then 58.3% at month 130 (`decision=warn`, one `staleWarnings` send with `count=1`). No repeat pop-up followed.
 - **What the player sees (screenshots, 7).** A yellow pop-up icon at the top of the screen with the tooltip "Stale Cargo". Clicking the notification opens the line's window with the warning as a banner at the top. The notification log's History tab lists it with a Caution bar. The [L] line manager shows the icon at the right of the line's row.
 - **The F2 line statistics list shows nothing.** Its "!" Problems column (`statistics_react_util.tl`, `getSortedProblemIds`) keeps only notifications of the "Problem" type; the game's own line warnings are all "Problem". The [L] manager does not filter by type. Keeping Caution means no F2 icon.
