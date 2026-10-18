@@ -704,6 +704,7 @@ local updateStaleLines = function(state : GameScriptState<BookingState>, booking
 		local entry = lines[key]
 		local wasWarned = entry.warned
 		local decision : string
+		local wasReset = false
 		local rev = exists(entry.line) and lineRevision(entry.line) or nil
 		local route = rev ~= nil and lineRoute(entry.line) or nil
 		if rev == nil or route == nil then
@@ -713,6 +714,8 @@ local updateStaleLines = function(state : GameScriptState<BookingState>, booking
 		elseif rev ~= entry.rev or route ~= entry.route then
 			-- Which one moved is logged: whether an edit of the stops also changes the revision is not known yet.
 			decision = "reset reason=" .. (rev ~= entry.rev and "revision" or "route") .. (route ~= entry.route and rev ~= entry.rev and "+route" or "")
+				.. " oldRev=" .. tostring(entry.rev) .. " newRev=" .. tostring(rev) .. " oldRoute=" .. entry.route .. " newRoute=" .. route
+			wasReset = true
 			startStaleLine(entry, rev, route)
 		else
 			fitStaleBuckets(entry)
@@ -729,8 +732,8 @@ local updateStaleLines = function(state : GameScriptState<BookingState>, booking
 			end
 		end
 		if lines[key] ~= nil and entry.warned then warned[#warned + 1] = key end
-		-- Every roll at "curve" and "full"; a warning that comes or goes at any level but "off".
-		if logUnits or (logAny and (entry.warned ~= wasWarned)) then
+		-- Every roll at "curve" and "full"; a warning that comes or goes, and a line reset, at any level but "off".
+		if logUnits or (logAny and (entry.warned ~= wasWarned or wasReset)) then
 			log.message("BEST_BEFORE staleLine t=" .. tostring(now) .. " month=" .. tostring(month) .. " decision=" .. decision
 				.. " " .. describeStaleLine(key, entry))
 		end
