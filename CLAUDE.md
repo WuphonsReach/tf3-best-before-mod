@@ -17,6 +17,9 @@ tl check best_before_1/content/mod.script.tl
 tl check best_before_1/content/probe.script.tl
 tl check best_before_1/content/stale_line_warning.script.tl
 
+# Check that _content.json lists every file under content/ (the game cannot load a file the list leaves out); run before every upload
+python3 tools/check_content_list.py
+
 # Check a test run from the game log alone
 python3 tools/verify_run.py local/logs/stdout-<date>-<time>.txt
 
@@ -74,4 +77,4 @@ Details and the step-by-step are in [docs/publishing.md](docs/publishing.md).
 - Uploads go only through the game's own uploader (Mod Hub, My Mods, the mod's dialog); the mod.io website refuses Transport Fever 3 uploads, and the website login does not reach the account that owns the mod. Uploading is outward-facing: the user does it, never a script.
 - The uploader reads `best_before_1/_metadata/modinfo.json` (name, summary, description, tags) and the images in `_metadata/`. Edit the listing text in `docs/publishing.md` first, then mirror it into `modinfo.json`.
 - `best_before_1/_metadata/mod.io_fileid.txt` holds the mod id and makes the dialog update the existing mod. Keep it committed and never delete it, or the next upload creates a second mod.
-- The upload takes the whole `best_before_1/` folder except `_metadata/` (checked on a subscribed copy of 1.0), so anything put there ships. `best_before_1/_content.json` lists the files under `content/`; the upload does not pick files by it, but keep it in step when a script file is added, renamed or removed.
+- The upload takes the whole `best_before_1/` folder except `_metadata/` (checked on a subscribed copy of 1.0), so anything put there ships. `best_before_1/_content.json` lists the files under `content/`, and the game builds the mod's file index from that list: a script file missing from it cannot be loaded (1.0 shipped without `settings.tl` in it and the game refused to start). Keep it in step when a script file is added, renamed or removed, and after every upload load a save with the published copy before calling the release good (staging link removed, subscribed copy only). Keep `modVersion` in `mod.script.tl` and the top of `CHANGELOG.md` in step; the log line `BEST_BEFORE version` shows which copy loaded.

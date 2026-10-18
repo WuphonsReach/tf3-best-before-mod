@@ -34,6 +34,7 @@ The probe in `best_before_1/content/probe.script.tl` computes the adjustment for
 - [docs/stale-line-warnings.md](docs/stale-line-warnings.md): the warning for lines that mostly deliver stale cargo, its rule and settings, and how it handles lines that change.
 - [docs/findings.md](docs/findings.md): what we have verified in the game and the results of the test runs.
 - [docs/publishing.md](docs/publishing.md): the mod.io listing (name, summary, tags, description), how to upload an update with the game's uploader, what ships, and what is known about hub search.
+- [CHANGELOG.md](CHANGELOG.md): what changed in each version, with the one-line release note for the in-game uploader.
 - [docs/future/](docs/future/): ideas set aside, things that need support from the game, and open questions. The index is [docs/README.md](docs/README.md).
 
 ## Development

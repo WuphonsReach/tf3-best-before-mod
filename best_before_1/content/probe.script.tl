@@ -31,7 +31,24 @@ local record Settings
 	staleWarnAbove : number
 	staleClearBelow : number
 end
-local rawSettings = ug_require "best_before_1::/settings.tl" as Settings
+-- Loaded under pcall: a settings.tl the game cannot find (1.0's file list left it out) must not stop the game script. The
+-- fallback mirrors settings.tl; mod.script.tl's preRunFn logs the failure.
+local fallbackSettings : Settings = {
+	staleWarnings = true,
+	staleShareOfBreakeven = 0.5,
+	staleMonths = 12,
+	staleMinUnits = 10,
+	staleWarnAbove = 0.5,
+	staleClearBelow = 0.25,
+	logLevel = "summary",
+	bonusPercent = 0.2,
+	bonusDownToFreshness = 0.4,
+	breakevenFreshness = 0.2,
+	penaltyBelowFreshness = 0.0,
+	penaltyPercent = -1.0,
+}
+local settingsLoaded, loadedSettings = pcall(ug_require, "best_before_1::/settings.tl")
+local rawSettings : Settings = settingsLoaded and (loadedSettings as Settings) or fallbackSettings
 
 local clamp = function(value : number, low : number, high : number) : number
 	return math.max(low, math.min(high, value))

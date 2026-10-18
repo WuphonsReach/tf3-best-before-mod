@@ -28,6 +28,8 @@ def py(p):
     return Y0 - p / 1.2 * (Y0 - Y_TOP)
 
 
+LIFT = 50   # the title block, the feature list and the version sit this far up, which halves the empty band above the title
+
 GREEN, AMBER, RED = "#6cc04a", "#f2b33d", "#e0533f"
 INK = "#152031"
 
@@ -229,6 +231,37 @@ def stink(cx, top):
     return "\n".join(out)
 
 
+def warning_badge(cx, cy, r):
+    """The Stale Cargo warning's icon: the game's line-minus glyph (three stops on a line, one marked with a minus)
+    redrawn as vectors on an amber disc, in the style of the faces."""
+    k = r * 1.9 / 64                       # the glyph is drawn on a 64 x 64 grid, centred on (32, 32)
+    g = lambda x, y: f"{cx + (x - 32) * k:.1f} {cy + (y - 32) * k:.1f}"
+    circles = "".join(f'<circle cx="{cx + (x - 32) * k:.1f}" cy="{cy + (y - 32) * k:.1f}" r="{rr * k:.1f}" fill="{INK}"/>'
+                      for x, y, rr in ((16, 16, 8), (45, 19, 10), (48, 48, 8)))
+    line = (f'<path d="M {g(27, 17)} C {g(31, 22)} {g(31, 28)} {g(30, 33)} C {g(29, 40)} {g(31, 45)} {g(36, 48)}" fill="none" '
+            f'stroke="{INK}" stroke-width="{6.2 * k:.1f}" stroke-linecap="round"/>')
+    minus = (f'<rect x="{cx + (37.5 - 32) * k:.1f}" y="{cy + (16.2 - 32) * k:.1f}" width="{15 * k:.1f}" height="{5.2 * k:.1f}" '
+             f'rx="{k:.1f}" fill="{AMBER}"/>')
+    return f'''<g filter="url(#shadow)">
+  <circle cx="{cx}" cy="{cy}" r="{r}" fill="{AMBER}" stroke="#fff" stroke-width="7"/>
+  {circles}{line}{minus}
+</g>'''
+
+
+def also_includes():
+    """Upper right, below the version number: the mod's other features, one row each (icon and name), right-aligned."""
+    right = W - 56
+    out = [f'<text x="{right}" y="{172 - LIFT}" text-anchor="end" font-family="Lato" font-weight="800" font-size="24" '
+           f'fill="{AMBER}" letter-spacing="5">ALSO INCLUDES</text>']
+    y = 232 - LIFT
+    for text in ("Stale line warnings",):
+        out.append(f'<text x="{right}" y="{y + 12}" text-anchor="end" font-family="Lato" font-weight="700" font-size="36" '
+                   f'fill="#fff" fill-opacity=".88">{text}</text>')
+        out.append(warning_badge(right - 362, y, 34))
+        y += 84
+    return "\n".join(out)
+
+
 FLOOR = 960   # ground line of the scene; the captions go below it
 
 
@@ -311,8 +344,9 @@ def build(version=None):
         f'<rect width="{W}" height="{H}" fill="url(#bg)"/>',
         f'<rect width="{W}" height="{H}" fill="url(#glow)"/>',
         chart(),
-        f'<g filter="url(#shadow)"><text x="70" y="250" font-family="Lato" font-weight="900" font-size="196" fill="#fff" letter-spacing="2">BEST BEFORE</text></g>',
-        f'<text x="78" y="345" font-family="Lato" font-weight="800" font-size="70" fill="{AMBER}" letter-spacing="12">CARGO FRESHNESS</text>',
+        f'<g filter="url(#shadow)"><text x="70" y="{250 - LIFT}" font-family="Lato" font-weight="900" font-size="196" fill="#fff" letter-spacing="2">BEST BEFORE</text></g>',
+        f'<text x="78" y="{345 - LIFT}" font-family="Lato" font-weight="800" font-size="70" fill="{AMBER}" letter-spacing="12">CARGO FRESHNESS</text>',
+        also_includes(),
         fresh_stack(),
         time_arrow(958, 1203, FLOOR - 140),
         garbage(),
@@ -320,7 +354,7 @@ def build(version=None):
         caption(1546, "Spoiled cargo earns nothing."),
     ]
     if version:  # upper right corner, kept clear for it
-        parts.append(f'<text x="{W - 56}" y="100" text-anchor="end" font-family="Lato" font-weight="700" font-size="54" fill="#fff" fill-opacity=".85">v{version}</text>')
+        parts.append(f'<text x="{W - 56}" y="72" text-anchor="end" font-family="Lato" font-weight="700" font-size="54" fill="#fff" fill-opacity=".85">v{version}</text>')
     parts.append("</svg>")
     return "\n".join(parts)
 
