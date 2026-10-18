@@ -23,6 +23,12 @@ local record Settings
 	penaltyBelowFreshness : number
 	penaltyPercent : number
 	logLevel : string
+	staleWarnings : boolean
+	staleShareOfBreakeven : number
+	staleMonths : number
+	staleMinUnits : number
+	staleWarnAbove : number
+	staleClearBelow : number
 end
 local rawSettings = ug_require "best_before_1::/settings.tl" as Settings
 
@@ -79,8 +85,33 @@ local logFull = settings.logLevel == "full" -- vehicle and line names, pickup ch
 local logUnits = settings.logLevel == "curve" or logFull -- a line per delivered unit, per adjustment sent, per balance change
 local logAny = settings.logLevel ~= "off"
 
--- The "summary" totals line comes about once per game month (a year is 1,461,000 clock units).
-local summaryInterval = 121750
+-- One game month of clock units (a year is 1,461,000). The "summary" totals line comes about once per game month.
+local monthClock = 121750
+local summaryInterval = monthClock
+
+-- Stale line warnings (described in settings.tl), the file's values kept in range.
+local record StaleSettings
+	on : boolean
+	shareOfBreakeven : number
+	months : integer
+	minUnits : integer
+	warnAbove : number
+	clearBelow : number
+end
+local staleSettings : StaleSettings = (function() : StaleSettings
+	local warnAbove = clamp(rawSettings.staleWarnAbove or 0.5, 0.0, 1.0)
+	return {
+		on = rawSettings.staleWarnings ~= false,
+		shareOfBreakeven = clamp(rawSettings.staleShareOfBreakeven or 0.5, 0.0, 1.0),
+		months = math.floor(clamp(rawSettings.staleMonths or 12, 1, 60)),
+		minUnits = math.floor(math.max(rawSettings.staleMinUnits or 10, 1)),
+		warnAbove = warnAbove,
+		clearBelow = clamp(rawSettings.staleClearBelow or 0.25, 0.0, warnAbove),
+	}
+end)()
+
+-- The warning's notification type: stale_line_warning.res.lua registers it, stale_line_warning.script.tl draws it.
+local staleNotificationType = "best_before_1::/stale_line_warning.script"
 
 -- A deduction never takes more than this share of a unit's predicted pay. At 1.0 a full deduction on a prediction a
 -- little above the real pay (it is good to about 1%) can leave the unit a hair negative.
@@ -104,6 +135,18 @@ local record PendingDeduction
 	x : number
 	y : number
 	z : number
+end
+
+-- One line's stale history: a ring of monthly stale shares, oldest first, and the deliveries not yet put into a bucket.
+local record StaleLine
+	line : Engine.Entity
+	rev : integer -- the entity's first revision number when tracking started; it changes when the entity is replaced
+	route : string -- the line's stops when tracking started, to see a route change
+	shares : {number} -- the stale share of each month
+	sources : string -- one letter per bucket: d default (0% stale, never measured), i inherited, m measured
+	units : integer -- deliveries since the last measured bucket (a month under the minimum carries them on)
+	stale : integer -- how many of them were stale
+	warned : boolean
 end
 
 local record BookingState
@@ -131,6 +174,10 @@ local record BookingState
 	sumAdjusted : integer
 	sumDeducted : integer
 	sumBonus : integer
+	-- Stale line warnings.
+	staleMonth : integer -- the game month the buckets were last rolled in
+	staleLines : {string : StaleLine} -- keyed by the line entity as text
+	staleSent : string -- the warned lines last sent to the notifications, comma separated
 end
 
 -- One entry per carrier, summed over the queue.
@@ -492,6 +539,208 @@ local logSummary = function(state : GameScriptState<BookingState>, bookingState 
 	state:set(bookingState)
 end
 
+-- Stale line warnings. handleEvent counts each delivered unit for the line of its last leg; once a game month update rolls
+-- every line's buckets, decides which lines are warned and sends the warned set to the game's Notifications game script
+-- when it changed. Lines are checked at the roll: a deleted or replaced line is dropped, a line whose stops changed starts
+-- over (its old history describes another route), a line that only gained or lost vehicles keeps its history.
+
+-- The entity's first revision number (it grows when the entity is replaced), or nil when it cannot be read.
+local lineRevision = function(line : Engine.Entity) : integer
+	local ok, rev = pcall(api.engine.getRevision, line)
+	if not ok or rev == nil then return nil end
+	return rev.num[1]
+end
+
+-- The line's stops as text, or nil when the entity is not a line.
+local lineRoute = function(line : Engine.Entity) : string
+	local ok, route = pcall(function() : string
+		local component : Engine.Component.Line = api.engine.getComponent(line, api.type.ComponentType.LINE)
+		if component == nil then return nil end
+		local parts : {string} = {}
+		for _, stop in ipairs(component.stops) do
+			parts[#parts + 1] = tostring(stop.stationGroup) .. ":" .. tostring(stop.station) .. ":" .. tostring(stop.terminal)
+		end
+		return table.concat(parts, ">")
+	end)
+	return ok and route or nil
+end
+
+local startStaleLine = function(entry : StaleLine, rev : integer, route : string)
+	entry.rev = rev
+	entry.route = route
+	entry.shares = {}
+	for i = 1, staleSettings.months do entry.shares[i] = 0.0 end
+	entry.sources = string.rep("d", staleSettings.months)
+	entry.units = 0
+	entry.stale = 0
+	entry.warned = false
+end
+
+-- Keeps the ring at staleSettings.months buckets when the setting changed: drops the oldest or adds defaults in front.
+local fitStaleBuckets = function(entry : StaleLine)
+	while #entry.shares > staleSettings.months do
+		table.remove(entry.shares, 1)
+		entry.sources = entry.sources:sub(2)
+	end
+	while #entry.shares < staleSettings.months do
+		table.insert(entry.shares, 1, 0.0)
+		entry.sources = "d" .. entry.sources
+	end
+end
+
+-- Closes a month: measured when the carried deliveries reach the minimum, else the previous bucket's share again.
+local rollStaleMonth = function(entry : StaleLine)
+	local share = entry.shares[#entry.shares]
+	local source = entry.sources:sub(-1) == "d" and "d" or "i"
+	if entry.units >= staleSettings.minUnits then
+		share = entry.stale / entry.units
+		source = "m"
+		entry.units = 0
+		entry.stale = 0
+	end
+	table.remove(entry.shares, 1)
+	entry.shares[#entry.shares + 1] = share
+	entry.sources = entry.sources:sub(2) .. source
+end
+
+local averageStaleShare = function(entry : StaleLine) : number
+	local sum = 0.0
+	for _, share in ipairs(entry.shares) do sum = sum + share end
+	return #entry.shares > 0 and sum / #entry.shares or 0.0
+end
+
+local describeStaleLine = function(key : string, entry : StaleLine) : string
+	local buckets : {string} = {}
+	for i, share in ipairs(entry.shares) do
+		buckets[i] = entry.sources:sub(i, i) .. string.format("%.4f", share)
+	end
+	return "line=" .. key .. " share=" .. string.format("%.4f", averageStaleShare(entry)) .. " warned=" .. tostring(entry.warned)
+		.. " units=" .. tostring(entry.units) .. " stale=" .. tostring(entry.stale) .. " buckets=" .. table.concat(buckets, ",")
+		.. (logFull and (" name=\"" .. nameOf(entry.line) .. "\"") or "")
+end
+
+-- Counts one delivered unit for its line. Returns the line's key (nil when the line cannot be tracked) and whether the
+-- unit was stale.
+local countStaleUnit = function(bookingState : BookingState, line : Engine.Entity, now : number, freshness : number, good : boolean, curve : Curve) : string, boolean
+	local stale = not good or freshness < curve.breakevenFreshness * staleSettings.shareOfBreakeven
+	if line == nil or line < 0 or not exists(line) then return nil, stale end
+	local key = tostring(line)
+	bookingState.staleLines = bookingState.staleLines or {}
+	local entry = bookingState.staleLines[key]
+	if entry == nil then
+		local rev, route = lineRevision(line), lineRoute(line)
+		if rev == nil or route == nil then return nil, stale end
+		entry = { line = line }
+		startStaleLine(entry, rev, route)
+		bookingState.staleLines[key] = entry
+		if logUnits then
+			log.message("BEST_BEFORE staleLine t=" .. tostring(now) .. " decision=new " .. describeStaleLine(key, entry))
+		end
+	end
+	entry.units = entry.units + 1
+	if stale then entry.stale = entry.stale + 1 end
+	return key, stale
+end
+
+-- Hands the full warned set to the Notifications game script: lines it no longer lists lose their warning. Sent under pcall
+-- so a refused command costs the warnings, never the game script.
+local sendStaleWarnings = function(bookingState : BookingState, keys : {string}, now : number)
+	local list : {PersistentNotifications.EntitiesAndParam} = {}
+	for _, key in ipairs(keys) do
+		local entry = bookingState.staleLines[key]
+		list[#list + 1] = {
+			entities = { { entity = entry.line, revision = { num = { entry.rev, 0, 0 } } } },
+			param = 1,
+		}
+	end
+	local update : PersistentNotifications = { type = staleNotificationType, entitiesAndParam = list }
+	local ok, err = pcall(function() : string
+		api.cmd.sendCommand(api.cmd.makeScriptingSendEventCmd("", "Notifications", "updatePersistent", update))
+		return nil
+	end)
+	bookingState.staleSent = table.concat(keys, ",")
+	if logAny or not ok then
+		log.message("BEST_BEFORE staleWarnings t=" .. tostring(now) .. " month=" .. tostring(bookingState.staleMonth)
+			.. " count=" .. tostring(#keys) .. " lines=" .. (#keys > 0 and bookingState.staleSent or "none")
+			.. (ok and "" or (" error=" .. tostring(err))))
+	end
+end
+
+local updateStaleLines = function(state : GameScriptState<BookingState>, bookingState : BookingState, now : number)
+	if not staleSettings.on then
+		-- Turned off: take down the warnings shown and forget the history, so turning it on again starts fresh.
+		if bookingState.staleSent ~= nil and bookingState.staleSent ~= "" then
+			sendStaleWarnings(bookingState, {}, now)
+		end
+		if bookingState.staleLines ~= nil or bookingState.staleMonth ~= nil then
+			bookingState.staleLines = nil
+			bookingState.staleMonth = nil
+			state:set(bookingState)
+		end
+		return
+	end
+	local month = math.floor(now / monthClock)
+	if bookingState.staleMonth == nil or month < bookingState.staleMonth then
+		bookingState.staleMonth = month
+		state:set(bookingState)
+		return
+	end
+	if month == bookingState.staleMonth then return end
+	local steps = math.min(month - bookingState.staleMonth, staleSettings.months)
+	bookingState.staleMonth = month
+	local lines = bookingState.staleLines or {}
+	local keys : {string} = {}
+	for key, _ in pairs(lines) do keys[#keys + 1] = key end
+	table.sort(keys)
+	if logUnits then
+		log.message("BEST_BEFORE staleRoll t=" .. tostring(now) .. " month=" .. tostring(month) .. " steps=" .. tostring(steps)
+			.. " lines=" .. tostring(#keys) .. " months=" .. tostring(staleSettings.months) .. " minUnits=" .. tostring(staleSettings.minUnits)
+			.. " shareOfBreakeven=" .. tostring(staleSettings.shareOfBreakeven) .. " warnAbove=" .. tostring(staleSettings.warnAbove)
+			.. " clearBelow=" .. tostring(staleSettings.clearBelow))
+	end
+	local warned : {string} = {}
+	for _, key in ipairs(keys) do
+		local entry = lines[key]
+		local wasWarned = entry.warned
+		local decision : string
+		local rev = exists(entry.line) and lineRevision(entry.line) or nil
+		local route = rev ~= nil and lineRoute(entry.line) or nil
+		if rev == nil or route == nil then
+			decision = "gone"
+			lines[key] = nil
+			entry.warned = false
+		elseif rev ~= entry.rev or route ~= entry.route then
+			-- Which one moved is logged: whether an edit of the stops also changes the revision is not known yet.
+			decision = "reset reason=" .. (rev ~= entry.rev and "revision" or "route") .. (route ~= entry.route and rev ~= entry.rev and "+route" or "")
+			startStaleLine(entry, rev, route)
+		else
+			fitStaleBuckets(entry)
+			for _ = 1, steps do rollStaleMonth(entry) end
+			local share = averageStaleShare(entry)
+			if not entry.warned and share > staleSettings.warnAbove then
+				entry.warned = true
+				decision = "warn"
+			elseif entry.warned and share < staleSettings.clearBelow then
+				entry.warned = false
+				decision = "clear"
+			else
+				decision = "hold"
+			end
+		end
+		if lines[key] ~= nil and entry.warned then warned[#warned + 1] = key end
+		-- Every roll at "curve" and "full"; a warning that comes or goes at any level but "off".
+		if logUnits or (logAny and (entry.warned ~= wasWarned)) then
+			log.message("BEST_BEFORE staleLine t=" .. tostring(now) .. " month=" .. tostring(month) .. " decision=" .. decision
+				.. " " .. describeStaleLine(key, entry))
+		end
+	end
+	bookingState.staleLines = lines
+	if table.concat(warned, ",") ~= (bookingState.staleSent or "") then
+		sendStaleWarnings(bookingState, warned, now)
+	end
+	state:set(bookingState)
+end
+
 local probe : GameScript<BookingState> = {
 	update = function(_userParams : table, state : GameScriptState<BookingState>, _dt : number) : any
 		if not state:hasEventSubscriptions() then
@@ -500,11 +749,12 @@ local probe : GameScript<BookingState> = {
 		local bookingState = state:get()
 		activeCurve(state, bookingState) -- reads the in-game settings, before any unit arrives
 		if logUnits then logJournalSnapshot(state, bookingState) end
+		local gameTime : Engine.Component.GameTime = api.engine.getComponent(api.engine.util.getWorld(), api.type.ComponentType.GAME_TIME)
 		if logAny then
-			local gameTime : Engine.Component.GameTime = api.engine.getComponent(api.engine.util.getWorld(), api.type.ComponentType.GAME_TIME)
 			currentPayScale(state, bookingState, gameTime.gameTime) -- logs the company and pay scale when they changed
 			logSummary(state, bookingState)
 		end
+		updateStaleLines(state, bookingState, gameTime.gameTime)
 		if bookingState.pending == nil or #bookingState.pending == 0 then return end
 		local queue = bookingState.pending
 		bookingState.pending = {}
@@ -604,7 +854,12 @@ local probe : GameScript<BookingState> = {
 				-- A unit that waited in a specialized warehouse has its timer paused; deliveryExtensionDuration holds that
 				-- time, so the corrected age is the age minus it (checked against the game's good flag on logged runs).
 				local correctedFreshness = limitMs > 0 and (1.0 - (ageMs - simCargo.deliveryExtensionDuration) / limitMs) or 1.0
-				local adjustment = curveAdjustment(curve, curve.stored == "corrected" and correctedFreshness or freshness, good)
+				local judged = curve.stored == "corrected" and correctedFreshness or freshness
+				local adjustment = curveAdjustment(curve, judged, good)
+				local lastLine : Engine.Entity = last and last.line
+				local staleKey : string = nil
+				local staleUnit = false
+				if staleSettings.on then staleKey, staleUnit = countStaleUnit(bookingState, lastLine, now, judged, good, curve) end
 				local rate = 1.0 + adjustment
 				local src = worldPosition(simCargo.sourceEntity)
 				local dst = worldPosition(unit[2][1])
@@ -638,7 +893,7 @@ local probe : GameScript<BookingState> = {
 					correction = "ageMs=" .. tostring(ageMs) .. " limitMs=" .. tostring(limitMs)
 						.. " freshness=" .. tostring(freshness) .. " corrected=" .. tostring(correctedFreshness) .. " rate=" .. tostring(rate)
 						.. " payScale=" .. tostring(pay.scale) .. " predictedIncome=" .. predicted .. " deduction=" .. tostring(deduction)
-						.. " bonus=" .. tostring(bonus) .. queued
+						.. " bonus=" .. tostring(bonus) .. " staleLine=" .. (staleKey or "none") .. " staleUnit=" .. tostring(staleUnit) .. queued
 				end
 			end
 			if logUnits then

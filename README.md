@@ -8,6 +8,7 @@ Transport Fever 3 mod: cargo pay scales with freshness. Fresh cargo earns a bonu
 
 - **What it does.** The game pays every cargo unit in full. For each arriving unit the mod works out a freshness adjustment (a bonus or a deduction) and books it as one income entry to the player's account. It logs everything with lines starting `BEST_BEFORE`.
 - **Status: early test version, public on mod.io** (1.0, 17 Oct 2026, PC and console). The mechanism is checked in the game on nine saves: bonuses, deductions up to -100%, chains of three legs, six calendar years against a no-mod control. The default curve (+20% bonus, break-even at 80% of the spoil limit used, -100% penalty) is a candidate; it nets +8.0% of base pay over those saves.
+- **Stale line warnings (new, not yet run in the game).** A line whose deliveries are mostly stale over the past months gets a "Stale Cargo" warning in the game's notifications and in Line & Vehicle Management. See [docs/stale-line-warnings.md](docs/stale-line-warnings.md).
 - **Not done.** Splitting a deduction along a transferred unit's chain (the mod books to the player only). The mod still replaces the game's cargo income function with a logging copy, so it conflicts with other mods that replace it.
 - This is an unofficial mod. It contains no files from the game.
 
@@ -29,6 +30,7 @@ The probe in `best_before_1/content/probe.script.tl` computes the adjustment for
 
 - [docs/changing-settings.md](docs/changing-settings.md): how to change the curve settings on a new game and on a saved game, with screenshots.
 - [docs/how-it-works.md](docs/how-it-works.md): how the mod turns freshness into a booking and where it can over-penalize.
+- [docs/stale-line-warnings.md](docs/stale-line-warnings.md): the warning for lines that mostly deliver stale cargo, its rule and settings, and how it handles lines that change.
 - [docs/findings.md](docs/findings.md): what we have verified in the game and the results of the test runs.
 - [docs/publishing.md](docs/publishing.md): the mod.io listing (name, summary, tags, description), how to upload an update with the game's uploader, what ships, and what is known about hub search.
 - [docs/future/](docs/future/): ideas set aside, things that need support from the game, and open questions. The index is [docs/README.md](docs/README.md).
@@ -38,7 +40,7 @@ The probe in `best_before_1/content/probe.script.tl` computes the adjustment for
 Type checking uses the Teal compiler (`tl`, install with `luarocks install --local tl`) against the game's own type definitions:
 
 1. Copy `tlconfig.example.lua` to `tlconfig.lua` and replace `<tf3_install_folder>` with your game install path (`tlconfig.lua` is gitignored).
-2. Run `tl check best_before_1/content/mod.script.tl` and `tl check best_before_1/content/probe.script.tl`.
+2. Run `tl check` on each of `best_before_1/content/mod.script.tl`, `probe.script.tl` and `stale_line_warning.script.tl`.
 
 ## Licence
 

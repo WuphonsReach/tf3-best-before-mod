@@ -8,6 +8,7 @@ The mod is public on mod.io as an early test version; [publishing.md](publishing
 |---|---|
 | [changing-settings.md](changing-settings.md) | How a player changes the mod's settings on a new game and on a saved game, with screenshots, and what each setting does |
 | [how-it-works.md](how-it-works.md) | How the mod turns freshness into a booking, and where it can over-penalize or miss |
+| [stale-line-warnings.md](stale-line-warnings.md) | The "Stale Cargo" warning for lines that mostly deliver stale cargo: the rule, the settings, lines that change, and the tests so far |
 | [findings.md](findings.md) | What we have verified in the game: how pay works, cargo units and freshness, what a mod can and cannot do, test results |
 | [publishing.md](publishing.md) | The mod.io listing (name, summary, tags, description, mirrored into `modinfo.json`), how to upload an update with the game's uploader, what ships, and what is known about hub search |
 | [future/discarded.md](future/discarded.md) | Ideas we tried or weighed and set aside, why, and what would bring them back |

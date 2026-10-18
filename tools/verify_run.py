@@ -13,6 +13,9 @@ the supply chain by a formula we do not know). The run passes when
     save the rate falls further, so it also passes when the exact hits outnumber those of the same amounts shifted by one 50 to 1.
 Vehicle and line ledgers are reported for information only: pay for a transferred unit is split along its chain, so a
 first-leg ledger does not receive the whole predicted pay.
+Stale line warnings are checked from the monthly staleRoll and staleLine lines: each line's share is the mean of its buckets,
+every warn, clear and hold follows the thresholds, the warned set sent to the notifications matches the lines marked warned,
+and where the log holds a line's previous state, its new bucket is rebuilt from the arrival lines counted for it in between.
 """
 import re
 import sys
@@ -192,8 +195,106 @@ def main(path):
     print(("PASS" if landed_ok else "FAIL") + f"  landing: {landed} of {checked} player entries showed up as an exact "
           f"step of the balance or income total in the next four snapshots ({rate:.0%}, needs {MIN_LANDED:.0%}{how})")
     ok = ok and landed_ok
+    ok = check_stale(lines, start) and ok
     print("RESULT " + ("PASS" if ok else "FAIL"))
     return 0 if ok else 1
+
+
+def check_stale(lines, start):
+    """Stale line warnings: replay each line's buckets between the monthly rolls from the arrival lines counted for it."""
+    state = {}                                 # line -> its last logged state (buckets, carried units, warned)
+    pending = defaultdict(lambda: [0, 0])      # arrivals and stale arrivals counted for a line since that state
+    problems = []
+    params, roll_warned, roll_sent, last_sent = None, None, None, None
+    rolls = replayed = 0
+
+    def close_roll():
+        expected = roll_sent if roll_sent is not None else last_sent
+        if roll_warned is not None and expected is not None and expected != roll_warned:
+            problems.append(f"month {int(params['month'])}: lines marked warned {sorted(roll_warned)}, sent {sorted(expected)}")
+
+    for i, ln in enumerate(lines[start:], start):
+        m = re.search(r"BEST_BEFORE (\w+) ?(.*)", ln)
+        if not m:
+            continue
+        kind, rest = m.groups()
+        if kind == "arrival":
+            d = kv(rest)
+            key = d.get("staleLine")
+            if key and key != "none":
+                pending[key][0] += 1
+                pending[key][1] += d.get("staleUnit") == "true"
+        elif kind == "staleRoll":
+            close_roll()
+            params = {k: float(v) for k, v in kv(rest).items()}
+            roll_warned, roll_sent = set(), None
+            rolls += 1
+        elif kind == "staleWarnings":
+            d = kv(rest)
+            if "error" in d:
+                problems.append(f"line {i + 1}: sending the warnings failed: {d['error']}")
+            last_sent = set() if d["lines"] == "none" else set(d["lines"].split(","))
+            if roll_warned is not None:
+                roll_sent = last_sent
+        elif kind == "staleLine":
+            d = kv(rest)
+            key, decision = d["line"], d["decision"]
+            buckets = [(b[0], float(b[1:])) for b in d["buckets"].split(",")]
+            entry = {"buckets": buckets, "units": int(d["units"]), "stale": int(d["stale"]), "warned": d["warned"] == "true"}
+            prev, (units, stale) = state.get(key), pending[key]
+            pending[key] = [0, 0]
+            if decision == "new" or params is None:
+                state[key] = entry
+                continue
+            share = float(d["share"])
+            where = f"month {int(params['month'])} line {key}"
+            if abs(sum(v for _, v in buckets) / len(buckets) - share) > 1e-3:
+                problems.append(f"{where}: share {share} is not the mean of its buckets")
+            if entry["warned"]:
+                roll_warned.add(key)
+            if decision == "gone":
+                state.pop(key, None)
+                continue
+            state[key] = entry
+            if decision == "reset":
+                continue
+            was = prev["warned"] if prev else None
+            warn_at, clear_at = params["warnAbove"], params["clearBelow"]
+            if decision == "warn" and not (share > warn_at - 1e-4 and entry["warned"] and was is not True):
+                problems.append(f"{where}: warned at share {share} (warns above {warn_at})")
+            elif decision == "clear" and not (share < clear_at + 1e-4 and not entry["warned"] and was is not False):
+                problems.append(f"{where}: cleared at share {share} (clears below {clear_at})")
+            elif decision == "hold" and ((was is not None and entry["warned"] != was)
+                                         or (entry["warned"] and share < clear_at - 1e-4)
+                                         or (not entry["warned"] and share > warn_at + 1e-4)):
+                problems.append(f"{where}: held at share {share} with warned={entry['warned']}")
+            if prev is None or params["steps"] != 1:
+                continue
+            units += prev["units"]
+            stale += prev["stale"]
+            last_source, last_share = prev["buckets"][-1]
+            if units >= params["minUnits"]:
+                new, carried = ("m", stale / units), (0, 0)
+            else:
+                new, carried = ("d" if last_source == "d" else "i", last_share), (units, stale)
+            expected = prev["buckets"][1:] + [new]
+            same = len(expected) == len(buckets) and all(a[0] == b[0] and abs(a[1] - b[1]) <= 1e-3 for a, b in zip(expected, buckets))
+            if not same or carried != (entry["units"], entry["stale"]):
+                problems.append(f"{where}: buckets {d['buckets']} units={entry['units']} stale={entry['stale']}, rebuilt from the "
+                                f"arrivals: {','.join(f'{s}{v:.4f}' for s, v in expected)} units={carried[0]} stale={carried[1]}")
+            replayed += 1
+    close_roll()
+
+    if not rolls:
+        print("INFO  stale lines: no monthly roll after the last load (the run is shorter than a game month, or warnings are off)")
+        return True
+    warned_now = sorted(k for k, e in state.items() if e["warned"])
+    print(("PASS" if not problems else "FAIL") + f"  stale lines: {rolls} monthly rolls, {len(state)} lines tracked, {replayed} "
+          f"bucket rolls rebuilt from the arrivals, {len(warned_now)} lines warned at the end"
+          + (f" ({', '.join(warned_now[:10])}{', ...' if len(warned_now) > 10 else ''})" if warned_now else ""))
+    for problem in problems[:10]:
+        print("      " + problem)
+    return not problems
 
 
 if __name__ == "__main__":
