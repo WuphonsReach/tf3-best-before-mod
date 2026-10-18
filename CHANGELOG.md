@@ -1,8 +1,8 @@
 # Changelog
 
-Newest first. The number in the title is `modVersion` at the top of [mod.script.tl](best_before_1/content/mod.script.tl), which the game log prints at every load as `BEST_BEFORE version <number>`. Each entry's last line is the one-liner for the Changelog field of the in-game uploader ([how to upload](docs/publishing.md#uploading-an-update)).
+Newest first. The number in the title is `modVersion` at the top of [mod.script.tl](best_before_1/content/mod.script.tl), which the game log prints at every load as `BEST_BEFORE version <number>`. Each entry's last line is the one-liner for the Changelog field of the in-game uploader ([how to upload](docs/publishing.md#uploading-an-update)). mod.io labels every file we upload "1.0" whatever the number here is, so the number in this file and in the log is the one that tells builds apart.
 
-## 1.1 (18 Oct 2026)
+## 1.0.1 (18 Oct 2026)
 
 - **Fixed: the game would not start with the mod.** The 1.0 file list (`_content.json`) left out `settings.tl`, the game builds its file index from that list, so the mod's first script failed with "module 'best_before_1::/settings.tl' not found" and the game answered "Could not initialize game: try removing the mod". 1.0 never loaded for anyone.
 - **Fixed: the file list is checked.** `tools/check_content_list.py` fails if `_content.json` and `content/` differ; it is part of the upload steps.
@@ -15,7 +15,7 @@ Release note: `Fixes the game not starting with the mod. Adds Stale Cargo warnin
 
 ## 1.0 (17 Oct 2026)
 
-First public version, an early test version. It did not load: see 1.1.
+First public version, an early test version. It did not load: see 1.0.1.
 
 - The pay curve with five in-game settings (pay for fresh cargo, bonus down to freshness, normal pay at freshness, lowest pay below freshness, pay for spoiled cargo), booked as one correcting entry to the company account.
 - A logging copy of the base cargo income function (pay unchanged), and the `logLevel` switch in `settings.tl`.

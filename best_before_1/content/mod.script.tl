@@ -22,7 +22,7 @@ local settingsLoaded, loadedSettings = pcall(ug_require, "best_before_1::/settin
 local settings : {string:any} = settingsLoaded and (loadedSettings as {string:any}) or fallbackSettings
 
 -- Bump with every release and keep it equal to the newest CHANGELOG.md entry; the "-dev" suffix marks work after a release.
-local modVersion = "1.1"
+local modVersion = "1.0.1"
 
 local maxLoggedCalls = 400
 local loggedCalls = 0
