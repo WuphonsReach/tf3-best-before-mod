@@ -10,6 +10,7 @@ Newest first. The number in the title is `modVersion` at the top of [mod.script.
 - **New: "Stale Cargo" warnings.** A line whose deliveries are mostly stale gets a warning in the notification log and on the line; it clears when the line recovers. Rule and settings: [docs/stale-line-warnings.md](docs/stale-line-warnings.md). Turn off with `staleWarnings = false` in `settings.tl`.
 - **New: version line in the log**, so a log shows which copy of the mod ran (the published mod and a `staging_area` copy share the id `best_before_1`).
 - Also: a warning that fails to send is retried at the next roll and taken down once when the warnings are off; more stale-line log lines (the threshold in force, the stops before and after a reset).
+- **Oddity: the uploaded file calls itself 1.1.** The file on mod.io was uploaded while this release was still numbered 1.1, so the log of the published copy prints `BEST_BEFORE version 1.1`; a log that says 1.1 is this release. The code is the same as the 1.0.1 commit apart from that one string (`modVersion` in the repo is `1.0.1`). The next release will probably be numbered 1.2, which makes the log line unambiguous again.
 
 Release note: `Fixes the game not starting with the mod. Adds Stale Cargo warnings for lines that mostly deliver spoiled cargo.`
 
