@@ -4,6 +4,8 @@
         "mod.script.tl",
         "probe.gs.lua",
         "probe.script.tl",
-        "settings.tl"
+        "settings.tl",
+        "stale_line_warning.res.lua",
+        "stale_line_warning.script.tl"
     ]
 }

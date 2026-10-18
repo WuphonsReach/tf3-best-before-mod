@@ -37,7 +37,9 @@ mod.preRunFn = function(_captureParams : {string:any}, _configDict : {{string, s
 	table.sort(names)
 	local parts : {string} = {}
 	for _, name in ipairs(names) do parts[#parts + 1] = name .. "=" .. tostring(settings[name]) end
-	log.message("BEST_BEFORE settings " .. table.concat(parts, " "))
+	-- The numbers are settings.tl's: its curve is only the fallback. The curve in force is in the loadParams line below and in the
+	-- curveSettings lines, and each staleRoll line says the freshness a unit has to fall below to count as stale.
+	log.message("BEST_BEFORE settings (settings.tl; its curve is only the fallback) " .. table.concat(parts, " "))
 	local level = settings.logLevel
 	if level ~= "off" and level ~= "summary" and level ~= "curve" and level ~= "full" then
 		log.message("BEST_BEFORE settings logLevel=" .. tostring(level) .. " is not off, summary, curve or full and will count as summary")
