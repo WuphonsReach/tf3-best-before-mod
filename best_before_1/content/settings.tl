@@ -19,9 +19,9 @@
 -- penaltyPercent = 0 for bonuses only.
 --
 -- logLevel: how much the mod writes to the game log (every line starts with BEST_BEFORE). Any other value counts as "summary".
---   "off"      the start-up lines only (the settings in use, warnings about settings the mod clamps)
---   "summary"  plus a totals line about once a game month (units delivered, pay taken away, bonus paid), the company's rank and
---              pay scale when they change, and the first sighting of each cargo type
+--   "off"      the start-up lines only (settings.tl's numbers, the in-game settings as list positions, a warning for an unknown logLevel)
+--   "summary"  plus a totals line about once a game month (units delivered, pay taken away, bonus paid), the curve in force, the
+--              company's rank and pay scale when they change, the first sighting of each cargo type, and stale warnings that come or go
 --   "curve"    plus a line for every delivered unit with what the curve replay needs (age, limit, predicted pay, adjustment),
 --              every adjustment sent and every balance change; no vehicle or line names, chains or per-vehicle ledgers
 --   "full"     plus those names, chains and ledgers, for studying how the pay splits along a chain; the biggest log

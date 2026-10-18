@@ -34,7 +34,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 
 CLK_TCK = os.sysconf("SC_CLK_TCK")
-MONTH = 1461000 / 12  # game clock units; a calendar year is 1,461,000
+MONTH = 1461000 / 12  # game clock units; a clock year is 1,461,000 (not a calendar year)
 SYSTEM_COLUMNS = ["user", "nice", "system", "idle", "iowait", "irq", "softirq", "steal"]
 DEFAULT_THREADS = r"^(Sim|Main)"
 MIN_INTERVAL, MAX_INTERVAL = 1.0, 10.0
