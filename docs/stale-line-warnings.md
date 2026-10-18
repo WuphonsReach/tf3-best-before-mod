@@ -2,11 +2,11 @@
 
 ## In short
 
-- **What it does.** A line whose deliveries are mostly stale gets a "Stale Cargo" warning from the game's own notification system. The warning shows in the notification log and pop-ups, and as an icon on the line in Line & Vehicle Management; clicking it selects the line. It is a Caution, and players can filter it out in the notification log ("Stale Cargo (Best Before)").
+- **What it does.** A line whose deliveries are mostly stale gets a "Stale Cargo" warning from the game's own notification system. The warning shows as a pop-up icon, in the notification log and as an icon on the line in the [L] Line & Vehicle Management window; clicking it opens the line. It is a Caution, and players can filter it out in the notification log ("Stale Cargo (Best Before)"). It does not show in the F2 line statistics list: that list's Problems column shows only the game's "Problem" type, and we chose Caution on purpose (a stale line is a pay issue, not a fault).
 - **The rule.** A delivered unit is stale when its freshness is below half the curve's break-even freshness (10% with the default 20% break-even), or when the game flags it spoiled. It counts for the line of its last leg. Each line keeps 12 monthly buckets. Once a game month the mod compares their average: above 50% the line is warned, below 25% the warning goes, in between nothing changes. A line has to be bad for about 7 months before it warns, and needs about 10 good months to clear.
 - **Lines that change.** A new line starts with 12 buckets at 0% stale. A month without deliveries inherits the previous bucket's share. A month with fewer than 10 deliveries also inherits, and those deliveries carry over into the next month until there are 10. A line whose stops change, or whose entity is replaced, starts over; a deleted line is dropped and loses its warning. Adding or removing vehicles keeps the history.
-- **How sure we are.** The code has only been run outside the game: compiled to Lua and driven through 30 game months with a mocked game API (see the test at the bottom). `tools/verify_run.py` passes that log and catches tampered buckets and sends. **It has not run in the game yet.**
-- **Unknown until the first game run.** Whether the game registers a mod's notification type from `stale_line_warning.res.lua`; whether the type path `best_before_1::/stale_line_warning.script` resolves and the icon shows in Line & Vehicle Management; whether editing a line's stops also changes its revision number (the log says which check fired); and what the extra game script state costs on a big save.
+- **How sure we are.** Sure: the game registers the type, the warning comes up after 7 game months of stale deliveries, in the pop-up, the notification log and the [L] manager, with the line's name, and a click opens the line (one game run, 81 monthly rolls, 5 lines, 1 warned; `tools/verify_run.py` passes). Not yet seen in the game: a warning clearing, a line's stops being edited, the notification log's Active tab and filter.
+- **Unknown.** Whether editing a line's stops also changes its revision number (the log says which check fired); whether a warning clears in the game as the mocked test says; what the extra game script state costs on a big save.
 - **Off switch.** `staleWarnings = false` in `settings.tl` removes any warnings shown and forgets the history (needs a reload, no restart).
 
 ## How it works
@@ -76,3 +76,21 @@ Deliveries arrive in bursts (one train or ship unloads 12 to 140 units), and som
 | (sold) | units from a line that no longer exists | counted for no line (`staleLine=none`) |
 
 At `curve` the verifier passed all 29 rolls and rebuilt 182 bucket rolls from the arrivals. With one bucket edited, or one line dropped from a send, it failed and named the month and line. `summary`, `full` and `off` ran without errors. Turning the warnings off on a reload sent an empty set and cleared them. The warning script, run with a mocked GUI API, named the line, and its click selected the line (or did nothing once the line was gone).
+
+## Test in the game
+
+Save "WR26A Giga-T 1900 v2 1017 2016" (a 1900 save, the mod new to it, so every line's history started empty), log level `curve`, about 47 minutes of log (00:35 to 01:22 UTC). Log `local/logs/stdout-20261018-0039-stale-warn-start.txt`; `verify_run.py` passed (no error lines, 1,730 units adjusted and sent (the five lines below), 81 monthly rolls, 5 lines tracked, 1 warned, 317 bucket rolls rebuilt from the arrivals).
+
+| Line | Units | Freshness (mean) | Pay (mean, % of base) | Warned |
+|---|---|---|---|---|
+| 183097 (probably HEM Crops 1) | 384 | 33.1% | 103.8% | no |
+| 185051 (probably WIG Crops 1) | 320 | 26.4% | 87.9% | no |
+| 191487 | 484 | 56.5% | 125.0% | no |
+| 191956 | 462 | 74.6% | 125.0% | no |
+| 221500 (SHE Crops 1) | 80 (all flagged spoiled) | -41.6% | 0% | **yes, at month 130** |
+
+- Lines at 20% to 33% freshness pay less (down to 79% of base) but are not stale: the stale threshold is 10% with the default break-even. A line has to deliver at or below that, or spoiled cargo, to warn.
+- Line 221500 (SHE Crops 1): first delivery at month 123, then 5 measured months at 100% stale and 2 inherited (a month without deliveries). Shares 8%, 17%, 25%, 33%, 42%, 50% (all `hold`), then 58.3% at month 130 (`decision=warn`, one `staleWarnings` send with `count=1`). No repeat pop-up followed.
+- **What the player sees (screenshots, 7).** A yellow pop-up icon at the top of the screen with the tooltip "Stale Cargo". Clicking the notification opens the line's window with the warning as a banner at the top. The notification log's History tab lists it with a Caution bar. The [L] line manager shows the icon at the right of the line's row.
+- **The F2 line statistics list shows nothing.** Its "!" Problems column (`statistics_react_util.tl`, `getSortedProblemIds`) keeps only notifications of the "Problem" type; the game's own line warnings are all "Problem". The [L] manager does not filter by type. Keeping Caution means no F2 icon.
+- **The first text was too long for the log.** The log's row shows two lines (about 190 characters at most); the first text was about 270 and was cut off after "a shorter route or less…". It is now 160 characters with the line's name in quotes. Not yet seen in the game.
