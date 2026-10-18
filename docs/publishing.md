@@ -45,7 +45,7 @@ It sits under the hub's Misc group. Other cargo mods there (Route-Based Cargo In
 
 ## Summary
 
-Cargo pay follows freshness: fresh deliveries earn a bonus, slow or spoiled cargo earns less. Five adjustable settings.
+Cargo pay follows freshness: fresh deliveries earn a bonus, slow or spoiled cargo earns less. Five adjustable settings, and warnings for lines that deliver stale cargo.
 
 ## Description
 
@@ -63,6 +63,12 @@ HOW IT WORKS
 
 CARGO FROM OTHER MODS
 - Expected to work, for example the cargo of the Sugar Cane Industry mod (sugar cane, sugar, molasses, rum). The mod reads each cargo's own delivery time and price from the game's cargo list and has no list of cargo names, so a cargo that sets those the usual way is judged like the base game's. This has not been tried in the game yet.
+
+STALE CARGO WARNINGS
+- A line whose deliveries are mostly stale gets a "Stale Cargo" warning: a pop-up, an entry in the notification log, and an icon on the line in the Line & Vehicle Management window (click it to open the line). It is a Caution, not a fault: stale cargo costs pay, nothing is broken.
+- A unit counts as stale when its freshness is below half of the "normal pay at freshness" setting, or when the game marks it spoiled. It counts for the line of its last leg.
+- The mod looks at the last 12 game months, once a month, so a line has to deliver mostly stale cargo for several months before it is warned, and run well for several months before the warning goes.
+- To hide the warnings, filter "Stale Cargo (Best Before)" out of the notification log.
 
 THE DEFAULT CURVE
 - Freshness 40% and above: 120% of normal pay.
