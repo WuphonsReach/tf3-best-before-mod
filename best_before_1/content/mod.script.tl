@@ -21,8 +21,8 @@ local fallbackSettings : {string:any} = {
 local settingsLoaded, loadedSettings = pcall(ug_require, "best_before_1::/settings.tl")
 local settings : {string:any} = settingsLoaded and (loadedSettings as {string:any}) or fallbackSettings
 
--- Bump with every release and keep it equal to the newest CHANGELOG.md entry; the "-dev" suffix marks work after a release.
-local modVersion = "1.0.1"
+-- Set it to the release number in the release commit, equal to that CHANGELOG.md entry; between releases it is the next number with "-dev" (the changelog has no entry for it yet).
+local modVersion = "1.2-dev"
 
 local maxLoggedCalls = 400
 local loggedCalls = 0
