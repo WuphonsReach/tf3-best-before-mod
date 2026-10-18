@@ -8,7 +8,21 @@ end
 
 local mod : BestBeforeMod = {}
 
-local settings = ug_require "best_before_1::/settings.tl" as {string:any}
+-- settings.tl is loaded under pcall: if the game cannot find it (a mod file list that leaves it out did exactly that in 1.0), the
+-- mod runs on these numbers, which mirror settings.tl, instead of the game refusing to start. preRunFn logs when that happens.
+local fallbackSettings : {string:any} = {
+	logLevel = "summary",
+	bonusPercent = 0.2,
+	bonusDownToFreshness = 0.4,
+	breakevenFreshness = 0.2,
+	penaltyBelowFreshness = 0.0,
+	penaltyPercent = -1.0,
+}
+local settingsLoaded, loadedSettings = pcall(ug_require, "best_before_1::/settings.tl")
+local settings : {string:any} = settingsLoaded and (loadedSettings as {string:any}) or fallbackSettings
+
+-- Bump with every release and keep it equal to the newest CHANGELOG.md entry; the "-dev" suffix marks work after a release.
+local modVersion = "1.1-dev"
 
 local maxLoggedCalls = 400
 local loggedCalls = 0
@@ -31,7 +45,16 @@ end
 
 mod.preRunFn = function(_captureParams : {string:any}, _configDict : {{string, string}}, allModParams : {string : {string : integer}}, baseConfig : BaseConfig)
 	baseConfig.economy.cargoIncomeScript.fileName = "best_before_1::/mod.script@calcCargoIncomeFn"
+	-- Which copy loaded: the published mod and the staging_area copy share the id best_before_1, and the game does not log which
+	-- one it picked. modVersion is the number in the changelog; the source is the path of this script if the game lets it be read.
+	local okSource, source = pcall(function() : string
+		return (debug.getinfo(1, "S") as {string:any}).source as string
+	end)
+	log.message("BEST_BEFORE version " .. modVersion .. " loaded from " .. (okSource and source or "an unknown path"))
 	log.message("BEST_BEFORE preRunFn: cargoIncomeScript replaced")
+	if not settingsLoaded then
+		log.message("BEST_BEFORE settings.tl could not be loaded (" .. tostring(loadedSettings) .. "); running on the built-in defaults")
+	end
 	local names : {string} = {}
 	for name, _ in pairs(settings) do names[#names + 1] = name end
 	table.sort(names)
