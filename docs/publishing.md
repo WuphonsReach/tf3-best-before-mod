@@ -23,7 +23,7 @@
    - The button reads **Update** with the line "The existing mod on mod.io will be updated". If it reads **Upload** with "A new mod will be created on mod.io", `mod.io_fileid.txt` is missing: stop and restore it.
 5. Press **Update**. The dialog shows "Uploading... Please Wait" and a counter ("Uploading Mods (1/1)", or 2/2), then "Upload Successful".
 6. Open the page (**Open Mod Page** in the dialog) and check the text, the files and their dates.
-7. Test the published copy: remove the `staging_area` link, subscribe, load a save with the mod active, and look in the log for `BEST_BEFORE version <the new number>` and the downloaded `_content.json` for all files. Only then tell anyone it works. Unsubscribe and restore the link afterwards.
+7. Test the published copy: remove the `staging_area` link (with the link in place the game loads the staging copy even when the mod is subscribed: it logs `Multiple (2) mods with same id found best_before_1, the one from .../staging_area/best_before_1/ has been selected`, so such a run says nothing about the published file), subscribe, load a save with the mod active, and look in the log for `BEST_BEFORE version <the new number>` and the downloaded `_content.json` for all files. Only then tell anyone it works. Unsubscribe and restore the link afterwards.
 
 The dialog's other parts: **Preview** (the cover, see [Preview image](#preview-image)), a gallery that picks up `workshop_preview.jpg` by itself, **Tags** (with + to add), **Author**, **View**, **Report**, and at the top a pencil, **Open Folder** and **Refresh**.
 
