@@ -17,6 +17,9 @@ tl check best_before_1/content/mod.script.tl
 tl check best_before_1/content/probe.script.tl
 tl check best_before_1/content/stale_line_warning.script.tl
 
+# Check that _content.json lists every file under content/ (the game cannot load a file the list leaves out); run before every upload
+python3 tools/check_content_list.py
+
 # Check a test run from the game log alone
 python3 tools/verify_run.py local/logs/stdout-<date>-<time>.txt
 
