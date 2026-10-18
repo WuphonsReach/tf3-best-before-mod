@@ -1,6 +1,6 @@
 # Changelog
 
-Newest first. The number in the title is `modVersion` at the top of [mod.script.tl](best_before_1/content/mod.script.tl), which the game log prints at every load as `BEST_BEFORE version <number> loaded from <path>`. Each entry's last line is the one-liner for the Changelog field of the in-game uploader ([how to upload](docs/publishing.md#uploading-an-update)).
+Newest first. The number in the title is `modVersion` at the top of [mod.script.tl](best_before_1/content/mod.script.tl), which the game log prints at every load as `BEST_BEFORE version <number>`. Each entry's last line is the one-liner for the Changelog field of the in-game uploader ([how to upload](docs/publishing.md#uploading-an-update)).
 
 ## 1.1 (not released yet)
 

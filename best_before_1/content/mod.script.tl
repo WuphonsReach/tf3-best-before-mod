@@ -46,11 +46,8 @@ end
 mod.preRunFn = function(_captureParams : {string:any}, _configDict : {{string, string}}, allModParams : {string : {string : integer}}, baseConfig : BaseConfig)
 	baseConfig.economy.cargoIncomeScript.fileName = "best_before_1::/mod.script@calcCargoIncomeFn"
 	-- Which copy loaded: the published mod and the staging_area copy share the id best_before_1, and the game does not log which
-	-- one it picked. modVersion is the number in the changelog; the source is the path of this script if the game lets it be read.
-	local okSource, source = pcall(function() : string
-		return (debug.getinfo(1, "S") as {string:any}).source as string
-	end)
-	log.message("BEST_BEFORE version " .. modVersion .. " loaded from " .. (okSource and source or "an unknown path"))
+	-- one it picked. modVersion is the number in the changelog; the script's own path is only the virtual best_before_1::/ one.
+	log.message("BEST_BEFORE version " .. modVersion)
 	log.message("BEST_BEFORE preRunFn: cargoIncomeScript replaced")
 	if not settingsLoaded then
 		log.message("BEST_BEFORE settings.tl could not be loaded (" .. tostring(loadedSettings) .. "); running on the built-in defaults")
