@@ -2,7 +2,7 @@
 
 Newest first. The number in the title is `modVersion` at the top of [mod.script.tl](best_before_1/content/mod.script.tl), which the game log prints at every load as `BEST_BEFORE version <number>`. Each entry's last line is the one-liner for the Changelog field of the in-game uploader ([how to upload](docs/publishing.md#uploading-an-update)).
 
-## 1.1 (not released yet)
+## 1.1 (18 Oct 2026)
 
 - **Fixed: the game would not start with the mod.** The 1.0 file list (`_content.json`) left out `settings.tl`, the game builds its file index from that list, so the mod's first script failed with "module 'best_before_1::/settings.tl' not found" and the game answered "Could not initialize game: try removing the mod". 1.0 never loaded for anyone.
 - **Fixed: the file list is checked.** `tools/check_content_list.py` fails if `_content.json` and `content/` differ; it is part of the upload steps.
