@@ -1,5 +1,6 @@
--- Freshness deduction probe: for every cargo unit arriving at its destination, work out how much of its pay the
--- freshness curve takes away and book that as a negative income entry to the player's account.
+-- Freshness probe: for every cargo unit arriving at its destination, work out the freshness curve's adjustment (a deduction
+-- for stale or spoiled cargo, a bonus for fresh cargo) and book it as an income entry to the player's account. Each unit
+-- also counts for its last leg's line, and lines that mostly deliver stale cargo get a "Stale Cargo" warning.
 -- The game pays a delivered unit once, at the consumer, and shares the pay back along the chain by a formula we do not
 -- know, so the deduction is not tied to a vehicle or line. The log names every vehicle and line of the unit's pickup
 -- chain so the split can be studied. Log lines start with "BEST_BEFORE"; tools/verify_run.py checks a run from the log.
@@ -206,7 +207,7 @@ end
 -- row, as the game's own finance table computes them. Used to see what a non-income balance change was.
 local describeFinance = function(player : Engine.Entity) : string
 	local config = api.type.ChartConfig.new()
-	config.interval = 1461000 -- one calendar year of game clock units
+	config.interval = 1461000 -- one clock year of game clock units (not a calendar year)
 	config.count = 4
 	config.minCount = 4
 	config.yStepScale = 1.0
@@ -643,7 +644,8 @@ local countStaleUnit = function(bookingState : BookingState, line : Engine.Entit
 end
 
 -- Hands the full warned set to the Notifications game script: lines it no longer lists lose their warning. Sent under pcall
--- so a refused command costs the warnings, never the game script.
+-- so a refused command costs the warnings, never the game script; a failed send leaves staleSent as it was, so the next
+-- monthly roll sends again.
 local sendStaleWarnings = function(bookingState : BookingState, keys : {string}, now : number)
 	local list : {PersistentNotifications.EntitiesAndParam} = {}
 	for _, key in ipairs(keys) do
@@ -658,21 +660,26 @@ local sendStaleWarnings = function(bookingState : BookingState, keys : {string},
 		api.cmd.sendCommand(api.cmd.makeScriptingSendEventCmd("", "Notifications", "updatePersistent", update))
 		return nil
 	end)
-	bookingState.staleSent = table.concat(keys, ",")
+	local sent = table.concat(keys, ",")
+	if ok then bookingState.staleSent = sent end
 	if logAny or not ok then
 		log.message("BEST_BEFORE staleWarnings t=" .. tostring(now) .. " month=" .. tostring(bookingState.staleMonth)
-			.. " count=" .. tostring(#keys) .. " lines=" .. (#keys > 0 and bookingState.staleSent or "none")
+			.. " count=" .. tostring(#keys) .. " lines=" .. (#keys > 0 and sent or "none")
 			.. (ok and "" or (" error=" .. tostring(err))))
 	end
 end
 
 local updateStaleLines = function(state : GameScriptState<BookingState>, bookingState : BookingState, now : number, curve : Curve)
 	if not staleSettings.on then
-		-- Turned off: take down the warnings shown and forget the history, so turning it on again starts fresh.
+		-- Turned off: take down the warnings shown and forget the history, so turning it on again starts fresh. Tried once:
+		-- a failed send is logged, not repeated on every update.
+		local changed = bookingState.staleLines ~= nil or bookingState.staleMonth ~= nil
 		if bookingState.staleSent ~= nil and bookingState.staleSent ~= "" then
 			sendStaleWarnings(bookingState, {}, now)
+			bookingState.staleSent = ""
+			changed = true
 		end
-		if bookingState.staleLines ~= nil or bookingState.staleMonth ~= nil then
+		if changed then
 			bookingState.staleLines = nil
 			bookingState.staleMonth = nil
 			state:set(bookingState)

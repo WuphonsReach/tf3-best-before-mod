@@ -243,9 +243,29 @@ def extract(path, out_dir, slug, note, min_arrivals):
         print("  note: the earned rank changed inside this run (see multiplierDuringRun in the json); the scale is the start rank's")
 
 
+def run_span(out_dir, name):
+    """(first clock, last clock, the set of source>target pairs) of an extracted run's arrivals."""
+    clocks, pairs = [], set()
+    for row in csv.DictReader(open(os.path.join(out_dir, name + ".arrivals.csv"), newline="")):
+        if row["now"]:
+            clocks.append(int(row["now"]))
+        pairs.add((row["source"], row["target"]))
+    return (min(clocks), max(clocks), pairs) if clocks else None
+
+
+def same_start(a, b):
+    """Two runs replay the same deliveries when their clocks overlap and most of their source>target pairs are shared. A save is
+    often replayed from one starting point (another curve, a performance check, a copy with other game settings) under
+    another file name, so the file name cannot tell."""
+    if a is None or b is None or a[1] < b[0] or b[1] < a[0]:
+        return False
+    return len(a[2] & b[2]) >= 0.5 * min(len(a[2]), len(b[2]))
+
+
 def write_index(out_dir):
-    """index.csv: one row per extracted run, so the runs can be picked without opening each json. Runs that loaded the same
-    save replay the same deliveries, so only the one with the most arrivals per save is marked `primary` (pool those)."""
+    """index.csv: one row per extracted run, so the runs can be picked without opening each json. Runs from the same starting
+    point replay the same deliveries, so they form one `start` group (named after its largest run) and only that largest run is
+    marked `primary` (pool those)."""
     rows = []
     for name in sorted(f for f in os.listdir(out_dir) if f.endswith(".json")):
         m = json.load(open(os.path.join(out_dir, name)))
@@ -257,12 +277,24 @@ def write_index(out_dir):
                      "arrivals": m["pricedArrivals"], "scaleSource": m["scaleSource"],
                      "payScale": m["payScaleRebuilt"], "predictedCorrectedTotal": m["predictedCorrectedTotal"],
                      "loggedNetPercent": m["loggedNetPercentOfPredicted"], "note": m.get("note")})
+    spans = [run_span(out_dir, r["name"]) for r in rows]
+    group = list(range(len(rows)))                      # union-find over runs that share a starting point
+    def root(i):
+        while group[i] != i:
+            i = group[i]
+        return i
+    for i in range(len(rows)):
+        for j in range(i):
+            if same_start(spans[i], spans[j]):
+                group[root(i)] = root(j)
     best = {}
-    for r in rows:
-        if r["save"] not in best or r["arrivals"] > best[r["save"]]["arrivals"]:
-            best[r["save"]] = r
-    for r in rows:
-        r["primary"] = "yes" if best[r["save"]] is r else ""
+    for i, r in enumerate(rows):
+        g = root(i)
+        if g not in best or r["arrivals"] > best[g]["arrivals"]:
+            best[g] = r
+    for i, r in enumerate(rows):
+        r["start"] = best[root(i)]["name"]
+        r["primary"] = "yes" if best[root(i)] is r else ""
     with open(os.path.join(out_dir, "index.csv"), "w", newline="") as f:
         w = csv.DictWriter(f, list(rows[0]))
         w.writeheader()
