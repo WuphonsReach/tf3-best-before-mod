@@ -40,7 +40,7 @@ data.useDataState = function(params : StaleLineParams) : NotificationGuiData
 		icon = icon,
 		lvmIcon = icon,
 		iconExplainTooltip = "Most Cargo on This Line Arrives Stale",
-		description = "Most cargo delivered by " .. (name ~= nil and ('"' .. name .. '"') or "this line") .. " has arrived stale for months (below half"
+		description = "Most cargo delivered by " .. (name ~= nil and ('"' .. name .. '"') or "this line") .. " has arrived stale for a long time (below half"
 			.. " the break-even freshness, or spoiled), so it pays less. Faster delivery would help.",
 		wouldClick = function() : boolean return click(false, true) end,
 		onClick = function(stack : boolean) : boolean return click(stack, false) end,
