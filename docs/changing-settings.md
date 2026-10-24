@@ -8,7 +8,7 @@
 - **Old saves.** A save from before the settings existed shows the defaults in the dialog and loads on the default curve, whatever curve it used before; the next save you make stores them. Set the values you want before pressing Load Game.
 - **A mod added to an old save.** Activating the mod on a save that never had it (Load Game, Mods tab) shows the defaults in the dialog; values set there before pressing Load Game reach the game: `preRunFn` logged them as `loadParams` (list positions 14/12/8/4/6), the probe's `curveSettings` agreed (165% / 55% / 35% / 15% / 25%), and both saves made afterwards hold them (checked once).
 - **Dropdown removed.** Saves made while the mod still had a setting for warehouse cargo load fine: the dialog shows the sliders at the values the save holds, the mod ignores the extra key, and the next save leaves it out (checked on two such saves). Warehouse cargo is always judged by its corrected age.
-- **Stale threshold.** A sixth setting, "Warn on cargo below freshness percent" (0% to 25%, default 10%), sets only when a delivered unit counts as stale for the Stale Cargo warning ([stale-line-warnings.md](stale-line-warnings.md)); it does not change pay. It is new in 1.2-dev: the dialog, the save and the logged value have not been checked in the game yet. A save from before it shows the default.
+- **Stale threshold.** A sixth setting, "Warn on cargo below freshness percent" (0% to 25%, default 10%), sets only when a delivered unit counts as stale for the Stale Cargo warning ([stale-line-warnings.md](stale-line-warnings.md)); it does not change pay. It is new in 1.2-dev and was checked in the game on one save: the dialog shows it, a change made before Load Game reaches the mod and is saved, and the logged value agrees (see the test at the end). A save from before it shows the default and stores it at the next save.
 - **Unknown.** Whether backing out of the dialog without pressing Load Game leaves the save untouched (not tried).
 
 ## On a new game
@@ -57,3 +57,15 @@ Pay is shown as a share of normal pay, so 100% is the pay the game gives and 150
 If the freshness points are not in order (full bonus >= normal pay >= lowest pay), the mod lowers the later point to the earlier one: with 35%, 45% and 70% it runs on 35%, 35% and 35%, while the dialog keeps showing what was set. The mod writes the values it used to the game log as `BEST_BEFORE curveSettings`, with the source (`params` for the in-game settings) and `adjusted=yes` when it had to lower points. That line comes only when the curve differs from the one stored in the save; the `BEST_BEFORE loadParams` line (the settings as list positions, one per load) is what the tools read to know the curve a run was played on.
 
 Saves made before the settings existed have none, and the game fills in the defaults, so the mod plays them on the default curve (checked on one such save). The curve in [settings.tl](../best_before_1/content/settings.tl) is only a fallback for when the game hands over no settings.
+
+## Test: the stale threshold slider (24 Oct 2026)
+
+One old save with the mod already active (save series WR26A Giga-Tv3 1915, 1.2-dev from the staging folder), three saves in a row. The values are the stored list positions (1-based; 3 is 10%, 5 is 20%); the header was read with `save_header.py` of the [tf3-save-format](https://github.com/WuphonsReach/tf3-save-format) repo.
+
+| Step | Save header (`best_before_1` params) | Game log |
+|---|---|---|
+| Save made before the slider existed (`1024-1545`) | five keys, no `bestBefore.staleBelow` | |
+| Load Game, dialog showed 10%, saved as `1024-1606` | `bestBefore.staleBelow` = 3 | `loadParams ... staleBelow=3` |
+| Load Game with the slider raised to 20%, saved as `1024-1620` | `bestBefore.staleBelow` = 5 | `loadParams ... staleBelow=5`, `staleRoll ... staleBelow=0.2` |
+
+`verify_run.py` passed on the 20% run with 229 units checked against the threshold. Not tried: a 0% or 25% setting, and what the warning does on a line whose recent months were measured at the old threshold.
