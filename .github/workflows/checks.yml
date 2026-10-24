@@ -1,0 +1,43 @@
+# PR checks. There is no build and no deploy (uploads are done by hand in the game), and the type check needs the game's own
+# type definitions, which are not in the repo, so this is the part that can run anywhere.
+name: checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  python-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Every file under content/ is in _content.json
+        run: python3 tools/check_content_list.py
+      - name: Version, settings and metadata agree
+        run: python3 tools/check_repo.py
+      - name: Tools compile
+        run: python3 -m py_compile tools/*.py
+
+  teal-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the Teal compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y luarocks
+          sudo luarocks install tl 0.24.8
+      # tl gen stops only on syntax errors; the type check (tl check) needs the game's tealdef folders, so it stays a local step.
+      - name: Teal files parse
+        run: |
+          for f in best_before_1/content/*.tl; do
+            echo "== $f"
+            tl gen "$f" -o /dev/null
+          done
