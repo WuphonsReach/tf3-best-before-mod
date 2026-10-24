@@ -34,7 +34,9 @@ def spread(values):
 def main(path):
     lines = open(path, errors="replace").read().splitlines()
     start = max((i for i, ln in enumerate(lines) if "BEST_BEFORE preRunFn" in ln), default=0)
+    # Entity ids are reused, so an item is paired with the next arrival line of the same id (the ticket line comes first).
     events, items, arrivals, snaps, sends, errors = [], [], {}, [], [], []
+    open_items, pairs = defaultdict(list), []
     for i, ln in enumerate(lines[start:], start):
         m = re.search(r"BEST_BEFORE (\w+) ?(.*)", ln)
         if not m:
@@ -48,8 +50,12 @@ def main(path):
             events.append(d)
         elif kind == "ticketItem":
             items.append(d)
+            open_items[d["unit"]].append(d)
         elif kind == "arrival":
-            arrivals[d["unit"]] = d
+            arrivals[(d["unit"], i)] = d
+            if open_items[d["unit"]]:
+                pairs.append((open_items[d["unit"]], d))
+                open_items[d["unit"]] = []
         elif kind == "journal":
             snaps.append(d)
         elif kind == "sending":
@@ -72,17 +78,15 @@ def main(path):
               f"per event), basePrice sum {total:,.0f}")
 
     # Once per unit or once per leg?
-    per_unit = defaultdict(list)
-    for it in items:
-        per_unit[it["unit"]].append(it)
-    counts = Counter((len(v), v[0].get("legs", "?")) for v in per_unit.values())
-    print("Items per unit, by the unit's legs at the time (items, legs): "
-          + ", ".join(f"{k}: {n}" for k, n in sorted(counts.items())))
-
-    # Against the arrival of the same unit.
-    joined = [(v, arrivals[u]) for u, v in per_unit.items() if u in arrivals]
-    print(f"Units with an arrival line: {len(joined)} of {len(per_unit)} (the rest arrived outside the log, or the event "
-          f"also names units that are not delivered)")
+    joined = pairs
+    unpaired = sum(len(v) for v in open_items.values())
+    counts = Counter((len(v), a.get("legs", "?")) for v, a in joined)
+    print("Items per delivered unit, by its legs (items, legs): " + ", ".join(f"{k}: {n}" for k, n in sorted(counts.items())))
+    print(f"Items paired with an arrival line: {sum(len(v) for v, _ in joined)} of {len(items)} ({unpaired} without one: "
+          f"the log ended, or the event names units that are not delivered); arrival lines {len(arrivals)}")
+    same_unit = sum(1 for it in items if it["vehicle"] == it["unit"])
+    if same_unit:
+        print(f"Items whose vehicle field holds the unit itself: {same_unit} of {len(items)}")
     if joined:
         dt = [int(a["now"]) - int(v[0]["now"]) for v, a in joined]
         before = sum(1 for v, a in joined if v[0]["_i"] < a["_i"])
@@ -99,7 +103,7 @@ def main(path):
             for v, a in multi[:5]:
                 print(f"  unit {a['unit']} chain {a.get('chain', '(logLevel full shows the chain)')}: "
                       + "; ".join(f"vehicle {it['vehicle']} line {it['line']} basePrice {float(it['basePrice']):.0f} "
-                                  f"distance {float(it['distance']):.0f}" for it in v))
+                                  f"distance {it['distance']}" for it in v))
         ratio = [sum(float(it["basePrice"]) for it in v) / float(a["predictedIncome"])
                  for v, a in joined if a.get("predictedIncome", "n/a") not in ("n/a", "0")]
         print(f"basePrice / predicted pay per unit: {spread(ratio)}")
