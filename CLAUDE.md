@@ -42,7 +42,7 @@ cp best_before_1/_metadata/workshop_preview.jpg best_before_1/_metadata/0.jpg   
 
 Run `tl check` on each script you touch; there is no single command for both.
 
-`.github/workflows/checks.yml` runs on every PR: a `python-checks` job (`check_content_list.py`, `check_repo.py`, `py_compile` of `tools/`) and a `teal-syntax` job (`tl gen` on each `.tl` file, which fails on syntax errors only). CI cannot run `tl check` because the game's type definitions are not in the repo, so the type check stays a local step. `check_repo.py` fails while `settings.tl` carries a test `logLevel`, so set it back to `summary` before pushing.
+`.github/workflows/checks.yml` runs on every PR: a `python-checks` job (`check_content_list.py`, `check_repo.py`, `py_compile` of `tools/`) and a `teal-syntax` job (`tl gen` on each `.tl` file, which fails on syntax errors only). CI cannot run `tl check` because the game's type definitions are not in the repo, so the type check stays a local step. `check_repo.py` fails while `settings.tl` carries a test `logLevel`, so set it back to `summary` before pushing. Actions in workflows are pinned to full commit SHAs with the version in a trailing comment (`uses: actions/checkout@<sha> # v7.0.1`), at the latest release when added or bumped; look the SHA up with `gh api repos/<owner>/<action>/git/ref/tags/<tag>` and never use a floating tag like `@v4`. Branch rulesets (required checks) are not set up yet: they wait until the workflow has had clean PR runs (PR #20 was its first).
 
 ## In-game test loop
 
