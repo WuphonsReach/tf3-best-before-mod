@@ -6,7 +6,7 @@
     "params": [
         {
             "key": "bestBefore.freshPay",
-            "name": "Best Before: pay for fresh cargo",
+            "name": "Bonus pay multiplier for fresh cargo",
             "tooltip": "Pay for cargo delivered at full freshness, as a share of normal pay. 100% means no bonus.",
             "uiType": "Slider",
             "values": [
@@ -38,7 +38,7 @@
         },
         {
             "key": "bestBefore.bonusDownTo",
-            "name": "Best Before: full bonus down to freshness",
+            "name": "Get full bonus down to freshness percent",
             "tooltip": "Cargo earns the fresh-cargo pay while its freshness is at or above this. Below it the pay falls in a straight line to normal pay. Freshness is 100% when the cargo is picked up and falls to 0% at its delivery limit.",
             "uiType": "Slider",
             "values": [
@@ -70,7 +70,7 @@
         },
         {
             "key": "bestBefore.breakeven",
-            "name": "Best Before: normal pay at freshness",
+            "name": "Normal pay at freshness percent",
             "tooltip": "Cargo delivered at exactly this freshness earns normal pay. Below it the pay falls towards the spoiled pay. Freshness is 100% when the cargo is picked up and falls to 0% at its delivery limit.",
             "uiType": "Slider",
             "values": [
@@ -102,7 +102,7 @@
         },
         {
             "key": "bestBefore.penaltyBelow",
-            "name": "Best Before: lowest pay below freshness",
+            "name": "Lowest pay below freshness percent",
             "tooltip": "At or below this freshness cargo earns the spoiled pay. Between here and the normal pay point the pay changes in a straight line. Freshness is 100% when the cargo is picked up and falls to 0% at its delivery limit.",
             "uiType": "Slider",
             "values": [
@@ -134,7 +134,7 @@
         },
         {
             "key": "bestBefore.spoiledPay",
-            "name": "Best Before: pay for spoiled cargo",
+            "name": "Pay multiplier for spoiled cargo",
             "tooltip": "Lowest pay, as a share of normal pay: for cargo at or below the lowest-pay freshness and for cargo the game marks as spoiled. 0% pays nothing.",
             "uiType": "Slider",
             "values": [
@@ -166,7 +166,7 @@
         },
         {
             "key": "bestBefore.staleBelow",
-            "name": "Best Before: stale cargo below freshness",
+            "name": "Warn on cargo delivered below freshness percent",
             "tooltip": "For the Stale Cargo warning only, pay is not affected. Cargo delivered below this freshness, or marked spoiled by the game, counts as stale; a line where most deliveries have been stale for months gets the warning. 0% counts only spoiled cargo.",
             "uiType": "Slider",
             "values": [
