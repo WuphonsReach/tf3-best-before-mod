@@ -20,6 +20,9 @@ tl check best_before_1/content/stale_line_warning.script.tl
 # Check that _content.json lists every file under content/ (the game cannot load a file the list leaves out); run before every upload
 python3 tools/check_content_list.py
 
+# Cheap consistency checks (JSON parses, mod.io_fileid.txt, modVersion vs CHANGELOG, settings.tl vs mod.json defaults, logLevel "summary"); CI runs this and check_content_list.py on every PR
+python3 tools/check_repo.py
+
 # Check a test run from the game log alone
 python3 tools/verify_run.py local/logs/stdout-<date>-<time>.txt
 
@@ -38,6 +41,8 @@ cp best_before_1/_metadata/workshop_preview.jpg best_before_1/_metadata/0.jpg   
 ```
 
 Run `tl check` on each script you touch; there is no single command for both.
+
+`.github/workflows/checks.yml` runs on every PR: a `python-checks` job (`check_content_list.py`, `check_repo.py`, `py_compile` of `tools/`) and a `teal-syntax` job (`tl gen` on each `.tl` file, which fails on syntax errors only). CI cannot run `tl check` because the game's type definitions are not in the repo, so the type check stays a local step. `check_repo.py` fails while `settings.tl` carries a test `logLevel`, so set it back to `summary` before pushing. Actions in workflows are pinned to full commit SHAs with the version in a trailing comment (`uses: actions/checkout@<sha> # v7.0.1`), at the latest release when added or bumped; look the SHA up with `gh api repos/<owner>/<action>/git/ref/tags/<tag>` and never use a floating tag like `@v4`. The repo ruleset `pr-checks` (on the default branch, no bypass actors) requires a pull request and the status checks `python-checks` and `teal-syntax`, so a PR cannot merge until both have run to completion and passed. The job names in `checks.yml` are the check names the ruleset matches: renaming a job means updating the ruleset (Settings > Rules) in the same change, or every PR will wait for a check that never reports.
 
 ## In-game test loop
 
