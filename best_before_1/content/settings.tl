@@ -38,8 +38,9 @@
 --
 -- ticketPriceProbe (test only): whether the engine's ticket price event can scale a unit's pay before the game shares it out,
 -- so the line and vehicle that carried it see the change. "off" (shipped), "observe" (log every cargo item the event names,
--- change nothing) or "scale" (answer ticketPriceMultiplier for every cargo item and book no adjustments; 1 leaves the pay as
--- it is). Logged at "curve" and "full" only. Read on each load like logLevel; the event stays subscribed once it was.
+-- change nothing), "scale" (answer ticketPriceMultiplier for every cargo item and book no adjustments; 1 leaves the pay as
+-- it is) or "curve" (answer 1 + the curve's adjustment for each cargo item and book no adjustments: the bonus or deduction
+-- goes into the game's own pay, so it lands on every vehicle and line that carried the unit). Logged at "curve" and "full" only. Read on each load like logLevel; the event stays subscribed once it was.
 return {
 	staleWarnings = true,
 	staleBelowFreshness = 0.1,

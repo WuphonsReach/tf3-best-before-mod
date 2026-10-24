@@ -95,11 +95,13 @@ local fileCurve : Curve = normalizeCurve({
 
 local settings : Settings = {
 	logLevel = (rawSettings.logLevel == "off" or rawSettings.logLevel == "curve" or rawSettings.logLevel == "full") and rawSettings.logLevel or "summary",
-	ticketPriceProbe = (rawSettings.ticketPriceProbe == "observe" or rawSettings.ticketPriceProbe == "scale") and rawSettings.ticketPriceProbe or "off",
+	ticketPriceProbe = (rawSettings.ticketPriceProbe == "observe" or rawSettings.ticketPriceProbe == "scale"
+		or rawSettings.ticketPriceProbe == "curve") and rawSettings.ticketPriceProbe or "off",
 	ticketPriceMultiplier = clamp(rawSettings.ticketPriceMultiplier or 1.0, 0.0, 10.0),
 }
 -- Test only: in "scale" the engine's pay is scaled by the ticket price answer, so no adjustment is booked on top of it.
-local ticketScaling = settings.ticketPriceProbe == "scale"
+-- "scale" and "curve" answer the ticket price event themselves, so the arrival handler books nothing.
+local ticketAnswers = settings.ticketPriceProbe == "scale" or settings.ticketPriceProbe == "curve"
 
 local describeCurve = function(curve : Curve) : string
 	return "bonusPercent=" .. tostring(curve.bonusPercent) .. " bonusDownToFreshness=" .. tostring(curve.bonusDownToFreshness)
@@ -795,15 +797,41 @@ end
 -- each naming a vehicle, a line and the unit, and an answer {[i] = m} scales item i ({[0] = m} all of them). The base game's
 -- company level and subsidies answer this way (game_mechanics.zip: company/company_growth.script.tl,
 -- subventions/deliver_cargo/deliver_cargo.script.tl). "observe" logs the items and answers nothing; "scale" answers
--- ticketPriceMultiplier for every cargo item. Nothing is written to the state here: game scripts may run in one Lua state
--- per thread, so a write from this handler could be lost.
+-- ticketPriceMultiplier for every cargo item; "curve" answers 1 + the curve's adjustment for the unit's freshness, judged as
+-- the arrival handler judges it (the event comes at the same clock time). Nothing is written to the state here: game scripts
+-- may run in one Lua state per thread, so a write from this handler could be lost; the curve is read from the in-game
+-- settings directly for the same reason.
 local ticketPrice = function(id : string, param : any) : {integer : number}
 	if settings.ticketPriceProbe == "off" then return nil end
 	local cargo = id == "TransportVehicleSystem"
 	local items = param as {CalcTicketPriceCargoEvent}
 	local multipliers : {integer : number} = {}
-	if cargo and ticketScaling then
+	if cargo and settings.ticketPriceProbe == "scale" then
 		for i = 1, #items do multipliers[i] = settings.ticketPriceMultiplier end
+	elseif cargo and settings.ticketPriceProbe == "curve" then
+		-- Under pcall: an error here must not abort the engine's event; a unit left unanswered is paid in full.
+		local ok, err = pcall(function() : string
+			local curve = readParamCurve() or fileCurve
+			local gameTime : Engine.Component.GameTime = api.engine.getComponent(api.engine.util.getWorld(), api.type.ComponentType.GAME_TIME)
+			local now = gameTime.gameTime
+			for i = 1, #items do
+				local unit = items[i].simEntity
+				local simCargo : Engine.Component.SimCargo = exists(unit)
+					and api.engine.getComponent(unit, api.type.ComponentType.SIM_CARGO) or nil
+				if simCargo ~= nil then
+					local cargoType = api.res.cargoTypeRep.get(simCargo.cargoType)
+					local limitMs = deliveryLimit(simCargo.cargoType, cargoType.timeToDeliverInSeconds)
+					local ageMs = now - simCargo.pickupTime
+					local freshness = limitMs > 0 and (1.0 - ageMs / limitMs) or 1.0
+					local corrected = limitMs > 0 and (1.0 - (ageMs - simCargo.deliveryExtensionDuration) / limitMs) or 1.0
+					local judged = curve.stored == "corrected" and corrected or freshness
+					local adjustment = curveAdjustment(curve, judged, api.engine.util.cargo.isGoodQuality(unit))
+					multipliers[i] = math.max(0.0, 1.0 + adjustment)
+				end
+			end
+			return nil
+		end)
+		if not ok then log.message("BEST_BEFORE ticketPrice error=" .. tostring(err)) end
 	end
 	if logUnits then
 		-- Under pcall: a logging error must not cost the answer.
@@ -814,7 +842,8 @@ local ticketPrice = function(id : string, param : any) : {integer : number}
 			for i = 1, #items do sum = sum + items[i].basePrice end
 			log.message("BEST_BEFORE ticketPrice id=" .. id .. " now=" .. tostring(now) .. " items=" .. tostring(#items)
 				.. " basePriceSum=" .. tostring(sum) .. " probe=" .. settings.ticketPriceProbe
-				.. " multiplier=" .. ((cargo and ticketScaling) and tostring(settings.ticketPriceMultiplier) or "none"))
+				.. " multiplier=" .. (not cargo and "none" or settings.ticketPriceProbe == "scale" and tostring(settings.ticketPriceMultiplier)
+					or settings.ticketPriceProbe == "curve" and "curve" or "none"))
 			if not cargo then return nil end
 			for i = 1, #items do
 				local item = items[i]
@@ -1002,6 +1031,7 @@ local probe : GameScript<BookingState> = {
 				local src = worldPosition(simCargo.sourceEntity)
 				local dst = worldPosition(unit[2][1])
 				local predicted = "n/a"
+				local expected = "n/a"
 				local deduction = 0
 				local bonus = 0
 				local queued = ""
@@ -1011,7 +1041,8 @@ local probe : GameScript<BookingState> = {
 					local income = priceFactor * d * pay.scale
 					if logUnits then predicted = tostring(income) end
 					local exact = math.max(adjustment * income, -maxDeductionShare * income)
-					if math.abs(exact) >= 1 and not ticketScaling then
+					if logUnits then expected = tostring(exact) end
+					if math.abs(exact) >= 1 and not ticketAnswers then
 						bookingState.units = bookingState.units + 1
 						local amount = exact < 0 and -math.floor(-exact + 0.5) or math.floor(exact + 0.5)
 						if amount < 0 then deduction = -amount else bonus = amount end
@@ -1032,7 +1063,8 @@ local probe : GameScript<BookingState> = {
 						.. " vehicleQuality=" .. vehicleQuality(last and last.vehicle, simCargo.cargoType)
 						.. " freshness=" .. tostring(freshness) .. " corrected=" .. tostring(correctedFreshness) .. " rate=" .. tostring(rate)
 						.. " payScale=" .. tostring(pay.scale) .. " predictedIncome=" .. predicted .. " deduction=" .. tostring(deduction)
-						.. " bonus=" .. tostring(bonus) .. " staleLine=" .. (staleKey or "none") .. " staleUnit=" .. tostring(staleUnit) .. queued
+						.. " bonus=" .. tostring(bonus) .. " staleLine=" .. (staleKey or "none") .. " staleUnit=" .. tostring(staleUnit)
+						.. " expectedAdjustment=" .. expected .. (ticketAnswers and " billing=ticket" or "") .. queued
 				end
 			end
 			if logUnits then

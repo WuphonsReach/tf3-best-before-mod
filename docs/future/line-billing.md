@@ -6,7 +6,7 @@
 - **Lead: let the engine do it.** Before it pays, the engine raises `OnCalcTicketPrice`. The event names each item with its vehicle, line, unit (`simEntity`), stock list, `basePrice` and `distance`, and any subscriber can return a pay multiplier per item. The base game uses this for the company level (one multiplier for all items) and for subsidies (x2 per item on the lines that earned it) (`game_mechanics.zip`: `company/company_growth.script.tl`, `subventions/deliver_cargo/deliver_cargo.script.tl`; the record is `CalcTicketPriceCargoEvent` in `base/tealdef/scripts/gamescript.d.tl`). If the mod returned `1 + adjustment` per unit, the engine would pay the changed amount and share it out by its own formula. Every ledger in the chain would then be right without our knowing the split, and the journal bookings, the pay prediction and the `cargoIncomeScript` stub could go.
 - **How sure.** Four runs on one save. The event comes once per delivered unit, at the delivery tick, naming the unit, the last leg's line and the destination, with `basePrice` the unit's pay before the pay scale. An answer of 0.5 halved the pay: it is multiplied with the company level's multiplier (engine pay matched cargo `basePrice` x 0.5 x pay scale plus passengers x pay scale to 0.2%), and every line of a two-leg chain, boat and truck alike, earned half its usual share. So the engine scales the unit's whole pay before it shares it out, and each line's ledger shows the change at delivery. The event does not show the split (its `vehicleEntity` holds the unit, `distance` is nil). An answer of 0 made a delivered unit pay nothing, on every line of its chain, and an answer of 2 doubled it, on every line of its chain, so the bonus can be paid this way too. Still open: how our answer combines with a subsidy's x2 (product is likely, as with the company level).
 - **Fallback.** Keep the bookings but split each unit's adjustment over its legs and book every share to that leg's vehicle and line as well as to the player. `PickupPoint.position` gives each leg's start, so a split by straight-line distance is possible, but the engine's split is still unknown (the event does not show it).
-- **Status.** A test-only probe is on branch `2026-10-24-ticket-price-probe` (settings.tl `ticketPriceProbe`, read by `tools/ticket_probe.py`). All four runs (observe, scale 0.5, 0 and 2) are done; next is a mode that answers the curve per unit.
+- **Status.** The test-only probe is in `main` (settings.tl `ticketPriceProbe`, read by `tools/ticket_probe.py`). All four runs (observe, scale 0.5, 0 and 2) are done. A `"curve"` mode that answers the curve per unit is next (run 5).
 
 ## The probe
 
@@ -14,6 +14,7 @@
 
 - `"observe"` logs a `ticketPrice` line per event (cargo and passengers, with the `basePrice` sum) and a `ticketItem` line per cargo item: unit, vehicle, line, stock list, `basePrice`, `distance`, the unit's legs, its last leg, the good flag and corrected freshness. At `full` it also logs the vehicle's `unloadPendingIncome`. It answers nothing.
 - `"scale"` answers `ticketPriceMultiplier` for every cargo item and books no adjustments, so the ledgers show the engine's pay alone.
+- `"curve"` answers `1 + the curve's adjustment` for every cargo item and books no adjustments. It judges the unit as the arrival handler does (the game's delivery limit, the warehouse pause taken off, the game's spoiled flag), with the curve read from the in-game settings in the handler. The arrival line keeps its `rate` and adds `expectedAdjustment` (what the booking would have been, from the predicted pay) and `billing=ticket`.
 
 Nothing is written to the state from this handler (game scripts may run in one Lua state per thread).
 
@@ -26,7 +27,9 @@ Use a save with transferred cargo (at least one chain of two lines) and `logLeve
 3. **scale 0.** Done, see the results below.
 4. **scale 2.** Done, see the results below.
 
-All four came out right, so the next step is a mode that answers `1 + curveAdjustment(freshness)` per unit, compared against the journal bookings on the same save.
+All four came out right, so:
+
+5. **curve.** Every answer should equal its arrival line's `rate`; the player's income should be the cargo `basePrice` x the answers plus the passenger `basePrice`, all x the pay scale; the lines' ledgers should show each unit's bonus or deduction (the grain train's trip should earn about 30% of its full pay, the oil lines more than full pay). `tools/ticket_probe.py` checks the first two.
 
 ## Results
 
