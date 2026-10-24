@@ -2,6 +2,10 @@
 
 Newest first. The number in the title is `modVersion` at the top of [mod.script.tl](best_before_1/content/mod.script.tl), which the game log prints at every load as `BEST_BEFORE version <number>` (between releases it reads the next number with "-dev", for example `1.2-dev`). Each entry's last line is the one-liner for the Changelog field of the in-game uploader ([how to upload](docs/publishing.md#uploading-an-update)). mod.io labels every file we upload "1.0" whatever the number here is, so the number in this file and in the log is the one that tells builds apart.
 
+## 1.2 (not released)
+
+- **New: the stale threshold is an in-game setting.** "Warn on cargo below freshness percent", 0% to 25% in 5% steps, default 10%. A unit below it, or spoiled, counts as stale for the Stale Cargo warning. It used to be half of the "normal pay at freshness" setting, so it moved when the pay curve was changed; now it does not. `staleShareOfBreakeven` in `settings.tl` is gone. The warning text says "below the mod's stale freshness setting".
+
 ## 1.0.1 (18 Oct 2026)
 
 - **Fixed: the game would not start with the mod.** The 1.0 file list (`_content.json`) left out `settings.tl`, the game builds its file index from that list, so the mod's first script failed with "module 'best_before_1::/settings.tl' not found" and the game answered "Could not initialize game: try removing the mod". 1.0 never loaded for anyone.

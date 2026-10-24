@@ -45,7 +45,7 @@ It sits under the hub's Misc group. Other cargo mods there (Route-Based Cargo In
 
 ## Summary
 
-Cargo pay follows freshness: fresh deliveries earn a bonus, slow or spoiled cargo earns less. Five adjustable settings, and warnings for lines that deliver stale cargo.
+Cargo pay follows freshness: fresh deliveries earn a bonus, slow or spoiled cargo earns less. Six adjustable settings, and warnings for lines that deliver stale cargo.
 
 ## Description
 
@@ -66,7 +66,7 @@ CARGO FROM OTHER MODS
 
 STALE CARGO WARNINGS
 - A line whose deliveries are mostly stale gets a "Stale Cargo" warning: a pop-up, an entry in the notification log, and an icon on the line in the Line & Vehicle Management window (click it to open the line). It is a Caution, not a fault: stale cargo costs pay, nothing is broken.
-- A unit counts as stale when its freshness is below half of the "normal pay at freshness" setting, or when the game marks it spoiled. It counts for the line of its last leg.
+- A unit counts as stale when its freshness is below the "Warn on cargo below freshness percent" setting (default 10%), or when the game marks it spoiled. It counts for the line of its last leg.
 - The mod looks at the last 12 game months, once a month, so a line has to deliver mostly stale cargo for several months before it is warned, and run well for several months before the warning goes.
 - To hide the warnings, filter "Stale Cargo (Best Before)" out of the notification log.
 
@@ -76,13 +76,14 @@ THE DEFAULT CURVE
 - 20% down to 0%: falls in a straight line to no pay.
 - Spoiled cargo: no pay.
 
-FIVE SETTINGS
+SIX SETTINGS
 Set them under Mods, with the gear next to the mod, in New Game or in Load Game. The game keeps them in the save, so you can retune a save on any load. All sliders move in 5% steps.
-- Pay for fresh cargo: 100% to 200% (default 120%).
-- Full bonus down to freshness: 0% to 100% (default 40%).
-- Normal pay at freshness: 0% to 100% (default 20%).
-- Lowest pay below freshness: 0% to 100% (default 0%).
-- Pay for spoiled cargo: 0% to 100% (default 0%).
+- Bonus pay multiplier for fresh cargo: 100% to 200% (default 120%).
+- Get full bonus down to freshness percent: 0% to 100% (default 40%).
+- Normal pay at freshness percent: 0% to 100% (default 20%).
+- Lowest pay below freshness percent: 0% to 100% (default 0%).
+- Pay multiplier for spoiled cargo: 0% to 100% (default 0%).
+- Warn on cargo below freshness percent: 0% to 25% (default 10%). For the Stale Cargo warning only, pay is not affected; 0% counts only spoiled cargo.
 
 GOOD TO KNOW
 - With the default settings a spoiled unit pays nothing, so a save with a lot of spoiled cargo can lose money. Raise the spoiled pay if that is too harsh.

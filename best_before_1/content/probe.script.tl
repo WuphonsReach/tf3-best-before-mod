@@ -14,6 +14,7 @@ local record Curve
 	penaltyBelowFreshness : number
 	penaltyPercent : number
 	stored : string
+	staleBelowFreshness : number -- not part of the pay: a unit below it counts as stale for the line warnings
 end
 
 -- The file's values; settings.tl also holds logLevel, a diagnostic switch that is not part of the curve.
@@ -25,7 +26,7 @@ local record Settings
 	penaltyPercent : number
 	logLevel : string
 	staleWarnings : boolean
-	staleShareOfBreakeven : number
+	staleBelowFreshness : number
 	staleMonths : number
 	staleMinUnits : number
 	staleWarnAbove : number
@@ -35,7 +36,7 @@ end
 -- fallback mirrors settings.tl; mod.script.tl's preRunFn logs the failure.
 local fallbackSettings : Settings = {
 	staleWarnings = true,
-	staleShareOfBreakeven = 0.5,
+	staleBelowFreshness = 0.1,
 	staleMonths = 12,
 	staleMinUnits = 10,
 	staleWarnAbove = 0.5,
@@ -66,13 +67,14 @@ local normalizeCurve = function(raw : Curve) : Curve
 		penaltyBelowFreshness = clamp(raw.penaltyBelowFreshness, 0.0, breakeven),
 		penaltyPercent = clamp(raw.penaltyPercent, -1.0, 0.0),
 		stored = raw.stored,
+		staleBelowFreshness = clamp(raw.staleBelowFreshness or 0.1, 0.0, 1.0),
 	}
 end
 
 local sameCurve = function(a : Curve, b : Curve) : boolean
 	return a.bonusPercent == b.bonusPercent and a.bonusDownToFreshness == b.bonusDownToFreshness
 		and a.breakevenFreshness == b.breakevenFreshness and a.penaltyBelowFreshness == b.penaltyBelowFreshness
-		and a.penaltyPercent == b.penaltyPercent and a.stored == b.stored
+		and a.penaltyPercent == b.penaltyPercent and a.stored == b.stored and a.staleBelowFreshness == b.staleBelowFreshness
 end
 
 -- How a unit that waited in a warehouse is judged. Only "corrected" is offered (not a setting); the other modes are kept in
@@ -86,6 +88,7 @@ local fileCurve : Curve = normalizeCurve({
 	penaltyBelowFreshness = rawSettings.penaltyBelowFreshness,
 	penaltyPercent = rawSettings.penaltyPercent,
 	stored = storedMode,
+	staleBelowFreshness = rawSettings.staleBelowFreshness,
 })
 
 local settings : Settings = {
@@ -96,6 +99,7 @@ local describeCurve = function(curve : Curve) : string
 	return "bonusPercent=" .. tostring(curve.bonusPercent) .. " bonusDownToFreshness=" .. tostring(curve.bonusDownToFreshness)
 		.. " breakevenFreshness=" .. tostring(curve.breakevenFreshness) .. " penaltyBelowFreshness=" .. tostring(curve.penaltyBelowFreshness)
 		.. " penaltyPercent=" .. tostring(curve.penaltyPercent) .. " stored=" .. tostring(curve.stored)
+		.. " staleBelowFreshness=" .. tostring(curve.staleBelowFreshness)
 end
 
 -- Log work is skipped, not just the write: building a unit's line costs more than writing it, and runs once per delivered unit.
@@ -110,7 +114,6 @@ local summaryInterval = monthClock
 -- Stale line warnings (described in settings.tl), the file's values kept in range.
 local record StaleSettings
 	on : boolean
-	shareOfBreakeven : number
 	months : integer
 	minUnits : integer
 	warnAbove : number
@@ -120,7 +123,6 @@ local staleSettings : StaleSettings = (function() : StaleSettings
 	local warnAbove = clamp(rawSettings.staleWarnAbove or 0.5, 0.0, 1.0)
 	return {
 		on = rawSettings.staleWarnings ~= false,
-		shareOfBreakeven = clamp(rawSettings.staleShareOfBreakeven or 0.5, 0.0, 1.0),
 		months = math.floor(clamp(rawSettings.staleMonths or 12, 1, 60)),
 		minUnits = math.floor(math.max(rawSettings.staleMinUnits or 10, 1)),
 		warnAbove = warnAbove,
@@ -463,6 +465,7 @@ local readParamCurve = function() : Curve, boolean
 	if mine == nil then return nil end
 	local fresh, bonusDown, breakeven = mine["bestBefore.freshPay"], mine["bestBefore.bonusDownTo"], mine["bestBefore.breakeven"]
 	local penaltyBelow, spoiled = mine["bestBefore.penaltyBelow"], mine["bestBefore.spoiledPay"]
+	local staleBelow = mine["bestBefore.staleBelow"]
 	if fresh == nil or bonusDown == nil or breakeven == nil or penaltyBelow == nil or spoiled == nil then return nil end
 	local share = function(position : number) : number -- a 5% step position as a fraction, without float noise
 		return math.floor(position - 1 + 0.5) * 5 / 100
@@ -474,6 +477,7 @@ local readParamCurve = function() : Curve, boolean
 		penaltyBelowFreshness = share(penaltyBelow),
 		penaltyPercent = share(spoiled) - 1.0, -- pay when spoiled, 0% to 100%: the penalty is the part taken away
 		stored = storedMode,
+		staleBelowFreshness = staleBelow ~= nil and share(staleBelow) or fileCurve.staleBelowFreshness, -- 0% to 25%
 	}
 	local curve = normalizeCurve(raw)
 	return curve, not sameCurve(raw, curve) -- the second value: the freshness points were out of order and were lowered
@@ -640,7 +644,7 @@ end
 -- Counts one delivered unit for its line. Returns the line's key (nil when the line cannot be tracked) and whether the
 -- unit was stale.
 local countStaleUnit = function(bookingState : BookingState, line : Engine.Entity, now : number, freshness : number, good : boolean, curve : Curve) : string, boolean
-	local stale = not good or freshness < curve.breakevenFreshness * staleSettings.shareOfBreakeven
+	local stale = not good or freshness < curve.staleBelowFreshness
 	if line == nil or line < 0 or not exists(line) then return nil, stale end
 	local key = tostring(line)
 	bookingState.staleLines = bookingState.staleLines or {}
@@ -719,8 +723,7 @@ local updateStaleLines = function(state : GameScriptState<BookingState>, booking
 	if logUnits then
 		log.message("BEST_BEFORE staleRoll t=" .. tostring(now) .. " month=" .. tostring(month) .. " steps=" .. tostring(steps)
 			.. " lines=" .. tostring(#keys) .. " months=" .. tostring(staleSettings.months) .. " minUnits=" .. tostring(staleSettings.minUnits)
-			.. " shareOfBreakeven=" .. tostring(staleSettings.shareOfBreakeven) .. " breakeven=" .. tostring(curve.breakevenFreshness)
-			.. " staleBelow=" .. tostring(curve.breakevenFreshness * staleSettings.shareOfBreakeven) .. " warnAbove=" .. tostring(staleSettings.warnAbove)
+			.. " staleBelow=" .. tostring(curve.staleBelowFreshness) .. " warnAbove=" .. tostring(staleSettings.warnAbove)
 			.. " clearBelow=" .. tostring(staleSettings.clearBelow))
 	end
 	local warned : {string} = {}

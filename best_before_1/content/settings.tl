@@ -28,16 +28,16 @@
 --              (tens of MB in a long session) and the slowest. tools/verify_run.py and tools/extract_run.py read "curve" and "full".
 --
 -- Stale line warnings: a line whose deliveries are mostly stale gets a "Stale Cargo" warning (in the notification log and on
--- the line in Line & Vehicle Management). A delivered unit is stale when its freshness is below staleShareOfBreakeven x the
--- curve's break-even freshness (0.5: halfway from break-even down to 0), or when the game flags it spoiled. It counts for the
--- line of its last leg. Each line keeps staleMonths monthly buckets (one game month each, a new line starts with all of them
+-- the line in Line & Vehicle Management). A delivered unit is stale when its freshness is below the in-game setting "stale cargo
+-- below freshness" (0% to 25%, default 10%; staleBelowFreshness here is only its fallback, keep it equal to the mod.json
+-- default), or when the game flags it spoiled. It counts for the line of its last leg. Each line keeps staleMonths monthly buckets (one game month each, a new line starts with all of them
 -- at 0% stale); a month whose deliveries reach staleMinUnits gets that month's stale share, a month with fewer inherits the
 -- previous bucket's share and its deliveries carry into the next month. Once a month the average of the buckets is compared:
 -- above staleWarnAbove the line is warned, below staleClearBelow the warning goes, in between nothing changes. A line whose
 -- stops change (or that is deleted) starts over. staleWarnings = false turns the warnings off (and removes those shown).
 return {
 	staleWarnings = true,
-	staleShareOfBreakeven = 0.5,
+	staleBelowFreshness = 0.1,
 	staleMonths = 12,
 	staleMinUnits = 10,
 	staleWarnAbove = 0.5,
