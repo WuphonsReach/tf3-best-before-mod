@@ -844,6 +844,22 @@ local ticketPrice = function(id : string, param : any) : {integer : number}
 	return nil
 end
 
+-- The game's own figures, for the log only (under pcall: a failing call must cost the log field, not the event). The adjusted
+-- delivery time is what the company window's Delivery Time tab shows (game_mechanics.zip:
+-- finance/finances_cargo_lifetime.tl); the vehicle's average quality is the cargo bar in its window
+-- (gui.zip: entity_window/vehicle/vehicle_eow.script.tl). On a Hard save the bar ran below 1 - age / (1.5 x file time).
+local adjustedDeliveryTime = function(cargoTypeId : integer) : string
+	local ok, seconds = pcall(api.engine.util.stock.getAdjustedDeliveryTime, cargoTypeId)
+	return ok and tostring(seconds) or "err"
+end
+
+local vehicleQuality = function(vehicle : Engine.Entity, cargoTypeId : integer) : string
+	if not exists(vehicle) then return "gone" end
+	local ok, data = pcall(api.engine.util.cargo.getCargoQualityDataForVehicle, vehicle, cargoTypeId)
+	if not ok or data == nil then return "err" end
+	return tostring(data.averageQuality) .. ":" .. tostring(data.countBad) .. "/" .. tostring(data.countTotal)
+end
+
 local probe : GameScript<BookingState> = {
 	update = function(_userParams : table, state : GameScriptState<BookingState>, _dt : number) : any
 		if not state:hasEventSubscriptions() then
@@ -953,6 +969,7 @@ local probe : GameScript<BookingState> = {
 					bookingState.loggedCargoTypes[typeKey] = true
 					log.message("BEST_BEFORE cargoType id=" .. typeKey
 						.. " timeToDeliverSeconds=" .. tostring(cargoType.timeToDeliverInSeconds)
+						.. " adjustedDeliverySeconds=" .. adjustedDeliveryTime(simCargo.cargoType)
 						.. " scriptRef=" .. (cargoType.scriptRef ~= nil and cargoType.scriptRef.fileName or "none")
 						.. " params=" .. describeParams(cargoType.scriptRef ~= nil and cargoType.scriptRef.params as {string:number} or nil))
 				end
@@ -1002,6 +1019,8 @@ local probe : GameScript<BookingState> = {
 				end
 				if logUnits then
 					correction = "ageMs=" .. tostring(ageMs) .. " limitMs=" .. tostring(limitMs)
+						.. " adjustedDeliverySeconds=" .. adjustedDeliveryTime(simCargo.cargoType)
+						.. " vehicleQuality=" .. vehicleQuality(last and last.vehicle, simCargo.cargoType)
 						.. " freshness=" .. tostring(freshness) .. " corrected=" .. tostring(correctedFreshness) .. " rate=" .. tostring(rate)
 						.. " payScale=" .. tostring(pay.scale) .. " predictedIncome=" .. predicted .. " deduction=" .. tostring(deduction)
 						.. " bonus=" .. tostring(bonus) .. " staleLine=" .. (staleKey or "none") .. " staleUnit=" .. tostring(staleUnit) .. queued
