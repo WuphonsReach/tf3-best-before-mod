@@ -146,6 +146,8 @@ local maxDeductionShare = 1.0
 -- What the engine applies after the income function when the real value cannot be read: 0.96426, measured on Normal
 -- saves at rank 3 (it is the Inflation Normal ticket price multiplier there, 1 - 2 x 0.25 / 14).
 local engineFactor = 0.96426
+-- The delivery limit is the game's adjusted delivery time (deliveryLimit below); this is only its fallback, as a multiple of
+-- the cargo file's time. The adjusted time shrinks as the game years pass: 1.5 x in 1900, 1.4 x in 1916, about 0.75 x by 2191.
 local deliverTimeMultiplier = 1.5
 
 -- Vehicles and lines whose ledger balance is logged (every vehicle and line in an arriving unit's pickup chain, up to
@@ -779,6 +781,15 @@ local updateStaleLines = function(state : GameScriptState<BookingState>, booking
 	state:set(bookingState)
 end
 
+-- A unit's delivery limit in ms (freshness 0) and where it came from: the game's adjusted delivery time, which is what the
+-- company window's Delivery Time tab shows (game_mechanics.zip: finance/finances_cargo_lifetime.tl) and what the vehicles'
+-- cargo bar runs against, or deliverTimeMultiplier x the cargo file's time when that call fails.
+local deliveryLimit = function(cargoTypeId : integer, fileSeconds : number) : number, string
+	local ok, seconds = pcall(api.engine.util.stock.getAdjustedDeliveryTime, cargoTypeId)
+	if ok and seconds ~= nil and seconds > 0 then return seconds * 1000.0, "adjusted" end
+	return fileSeconds * 1000.0 * deliverTimeMultiplier, "file"
+end
+
 -- Test only (settings.tl ticketPriceProbe). Before it pays, the engine asks every OnCalcTicketPrice subscriber for pay
 -- multipliers: the param is a list of items (cargo from TransportVehicleSystem, passengers from SimEntityAtVehicleSystem),
 -- each naming a vehicle, a line and the unit, and an answer {[i] = m} scales item i ({[0] = m} all of them). The base game's
@@ -812,7 +823,7 @@ local ticketPrice = function(id : string, param : any) : {integer : number}
 					and api.engine.getComponent(item.simEntity, api.type.ComponentType.SIM_CARGO) or nil
 				if simCargo ~= nil then
 					local cargoType = api.res.cargoTypeRep.get(simCargo.cargoType)
-					local limitMs = cargoType.timeToDeliverInSeconds * 1000.0 * deliverTimeMultiplier
+					local limitMs = deliveryLimit(simCargo.cargoType, cargoType.timeToDeliverInSeconds)
 					local corrected = limitMs > 0
 						and (1.0 - (now - simCargo.pickupTime - simCargo.deliveryExtensionDuration) / limitMs) or 1.0
 					local points = simCargo.pickupPoints or {}
@@ -845,9 +856,8 @@ local ticketPrice = function(id : string, param : any) : {integer : number}
 end
 
 -- The game's own figures, for the log only (under pcall: a failing call must cost the log field, not the event). The adjusted
--- delivery time is what the company window's Delivery Time tab shows (game_mechanics.zip:
--- finance/finances_cargo_lifetime.tl); the vehicle's average quality is the cargo bar in its window
--- (gui.zip: entity_window/vehicle/vehicle_eow.script.tl). On a Hard save the bar ran below 1 - age / (1.5 x file time).
+-- delivery time is the limit deliveryLimit uses; the vehicle's average quality is the cargo bar in its window
+-- (gui.zip: entity_window/vehicle/vehicle_eow.script.tl), 1 - age / adjusted time for the units still on board.
 local adjustedDeliveryTime = function(cargoTypeId : integer) : string
 	local ok, seconds = pcall(api.engine.util.stock.getAdjustedDeliveryTime, cargoTypeId)
 	return ok and tostring(seconds) or "err"
@@ -976,7 +986,7 @@ local probe : GameScript<BookingState> = {
 				local params = cargoType.scriptRef ~= nil and cargoType.scriptRef.params as {string:number} or nil
 				local priceFactor = params ~= nil and params.initialPrice ~= nil and params.finalPrice ~= nil
 					and (params.initialPrice + (params.finalPrice - params.initialPrice) * 0.25) or nil
-				local limitMs = cargoType.timeToDeliverInSeconds * 1000.0 * deliverTimeMultiplier
+				local limitMs, limitFrom = deliveryLimit(simCargo.cargoType, cargoType.timeToDeliverInSeconds)
 				local ageMs = now - simCargo.pickupTime
 				local freshness = limitMs > 0 and (1.0 - ageMs / limitMs) or 1.0
 				-- A unit that waited in a specialized warehouse has its timer paused; deliveryExtensionDuration holds that
@@ -1018,8 +1028,7 @@ local probe : GameScript<BookingState> = {
 					end
 				end
 				if logUnits then
-					correction = "ageMs=" .. tostring(ageMs) .. " limitMs=" .. tostring(limitMs)
-						.. " adjustedDeliverySeconds=" .. adjustedDeliveryTime(simCargo.cargoType)
+					correction = "ageMs=" .. tostring(ageMs) .. " limitMs=" .. tostring(limitMs) .. " limitFrom=" .. limitFrom
 						.. " vehicleQuality=" .. vehicleQuality(last and last.vehicle, simCargo.cargoType)
 						.. " freshness=" .. tostring(freshness) .. " corrected=" .. tostring(correctedFreshness) .. " rate=" .. tostring(rate)
 						.. " payScale=" .. tostring(pay.scale) .. " predictedIncome=" .. predicted .. " deduction=" .. tostring(deduction)

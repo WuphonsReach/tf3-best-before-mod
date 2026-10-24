@@ -37,7 +37,7 @@ All four came out right, so the next step is a mode that answers `1 + curveAdjus
 - `vehicleEntity` held the unit's own id on every item, and `distance` was nil. The vehicle's `unloadPendingIncome` was nil at the event.
 - `basePrice` / predicted pay: 1.361 to 1.429, median 1.399 = 1 / 0.714, so `basePrice` is the pay before the Cargo Income setting and the company multiplier.
 - Player income over the run 199.0 million, of which 47.0 million were the mod's bookings; the engine's 152.0 million is 1.442 x the predicted cargo pay but 0.714 x the cargo + passenger `basePrice` (147.5 + 65.5 million). Passenger fares explain the income above the cargo prediction on this save.
-- Side finding: the grain train on "CRA-DER CXR West Grain" (64 units, Mar 7 to 9 1916) showed its cargo bar at 25% on Feb 14, 7% on Mar 5 and 6% as unloading began; the mod's freshness for the same units at the same clock times was 29.9%, 13.5% and 12.0%. See [revisit-later](revisit-later.md) (limits per cargo and difficulty).
+- Side finding: the grain train on "CRA-DER CXR West Grain" (64 units, Mar 7 to 9 1916) showed its cargo bar at 25% on Feb 14, 7% on Mar 5 and 6% as unloading began; the mod's freshness for the same units at the same clock times was 29.9%, 13.5% and 12.0%. The mod now uses the game's adjusted delivery time ([findings](../findings.md)).
 
 **Scale 0.5**, the same game from save 1024-1735 (Aug to Oct 1916; the stale slider was moved to 0% on this load), log `local/logs/stdout-20261024-ticket-scale05.txt`. 1,026 cargo items, each paired with its arrival as before; no bookings were sent.
 
