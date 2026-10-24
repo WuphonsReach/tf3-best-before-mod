@@ -4,7 +4,7 @@ Newest first. The number in the title is `modVersion` at the top of [mod.script.
 
 ## 1.2 (not released)
 
-- **New: the stale threshold is an in-game setting.** "Warn on cargo delivered below freshness percent", 0% to 25% in 5% steps, default 10%. A unit below it, or spoiled, counts as stale for the Stale Cargo warning. It used to be half of the "normal pay at freshness" setting, so it moved when the pay curve was changed; now it does not. `staleShareOfBreakeven` in `settings.tl` is gone. The warning text says "below the mod's stale freshness setting".
+- **New: the stale threshold is an in-game setting.** "Warn on cargo below freshness percent", 0% to 25% in 5% steps, default 10%. A unit below it, or spoiled, counts as stale for the Stale Cargo warning. It used to be half of the "normal pay at freshness" setting, so it moved when the pay curve was changed; now it does not. `staleShareOfBreakeven` in `settings.tl` is gone. The warning text says "below the mod's stale freshness setting".
 
 ## 1.0.1 (18 Oct 2026)
 

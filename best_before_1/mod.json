@@ -166,7 +166,7 @@
         },
         {
             "key": "bestBefore.staleBelow",
-            "name": "Warn on cargo delivered below freshness percent",
+            "name": "Warn on cargo below freshness percent",
             "tooltip": "For the Stale Cargo warning only, pay is not affected. Cargo delivered below this freshness, or marked spoiled by the game, counts as stale; a line where most deliveries have been stale for months gets the warning. 0% counts only spoiled cargo.",
             "uiType": "Slider",
             "values": [
