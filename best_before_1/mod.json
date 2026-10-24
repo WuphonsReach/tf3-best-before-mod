@@ -163,6 +163,23 @@
             "defaultIndex": 0,
             "yearFrom": 0,
             "yearTo": 0
+        },
+        {
+            "key": "bestBefore.staleBelow",
+            "name": "Best Before: stale cargo below freshness",
+            "tooltip": "For the Stale Cargo warning only, pay is not affected. Cargo delivered below this freshness, or marked spoiled by the game, counts as stale; a line where most deliveries have been stale for months gets the warning. 0% counts only spoiled cargo.",
+            "uiType": "Slider",
+            "values": [
+                "0%",
+                "5%",
+                "10%",
+                "15%",
+                "20%",
+                "25%"
+            ],
+            "defaultIndex": 2,
+            "yearFrom": 0,
+            "yearTo": 0
         }
     ],
     "postRunScript": {
