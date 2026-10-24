@@ -7,8 +7,8 @@
 - **How sure we are.** The route and the behaviour (the dialog shows the save's values, a change made before loading reaches the mod and is saved) were checked in the game on new games and on an old save. The five settings were run at the defaults and at three non-default sets, and for every setting that was not clamped the dialog, the saved header and the value the mod logged agreed. A long run on an old save with a changed curve booked 1,920 deliveries, `verify_run.py` passed, and replaying the arrivals with those numbers reproduced the logged deductions (-4,636,930 against -4,636,941) and bonuses (+10,889,581 against +10,889,569).
 - **Old saves.** A save from before the settings existed shows the defaults in the dialog and loads on the default curve, whatever curve it used before; the next save you make stores them. Set the values you want before pressing Load Game.
 - **A mod added to an old save.** Activating the mod on a save that never had it (Load Game, Mods tab) shows the defaults in the dialog; values set there before pressing Load Game reach the game: `preRunFn` logged them as `loadParams` (list positions 14/12/8/4/6), the probe's `curveSettings` agreed (165% / 55% / 35% / 15% / 25%), and both saves made afterwards hold them (checked once).
-- **Dropdown removed.** Saves made while the mod still had a sixth setting (warehouse cargo) load fine: the dialog shows the five sliders at the values the save holds, the mod ignores the extra key, and the next save leaves it out (checked on two such saves). Warehouse cargo is always judged by its corrected age.
-- **Stale threshold.** A sixth slider, "Warn on cargo below freshness percent" (0% to 25%, default 10%), sets only when a delivered unit counts as stale for the Stale Cargo warning ([stale-line-warnings.md](stale-line-warnings.md)); it does not change pay. It is new in 1.2-dev: the dialog, the save and the logged value have not been checked in the game yet. A save from before it shows the default.
+- **Dropdown removed.** Saves made while the mod still had a setting for warehouse cargo load fine: the dialog shows the sliders at the values the save holds, the mod ignores the extra key, and the next save leaves it out (checked on two such saves). Warehouse cargo is always judged by its corrected age.
+- **Stale threshold.** A sixth setting, "Warn on cargo below freshness percent" (0% to 25%, default 10%), sets only when a delivered unit counts as stale for the Stale Cargo warning ([stale-line-warnings.md](stale-line-warnings.md)); it does not change pay. It is new in 1.2-dev: the dialog, the save and the logged value have not been checked in the game yet. A save from before it shows the default.
 - **Unknown.** Whether backing out of the dialog without pressing Load Game leaves the save untouched (not tried).
 
 ## On a new game
@@ -23,7 +23,7 @@
 
 3. The dialog lists the mod's settings under **Settings**. Set the sliders, then close the dialog with the X at its top right. The dialog opens with the values of the last new game you set up, not the defaults, because the game keeps the New Game screen's choices in its `settings.lua` in your user folder. Check them before you start.
 
-   ![The mod's five settings at their defaults](images/mod-settings-dialog.png)
+   ![The mod's settings at their defaults (taken before the stale threshold slider was added, so that sixth slider is missing)](images/mod-settings-dialog.png)
 
 4. Start the game as usual.
 
@@ -43,7 +43,7 @@
 
 ## What the settings do
 
-Pay is shown as a share of normal pay, so 100% is the pay the game gives and 150% is a 50% bonus. Freshness is 100% when cargo is picked up and falls to 0% at its delivery limit. Every slider moves in 5% steps, and in the dialog each name starts with "Best Before:". The curve is drawn out in [how-it-works.md](how-it-works.md).
+Pay is shown as a share of normal pay, so 100% is the pay the game gives and 150% is a 50% bonus. Freshness is 100% when cargo is picked up and falls to 0% at its delivery limit. Every slider moves in 5% steps. The curve is drawn out in [how-it-works.md](how-it-works.md).
 
 | Setting | Range | Default | Meaning |
 |---|---|---|---|
@@ -52,6 +52,7 @@ Pay is shown as a share of normal pay, so 100% is the pay the game gives and 150
 | Normal pay at freshness percent | 0% to 100% | 20% | Cargo delivered at exactly this freshness earns normal pay. |
 | Lowest pay below freshness percent | 0% to 100% | 0% | At or below this freshness the spoiled pay applies. |
 | Pay multiplier for spoiled cargo | 0% to 100% | 0% | The lowest pay: 0% takes the whole pay of a unit. Also used for cargo the game marks as spoiled. |
+| Warn on cargo below freshness percent | 0% to 25% | 10% | Only the Stale Cargo warning ([stale-line-warnings.md](stale-line-warnings.md)): a delivered unit below this freshness, or spoiled, counts as stale. Does not change pay. 0% counts only spoiled cargo. A new threshold applies to deliveries from then on; months already measured keep the old one until they leave the 12-month window, so a warned line clears only gradually after a change. |
 
 If the freshness points are not in order (full bonus >= normal pay >= lowest pay), the mod lowers the later point to the earlier one: with 35%, 45% and 70% it runs on 35%, 35% and 35%, while the dialog keeps showing what was set. The mod writes the values it used to the game log as `BEST_BEFORE curveSettings`, with the source (`params` for the in-game settings) and `adjusted=yes` when it had to lower points. That line comes only when the curve differs from the one stored in the save; the `BEST_BEFORE loadParams` line (the settings as list positions, one per load) is what the tools read to know the curve a run was played on.
 
