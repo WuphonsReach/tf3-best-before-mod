@@ -16,6 +16,7 @@ first-leg ledger does not receive the whole predicted pay.
 Stale line warnings are checked from the monthly staleRoll and staleLine lines: each line's share is the mean of its buckets,
 every warn, clear and hold follows the thresholds, the warned set sent to the notifications matches the lines marked warned,
 and where the log holds a line's previous state, its new bucket is rebuilt from the arrival lines counted for it in between.
+Each arrival's staleUnit is checked against the rule too (not good, or corrected freshness below the staleBelow the staleRoll lines log).
 """
 import re
 import sys
@@ -208,6 +209,28 @@ def check_stale(lines, start):
     params, roll_warned, roll_sent, last_sent = None, None, None, None
     rolls = replayed = 0
 
+    # Each unit's staleUnit against the rule: not good, or corrected freshness below the stale threshold. The threshold is
+    # fixed within a load (only a load can change an in-game setting) and every staleRoll line logs it.
+    thresholds = {m.group(1) for ln in lines[start:] for m in [re.search(r"BEST_BEFORE staleRoll .*?\bstaleBelow=(\S+)", ln)] if m}
+    if len(thresholds) > 1:
+        problems.append(f"staleRoll lines disagree on staleBelow: {sorted(thresholds)}")
+    below = float(next(iter(thresholds))) if len(thresholds) == 1 else None
+    unit_checked = 0
+    if below is not None:
+        for i, ln in enumerate(lines[start:], start):
+            m = re.search(r"BEST_BEFORE arrival (.*)", ln)
+            d = kv(m.group(1)) if m else {}
+            if "staleUnit" not in d or "corrected" not in d:
+                continue
+            corrected = float(d["corrected"])
+            if d.get("good") == "true" and abs(corrected - below) < 1e-9:
+                continue                       # on the threshold itself: the logged digits cannot tell which side it fell
+            expected_stale = d.get("good") != "true" or corrected < below
+            unit_checked += 1
+            if (d["staleUnit"] == "true") != expected_stale and len(problems) < 10:
+                problems.append(f"line {i + 1}: unit {d.get('unit')} good={d.get('good')} corrected={corrected:.4f} logged "
+                                f"staleUnit={d['staleUnit']}, the rule (below {below}) says {str(expected_stale).lower()}")
+
     def close_roll():
         expected = roll_sent if roll_sent is not None else last_sent
         if roll_warned is not None and expected is not None and expected != roll_warned:
@@ -290,7 +313,7 @@ def check_stale(lines, start):
         return True
     warned_now = sorted(k for k, e in state.items() if e["warned"])
     print(("PASS" if not problems else "FAIL") + f"  stale lines: {rolls} monthly rolls, {len(state)} lines tracked, {replayed} "
-          f"bucket rolls rebuilt from the arrivals, {len(warned_now)} lines warned at the end"
+          f"bucket rolls rebuilt from the arrivals, {unit_checked} units checked against the threshold, {len(warned_now)} lines warned at the end"
           + (f" ({', '.join(warned_now[:10])}{', ...' if len(warned_now) > 10 else ''})" if warned_now else ""))
     for problem in problems[:10]:
         print("      " + problem)

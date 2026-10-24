@@ -45,7 +45,7 @@ Log lines (all start with `BEST_BEFORE`):
 | `staleWarnings` | the warned set sent | all but `off` |
 | `arrival ... staleLine= staleUnit=` | the line a unit counted for and whether it was stale | `curve`, `full` |
 
-`tools/verify_run.py` replays the buckets between rolls from the arrival lines, and checks each share, each decision and each warned set sent.
+`tools/verify_run.py` replays the buckets between rolls from the arrival lines, and checks each share, each decision and each warned set sent, and that every unit's `staleUnit` follows the rule (not good, or corrected freshness below the `staleBelow` the `staleRoll` lines log).
 
 ## Choosing the rule: replay of logged runs
 
