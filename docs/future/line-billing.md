@@ -4,9 +4,9 @@
 
 - **Goal.** A unit's bonus or deduction should land on the vehicle and line that carried it, at delivery, so the line windows and the floating figures show it. Today it goes to the player only, because the game shares a unit's pay along its chain by a formula we do not know (see [discarded](discarded.md)).
 - **Lead: let the engine do it.** Before it pays, the engine raises `OnCalcTicketPrice`. The event names each item with its vehicle, line, unit (`simEntity`), stock list, `basePrice` and `distance`, and any subscriber can return a pay multiplier per item. The base game uses this for the company level (one multiplier for all items) and for subsidies (x2 per item on the lines that earned it) (`game_mechanics.zip`: `company/company_growth.script.tl`, `subventions/deliver_cargo/deliver_cargo.script.tl`; the record is `CalcTicketPriceCargoEvent` in `base/tealdef/scripts/gamescript.d.tl`). If the mod returned `1 + adjustment` per unit, the engine would pay the changed amount and share it out by its own formula. Every ledger in the chain would then be right without our knowing the split, and the journal bookings, the pay prediction and the `cargoIncomeScript` stub could go.
-- **How sure.** Two runs on one save. The event comes once per delivered unit, at the delivery tick, naming the unit, the last leg's line and the destination, with `basePrice` the unit's pay before the pay scale. An answer of 0.5 halved the pay: it is multiplied with the company level's multiplier (engine pay matched cargo `basePrice` x 0.5 x pay scale plus passengers x pay scale to 0.2%), and every line of a two-leg chain, boat and truck alike, earned half its usual share. So the engine scales the unit's whole pay before it shares it out, and each line's ledger shows the change at delivery. The event does not show the split (its `vehicleEntity` holds the unit, `distance` is nil). An answer of 0 made a delivered unit pay nothing, on every line of its chain. Still open: whether values above 1 work (needed for the bonus), and how our answer combines with a subsidy's x2 (product is likely, as with the company level).
+- **How sure.** Four runs on one save. The event comes once per delivered unit, at the delivery tick, naming the unit, the last leg's line and the destination, with `basePrice` the unit's pay before the pay scale. An answer of 0.5 halved the pay: it is multiplied with the company level's multiplier (engine pay matched cargo `basePrice` x 0.5 x pay scale plus passengers x pay scale to 0.2%), and every line of a two-leg chain, boat and truck alike, earned half its usual share. So the engine scales the unit's whole pay before it shares it out, and each line's ledger shows the change at delivery. The event does not show the split (its `vehicleEntity` holds the unit, `distance` is nil). An answer of 0 made a delivered unit pay nothing, on every line of its chain, and an answer of 2 doubled it, on every line of its chain, so the bonus can be paid this way too. Still open: how our answer combines with a subsidy's x2 (product is likely, as with the company level).
 - **Fallback.** Keep the bookings but split each unit's adjustment over its legs and book every share to that leg's vehicle and line as well as to the player. `PickupPoint.position` gives each leg's start, so a split by straight-line distance is possible, but the engine's split is still unknown (the event does not show it).
-- **Status.** A test-only probe is on branch `2026-10-24-ticket-price-probe` (settings.tl `ticketPriceProbe`, read by `tools/ticket_probe.py`). The observe, scale 0.5 and scale 0 runs are done; scale 2 is next.
+- **Status.** A test-only probe is on branch `2026-10-24-ticket-price-probe` (settings.tl `ticketPriceProbe`, read by `tools/ticket_probe.py`). All four runs (observe, scale 0.5, 0 and 2) are done; next is a mode that answers the curve per unit.
 
 ## The probe
 
@@ -24,9 +24,9 @@ Use a save with transferred cargo (at least one chain of two lines) and `logLeve
 1. **observe.** Done, see the results below.
 2. **scale 0.5.** Done, see the results below.
 3. **scale 0.** Done, see the results below.
-4. **scale 2.** Do values above 1 work (needed for the bonus)? A subsidy's x2 says yes for the base game.
+4. **scale 2.** Done, see the results below.
 
-If all four come out right, the next step is a mode that answers `1 + curveAdjustment(freshness)` per unit, compared against the journal bookings on the same save.
+All four came out right, so the next step is a mode that answers `1 + curveAdjustment(freshness)` per unit, compared against the journal bookings on the same save.
 
 ## Results
 
@@ -64,3 +64,24 @@ If all four come out right, the next step is a mode that answers `1 + curveAdjus
 - Player income 10.91 million, against passenger `basePrice` 15.17 million x 0.714 = 10.84 million (1.007): all of it is fares, and the cargo (`basePrice` 31.02 million) paid nothing.
 - Every tracked oil and fish line, boats and trucks, earned 0 from the units it carried, apart from 5,082 on one oil boat at the start of the run.
 - The grain train on "CRA-DER CXR West Grain" unloaded its 64 units at Dereham on Oct 7 to 9 1916 (`basePrice` 4.26 million). Its window showed no blue income figure during the unload, and its Last Year balance went from $-584,544 to $-604,028 (running costs only), where the same trip in the observe run ended at $2,440,466. The game's freshness for the 64 units was 3.5% to 6.4% (bar 5.8% at the start of the unload), the mod's 10.0% to 12.7%; 32 of them were below the 5% stale setting by the game's measure.
+
+**Scale 2**, the same game from save 1024-1804 (Nov 12 1916 to Feb 18 1917, stale slider at 5%; saved as 1024-1818), log `local/logs/stdout-20261024-ticket-scale2.txt`. 2,040 cargo items (1,177 of them two-leg units), all answered 2, each paired with its arrival as before; no errors.
+
+- Player income 108.75 million, against cargo `basePrice` 63.03 million x 2 x 0.714 + passenger `basePrice` 27.24 million x 0.714 = 109.50 million (0.993).
+- Line ledgers, share of pay against the observe run:
+
+| Line | Leg | Share of pay, observe | Share, scale 2 | Ratio |
+|---|---|---|---|---|
+| PET CS Oil Tankers East Port N1 | boat | 0.848 | 1.696 | 1.999 |
+| PET CS Oil Tankers East Port N2 | boat | 0.873 | 1.754 | 2.010 |
+| PET CS Oil Tankers East Port N3 | boat | 0.895 | 1.791 | 2.000 |
+| PET CS Oil Tankers East Port S2 | boat | 0.849 | 1.697 | 2.000 |
+| PET CS Oil Tankers East Port CRA-E1 | boat | 0.892 | 1.821 | 2.041 |
+| PET CS Oil Tankers East Port S4 | boat | 0.892 | 1.515 | 1.698 |
+| PET East Port Oil Cargo Shuttle Trucks | truck | 0.105 | 0.227 | 2.153 |
+| BRE CS Fish W-1 | boat | 0.653 | 1.305 | 1.999 |
+| BRE Fish Trucks 1 | truck | 0.347 | 0.695 | 2.003 |
+| THO CS Fishery 1 | boat | 0.112 | 0.205 | 1.838 |
+| Line 3 (THO fish trucks) | truck | 0.922 | 1.692 | 1.836 |
+
+  Most lines doubled to within 1%. S4 (127 units) and the oil trucks are further off, as is the THO chain (117 units, both legs off by the same factor); each line is paid as its vehicles unload, so deliveries near the ends of a three-month run shift the shares.
