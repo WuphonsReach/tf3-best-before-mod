@@ -35,6 +35,11 @@
 -- previous bucket's share and its deliveries carry into the next month. Once a month the average of the buckets is compared:
 -- above staleWarnAbove the line is warned, below staleClearBelow the warning goes, in between nothing changes. A line whose
 -- stops change (or that is deleted) starts over. staleWarnings = false turns the warnings off (and removes those shown).
+--
+-- ticketPriceProbe (test only): whether the engine's ticket price event can scale a unit's pay before the game shares it out,
+-- so the line and vehicle that carried it see the change. "off" (shipped), "observe" (log every cargo item the event names,
+-- change nothing) or "scale" (answer ticketPriceMultiplier for every cargo item and book no adjustments; 1 leaves the pay as
+-- it is). Logged at "curve" and "full" only. Read on each load like logLevel; the event stays subscribed once it was.
 return {
 	staleWarnings = true,
 	staleBelowFreshness = 0.1,
@@ -48,4 +53,6 @@ return {
 	breakevenFreshness = 0.2,
 	penaltyBelowFreshness = 0.0,
 	penaltyPercent = -1.0,
+	ticketPriceProbe = "off",
+	ticketPriceMultiplier = 1.0,
 }
