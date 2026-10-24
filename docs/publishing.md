@@ -58,7 +58,7 @@ EARLY TEST VERSION. This is early work, checked in the game on a handful of save
 
 HOW IT WORKS
 - The game pays every delivered cargo unit in full, as usual. The mod then books one correcting entry to your account: a bonus for fresh cargo, a deduction for slow or spoiled cargo.
-- Freshness is 100% when cargo is picked up and falls to 0% at its delivery limit (1.5 times the cargo's delivery time). Cargo that waited in a warehouse is judged on its age with the warehouse pause taken off.
+- Freshness is 100% when cargo is picked up and falls to 0% at its delivery limit, as the game sets it for your save: the same limit the cargo bar in a vehicle's window runs against. Cargo that waited in a warehouse is judged on its age with the warehouse pause taken off.
 - Only cargo is adjusted. Passenger income is not touched.
 
 CARGO FROM OTHER MODS

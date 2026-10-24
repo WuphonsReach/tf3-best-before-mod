@@ -41,7 +41,7 @@ OLD_PROBE_SCALE = 0.96426                              # the fixed factor logs b
 INFLATION_AT_TYCOON = {1: 1.0, 2: 0.9, 3: 0.75, 4: 0.6, 5: 0.5}     # Inflation option -> multiplier reached at rank 15 (604); docs/inflation.md
 CARGO_INCOME_FACTORS = {1: 0.5, 2: 0.75, 3: 1.0, 4: 1.25, 5: 1.5}   # the header stores the list position; docs/settings.md
 ARRIVAL_COLUMNS = ["now", "unit", "cargoType", "carrier", "legs", "source", "target", "startTime", "pickupTime", "ext", "ageMs",
-                   "limitMs", "freshness", "corrected", "good", "rate", "payScale", "predictedIncome", "predictedCorrected", "deduction", "bonus",
+                   "limitMs", "limitFrom", "freshness", "corrected", "good", "rate", "payScale", "predictedIncome", "predictedCorrected", "deduction", "bonus",
                    "vehicle", "line", "lastVehicle", "lastLine", "chain"]
 SAVE_FORMAT_TOOLS = os.path.join(HERE, "..", "..", "tf3-save-format", "tools")
 SAVE_DIR_GLOB = os.path.expanduser("~/snap/steam/common/.local/share/Steam/userdata")

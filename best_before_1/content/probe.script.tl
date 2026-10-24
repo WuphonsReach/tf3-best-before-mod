@@ -31,6 +31,8 @@ local record Settings
 	staleMinUnits : number
 	staleWarnAbove : number
 	staleClearBelow : number
+	ticketPriceProbe : string
+	ticketPriceMultiplier : number
 end
 -- Loaded under pcall: a settings.tl the game cannot find (1.0's file list left it out) must not stop the game script. The
 -- fallback mirrors settings.tl; mod.script.tl's preRunFn logs the failure.
@@ -93,7 +95,11 @@ local fileCurve : Curve = normalizeCurve({
 
 local settings : Settings = {
 	logLevel = (rawSettings.logLevel == "off" or rawSettings.logLevel == "curve" or rawSettings.logLevel == "full") and rawSettings.logLevel or "summary",
+	ticketPriceProbe = (rawSettings.ticketPriceProbe == "observe" or rawSettings.ticketPriceProbe == "scale") and rawSettings.ticketPriceProbe or "off",
+	ticketPriceMultiplier = clamp(rawSettings.ticketPriceMultiplier or 1.0, 0.0, 10.0),
 }
+-- Test only: in "scale" the engine's pay is scaled by the ticket price answer, so no adjustment is booked on top of it.
+local ticketScaling = settings.ticketPriceProbe == "scale"
 
 local describeCurve = function(curve : Curve) : string
 	return "bonusPercent=" .. tostring(curve.bonusPercent) .. " bonusDownToFreshness=" .. tostring(curve.bonusDownToFreshness)
@@ -140,6 +146,8 @@ local maxDeductionShare = 1.0
 -- What the engine applies after the income function when the real value cannot be read: 0.96426, measured on Normal
 -- saves at rank 3 (it is the Inflation Normal ticket price multiplier there, 1 - 2 x 0.25 / 14).
 local engineFactor = 0.96426
+-- The delivery limit is the game's adjusted delivery time (deliveryLimit below); this is only its fallback, as a multiple of
+-- the cargo file's time. The adjusted time shrinks as the game years pass: 1.5 x in 1900, 1.4 x in 1916, about 0.75 x by 2191.
 local deliverTimeMultiplier = 1.5
 
 -- Vehicles and lines whose ledger balance is logged (every vehicle and line in an arriving unit's pickup chain, up to
@@ -198,6 +206,7 @@ local record BookingState
 	staleMonth : integer -- the game month the buckets were last rolled in
 	staleLines : {string : StaleLine} -- keyed by the line entity as text
 	staleSent : string -- the warned lines last sent to the notifications, comma separated
+	ticketPriceSubscribed : boolean -- OnCalcTicketPrice was subscribed (test only, settings.tl ticketPriceProbe)
 end
 
 -- One entry per carrier, summed over the queue.
@@ -772,12 +781,108 @@ local updateStaleLines = function(state : GameScriptState<BookingState>, booking
 	state:set(bookingState)
 end
 
+-- A unit's delivery limit in ms (freshness 0) and where it came from: the game's adjusted delivery time, which is what the
+-- company window's Delivery Time tab shows (game_mechanics.zip: finance/finances_cargo_lifetime.tl) and what the vehicles'
+-- cargo bar runs against, or deliverTimeMultiplier x the cargo file's time when that call fails.
+local deliveryLimit = function(cargoTypeId : integer, fileSeconds : number) : number, string
+	local ok, seconds = pcall(api.engine.util.stock.getAdjustedDeliveryTime, cargoTypeId)
+	if ok and seconds ~= nil and seconds > 0 then return seconds * 1000.0, "adjusted" end
+	return fileSeconds * 1000.0 * deliverTimeMultiplier, "file"
+end
+
+-- Test only (settings.tl ticketPriceProbe). Before it pays, the engine asks every OnCalcTicketPrice subscriber for pay
+-- multipliers: the param is a list of items (cargo from TransportVehicleSystem, passengers from SimEntityAtVehicleSystem),
+-- each naming a vehicle, a line and the unit, and an answer {[i] = m} scales item i ({[0] = m} all of them). The base game's
+-- company level and subsidies answer this way (game_mechanics.zip: company/company_growth.script.tl,
+-- subventions/deliver_cargo/deliver_cargo.script.tl). "observe" logs the items and answers nothing; "scale" answers
+-- ticketPriceMultiplier for every cargo item. Nothing is written to the state here: game scripts may run in one Lua state
+-- per thread, so a write from this handler could be lost.
+local ticketPrice = function(id : string, param : any) : {integer : number}
+	if settings.ticketPriceProbe == "off" then return nil end
+	local cargo = id == "TransportVehicleSystem"
+	local items = param as {CalcTicketPriceCargoEvent}
+	local multipliers : {integer : number} = {}
+	if cargo and ticketScaling then
+		for i = 1, #items do multipliers[i] = settings.ticketPriceMultiplier end
+	end
+	if logUnits then
+		-- Under pcall: a logging error must not cost the answer.
+		local ok, err = pcall(function() : string
+			local gameTime : Engine.Component.GameTime = api.engine.getComponent(api.engine.util.getWorld(), api.type.ComponentType.GAME_TIME)
+			local now = gameTime.gameTime
+			local sum = 0.0
+			for i = 1, #items do sum = sum + items[i].basePrice end
+			log.message("BEST_BEFORE ticketPrice id=" .. id .. " now=" .. tostring(now) .. " items=" .. tostring(#items)
+				.. " basePriceSum=" .. tostring(sum) .. " probe=" .. settings.ticketPriceProbe
+				.. " multiplier=" .. ((cargo and ticketScaling) and tostring(settings.ticketPriceMultiplier) or "none"))
+			if not cargo then return nil end
+			for i = 1, #items do
+				local item = items[i]
+				local detail = "noSimCargo"
+				local simCargo : Engine.Component.SimCargo = exists(item.simEntity)
+					and api.engine.getComponent(item.simEntity, api.type.ComponentType.SIM_CARGO) or nil
+				if simCargo ~= nil then
+					local cargoType = api.res.cargoTypeRep.get(simCargo.cargoType)
+					local limitMs = deliveryLimit(simCargo.cargoType, cargoType.timeToDeliverInSeconds)
+					local corrected = limitMs > 0
+						and (1.0 - (now - simCargo.pickupTime - simCargo.deliveryExtensionDuration) / limitMs) or 1.0
+					local points = simCargo.pickupPoints or {}
+					local last = points[#points]
+					detail = "cargoType=" .. tostring(simCargo.cargoType) .. " legs=" .. tostring(#points)
+						.. " lastLine=" .. tostring(last and last.line) .. " lastVehicle=" .. tostring(last and last.vehicle)
+						.. " good=" .. tostring(api.engine.util.cargo.isGoodQuality(item.simEntity))
+						.. " corrected=" .. tostring(corrected)
+				end
+				if logFull and exists(item.vehicleEntity) then
+					-- What the vehicle holds to be paid as it unloads (nil at the arrival event, see docs/future/discarded.md).
+					local vehicle : Engine.Component.TransportVehicle
+						= api.engine.getComponent(item.vehicleEntity, api.type.ComponentType.TRANSPORT_VEHICLE)
+					local pending = vehicle ~= nil and vehicle.unloadPendingIncome or nil
+					detail = detail .. " pending=" .. (pending ~= nil
+						and (tostring(pending.amount) .. ":" .. tostring(pending.vehicleEntity) .. ":" .. tostring(pending.lineEntity)) or "nil")
+				end
+				log.message("BEST_BEFORE ticketItem i=" .. tostring(i) .. " unit=" .. tostring(item.simEntity)
+					.. " vehicle=" .. tostring(item.vehicleEntity) .. " line=" .. tostring(item.lineEntity)
+					.. " stockList=" .. tostring(item.stockListEntity) .. " basePrice=" .. tostring(item.basePrice)
+					.. " distance=" .. tostring(item.distance) .. " now=" .. tostring(now)
+					.. " multiplier=" .. tostring(multipliers[i] or "none") .. " " .. detail)
+			end
+			return nil
+		end)
+		if not ok then log.message("BEST_BEFORE ticketPrice error=" .. tostring(err)) end
+	end
+	if next(multipliers) ~= nil then return multipliers end
+	return nil
+end
+
+-- The game's own figures, for the log only (under pcall: a failing call must cost the log field, not the event). The adjusted
+-- delivery time is the limit deliveryLimit uses; the vehicle's average quality is the cargo bar in its window
+-- (gui.zip: entity_window/vehicle/vehicle_eow.script.tl), 1 - age / adjusted time for the units still on board.
+local adjustedDeliveryTime = function(cargoTypeId : integer) : string
+	local ok, seconds = pcall(api.engine.util.stock.getAdjustedDeliveryTime, cargoTypeId)
+	return ok and tostring(seconds) or "err"
+end
+
+local vehicleQuality = function(vehicle : Engine.Entity, cargoTypeId : integer) : string
+	if not exists(vehicle) then return "gone" end
+	local ok, data = pcall(api.engine.util.cargo.getCargoQualityDataForVehicle, vehicle, cargoTypeId)
+	if not ok or data == nil then return "err" end
+	return tostring(data.averageQuality) .. ":" .. tostring(data.countBad) .. "/" .. tostring(data.countTotal)
+end
+
 local probe : GameScript<BookingState> = {
 	update = function(_userParams : table, state : GameScriptState<BookingState>, _dt : number) : any
 		if not state:hasEventSubscriptions() then
 			state:subscribeToEvent("OnToArriveAtDestination")
 		end
 		local bookingState = state:get()
+		-- Saves from before the probe already have subscriptions, so this one is remembered in the state.
+		if settings.ticketPriceProbe ~= "off" and not bookingState.ticketPriceSubscribed then
+			state:subscribeToEvent("OnCalcTicketPrice")
+			bookingState.ticketPriceSubscribed = true
+			state:set(bookingState)
+			log.message("BEST_BEFORE ticketPrice subscribed probe=" .. settings.ticketPriceProbe)
+		end
 		local curve = activeCurve(state, bookingState) -- reads the in-game settings, before any unit arrives
 		if logUnits then logJournalSnapshot(state, bookingState) end
 		local gameTime : Engine.Component.GameTime = api.engine.getComponent(api.engine.util.getWorld(), api.type.ComponentType.GAME_TIME)
@@ -808,6 +913,7 @@ local probe : GameScript<BookingState> = {
 		end
 	end,
 	handleEvent = function(_userParams : table, state : GameScriptState<BookingState>, _src : string, id : string, name : string, param : any) : any
+		if name == "OnCalcTicketPrice" then return ticketPrice(id, param) end
 		if id ~= "SimCargoSystem" or name ~= "OnToArriveAtDestination" then return end
 
 		local bookingState = state:get()
@@ -873,13 +979,14 @@ local probe : GameScript<BookingState> = {
 					bookingState.loggedCargoTypes[typeKey] = true
 					log.message("BEST_BEFORE cargoType id=" .. typeKey
 						.. " timeToDeliverSeconds=" .. tostring(cargoType.timeToDeliverInSeconds)
+						.. " adjustedDeliverySeconds=" .. adjustedDeliveryTime(simCargo.cargoType)
 						.. " scriptRef=" .. (cargoType.scriptRef ~= nil and cargoType.scriptRef.fileName or "none")
 						.. " params=" .. describeParams(cargoType.scriptRef ~= nil and cargoType.scriptRef.params as {string:number} or nil))
 				end
 				local params = cargoType.scriptRef ~= nil and cargoType.scriptRef.params as {string:number} or nil
 				local priceFactor = params ~= nil and params.initialPrice ~= nil and params.finalPrice ~= nil
 					and (params.initialPrice + (params.finalPrice - params.initialPrice) * 0.25) or nil
-				local limitMs = cargoType.timeToDeliverInSeconds * 1000.0 * deliverTimeMultiplier
+				local limitMs, limitFrom = deliveryLimit(simCargo.cargoType, cargoType.timeToDeliverInSeconds)
 				local ageMs = now - simCargo.pickupTime
 				local freshness = limitMs > 0 and (1.0 - ageMs / limitMs) or 1.0
 				-- A unit that waited in a specialized warehouse has its timer paused; deliveryExtensionDuration holds that
@@ -904,7 +1011,7 @@ local probe : GameScript<BookingState> = {
 					local income = priceFactor * d * pay.scale
 					if logUnits then predicted = tostring(income) end
 					local exact = math.max(adjustment * income, -maxDeductionShare * income)
-					if math.abs(exact) >= 1 then
+					if math.abs(exact) >= 1 and not ticketScaling then
 						bookingState.units = bookingState.units + 1
 						local amount = exact < 0 and -math.floor(-exact + 0.5) or math.floor(exact + 0.5)
 						if amount < 0 then deduction = -amount else bonus = amount end
@@ -921,7 +1028,8 @@ local probe : GameScript<BookingState> = {
 					end
 				end
 				if logUnits then
-					correction = "ageMs=" .. tostring(ageMs) .. " limitMs=" .. tostring(limitMs)
+					correction = "ageMs=" .. tostring(ageMs) .. " limitMs=" .. tostring(limitMs) .. " limitFrom=" .. limitFrom
+						.. " vehicleQuality=" .. vehicleQuality(last and last.vehicle, simCargo.cargoType)
 						.. " freshness=" .. tostring(freshness) .. " corrected=" .. tostring(correctedFreshness) .. " rate=" .. tostring(rate)
 						.. " payScale=" .. tostring(pay.scale) .. " predictedIncome=" .. predicted .. " deduction=" .. tostring(deduction)
 						.. " bonus=" .. tostring(bonus) .. " staleLine=" .. (staleKey or "none") .. " staleUnit=" .. tostring(staleUnit) .. queued

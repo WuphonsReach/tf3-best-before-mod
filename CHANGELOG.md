@@ -4,6 +4,7 @@ Newest first. The number in the title is `modVersion` at the top of [mod.script.
 
 ## 1.2 (not released)
 
+- **Changed: freshness runs out at the game's own delivery limit.** The mod used 1.5 times the cargo's delivery time from its file; it now asks the game for the cargo's adjusted delivery time, the limit the cargo bar in a vehicle's window runs against. That limit shrinks as the game years pass: 1.5 times in 1900, 1.4 times in 1916, about 0.75 times by 2191. So on any save past 1900 the mod rated cargo fresher than the game does, a few points in the 1910s and far more in later eras, paying too much bonus and warning too little. If the game cannot answer, the mod falls back to 1.5 times. The arrival log lines carry `limitFrom=adjusted` or `limitFrom=file`.
 - **New: the stale threshold is an in-game setting.** "Warn on cargo below freshness percent", 0% to 25% in 5% steps, default 10%. A unit below it, or spoiled, counts as stale for the Stale Cargo warning. It used to be half of the "normal pay at freshness" setting, so it moved when the pay curve was changed; now it does not. `staleShareOfBreakeven` in `settings.tl` is gone. The warning text says "below the mod's stale freshness setting".
 
 ## 1.0.1 (18 Oct 2026)

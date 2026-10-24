@@ -14,6 +14,7 @@ The mod is public on mod.io as an early test version; [publishing.md](publishing
 | [future/discarded.md](future/discarded.md) | Ideas we tried or weighed and set aside, why, and what would bring them back |
 | [future/needs-game-support.md](future/needs-game-support.md) | Things the mod cannot do cleanly with what the game exposes today |
 | [future/stored-cargo-modes.md](future/stored-cargo-modes.md) | The other ways of judging cargo that waited in a warehouse, kept in the code but not offered, and ideas for later |
+| [future/line-billing.md](future/line-billing.md) | Billing the adjustment to the vehicle and line that carried the unit: the engine's ticket price hook, the probe and its test runs |
 | [future/revisit-later.md](future/revisit-later.md) | Open questions and options that depend on something we have not learned yet |
 
 ## About links to tf3-save-format
