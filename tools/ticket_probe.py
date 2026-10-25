@@ -3,6 +3,9 @@
 
 Usage: tools/ticket_probe.py local/logs/stdout-....txt
 
+In a "curve" run (each cargo item answered 1 + the curve's adjustment) it also checks every answer against the rate in the
+unit's arrival line and compares the player's income with the basePrice sums scaled by the answers.
+
 The probe logs every OnCalcTicketPrice event (ticketPrice lines) and, for cargo, each item it names (ticketItem lines). This
 joins the items to the arrival lines of the same unit and answers:
   - does the event name a unit once (at delivery) or once per leg, and when does it come against the arrival event,
@@ -109,6 +112,15 @@ def main(path):
         print(f"basePrice / predicted pay per unit: {spread(ratio)}")
         scales = {a.get("payScale") for _, a in joined}
         print(f"payScale in the arrival lines: {', '.join(sorted(s for s in scales if s))}")
+        curve_run = any(e["probe"] == "curve" for e in events)
+        curve = [(v[-1], a) for v, a in joined if curve_run and v[-1].get("multiplier") not in (None, "none") and "rate" in a]
+        if curve:
+            off = [(it, a) for it, a in curve if abs(float(it["multiplier"]) - max(0.0, float(a["rate"]))) > 1e-6]
+            print(f"Curve answers equal to the arrival line's rate: {len(curve) - len(off)} of {len(curve)}")
+            for it, a in off[:5]:
+                print(f"  unit {a['unit']}: answered {it['multiplier']}, arrival rate {a['rate']} (corrected "
+                      f"{it.get('corrected')} / {a.get('corrected')}, good {it.get('good')} / {a.get('good')})")
+            print(f"Answers: {spread([float(it['multiplier']) for it, _ in curve])}")
 
     pending = Counter("nil" if it.get("pending", "nil") == "nil" else "amount" for it in items if "pending" in it)
     if pending:
@@ -124,6 +136,10 @@ def main(path):
                         if a.get("predictedIncome", "n/a") != "n/a" and t0 <= int(a["now"]) <= t1)
         cargo_base = sum(float(e["basePriceSum"]) for e in events
                          if e["id"] == "TransportVehicleSystem" and t0 <= int(e["now"]) <= t1)
+        answered = sum(float(it["basePrice"]) * (1.0 if it.get("multiplier", "none") == "none" else float(it["multiplier"]))
+                       for it in items if t0 <= int(it["now"]) <= t1)
+        expected_adj = sum(float(a["expectedAdjustment"]) for a in arrivals.values()
+                           if a.get("expectedAdjustment", "n/a") != "n/a" and t0 <= int(a["now"]) <= t1)
         people_base = sum(float(e["basePriceSum"]) for e in events
                           if e["id"] != "TransportVehicleSystem" and t0 <= int(e["now"]) <= t1)
         engine = income - booked
@@ -133,6 +149,11 @@ def main(path):
         if cargo_base:
             print(f"  engine pay / cargo basePrice sum {engine / cargo_base:.3f}; / cargo + passenger basePrice "
                   f"{engine / (cargo_base + people_base):.3f} (cargo {cargo_base:,.0f}, passengers {people_base:,.0f})")
+        if answered and answered != cargo_base:
+            print(f"  engine pay / (cargo basePrice x our answers + passenger basePrice) {engine / (answered + people_base):.3f} "
+                  f"(cargo answered {answered:,.0f}); equal to the pay scale when every answer reached the pay")
+        if expected_adj:
+            print(f"  what the bookings would have added: {expected_adj:,.0f} on predicted cargo pay {predicted:,.0f}")
         print("  Pay lands as vehicles finish unloading, so units near either end of the run blur these ratios; use runs "
               "of several game months.")
 
