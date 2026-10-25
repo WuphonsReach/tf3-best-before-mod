@@ -38,8 +38,8 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OLD_PROBE_SCALE = 0.96426                              # the fixed factor logs before c976cfd predicted with
-INFLATION_AT_TYCOON = {1: 1.0, 2: 0.9, 3: 0.75, 4: 0.6, 5: 0.5}     # Inflation option -> multiplier reached at rank 15 (604); docs/inflation.md
-CARGO_INCOME_FACTORS = {1: 0.5, 2: 0.75, 3: 1.0, 4: 1.25, 5: 1.5}   # the header stores the list position; docs/settings.md
+INFLATION_AT_TYCOON = {1: 1.0, 2: 0.9, 3: 0.75, 4: 0.6, 5: 0.5}     # Inflation option -> multiplier reached at rank 15 (604); tf3-save-format docs/inflation.md
+CARGO_INCOME_FACTORS = {1: 0.5, 2: 0.75, 3: 1.0, 4: 1.25, 5: 1.5}   # the header stores the list position; tf3-save-format docs/settings.md
 ARRIVAL_COLUMNS = ["now", "unit", "cargoType", "carrier", "legs", "source", "target", "startTime", "pickupTime", "ext", "ageMs",
                    "limitMs", "limitFrom", "freshness", "corrected", "good", "rate", "payScale", "predictedIncome", "predictedCorrected", "deduction", "bonus",
                    "vehicle", "line", "lastVehicle", "lastLine", "chain"]
@@ -172,7 +172,7 @@ def extract(path, out_dir, slug, note, min_arrivals):
                             "playerIncomeTotal": vals.get("playerIncomeTotal", "")})
         elif kind == "company" and company is None:
             company = kv(rest)
-        elif kind == "settings" and settings is None:
+        elif kind == "settings" and settings is None and not rest.startswith(".tl "):   # not "settings.tl could not be loaded"
             settings = kv(rest)
         elif kind == "loadParams":                      # the in-game settings the load started with, as list positions
             load_params = rest

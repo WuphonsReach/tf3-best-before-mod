@@ -173,8 +173,6 @@ def check_order(s):
     order = [1.0, s["bonus-down-to-freshness"], s["breakeven-freshness"], s["penalty-below-freshness"], 0.0]
     if any(a < b for a, b in zip(order, order[1:])):
         sys.exit("settings must satisfy 1 >= bonus-down-to-freshness >= breakeven-freshness >= penalty-below-freshness >= 0")
-    if s["bonus-percent"] < 0 or not -1 <= s["penalty-percent"] <= 0:
-        sys.exit("bonus-percent must be >= 0 and penalty-percent between -1 and 0")
 
 
 def adjustment(u, s, stored):
