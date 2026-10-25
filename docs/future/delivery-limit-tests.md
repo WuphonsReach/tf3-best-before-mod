@@ -1,12 +1,17 @@
-# Delivery limit tests (plan)
+# Delivery limit tests
 
 ## In short
 
-- **The question.** What sets a cargo's delivery limit (`api.engine.util.stock.getAdjustedDeliveryTime(cargoType)`), which the mod's freshness runs against. Known: the game year moves it (1.5 x the cargo file's time in 1900, 1.4 x in 1916, 1.39375 x in 1917, about 0.84 x in 2000 and 0.75 x in 2191, the last two inferred from spoiled flags, see [findings](../findings.md)); delivery sensitivity at Very High did not move the 1900 value. Not known: the rule after 1919, whether any other difficulty option moves it, and whether the vehicle type changes the age (the limit itself has no vehicle input). The spoiled flag flips at the limit to within 2 s (1919 grain, see the results).
-- **Why it matters.** Every freshness figure, the curve defaults and the replays rest on the limit. Runs that assumed 1.5 x read too fresh on late saves.
-- **How we think it works.** The function takes only a cargo type, so a vehicle cannot change the limit; it can change the age (the warehouse timer pause) and so the unit's freshness. Difficulty options are stored values and only the delivery sensitivity looks related to deliveries, so the year is probably the one driver. Low confidence until the tests below run.
-- **Cheap setup.** The game lets a player change difficulty options on every load, so one save can be reloaded under each option with nothing else changed; no new game is needed.
-- **Needs first.** A `deliveryLimit` log line (below); the other tests read it.
+- **The rule (Observed, WR26A, 1900 to 2032, one run).** A cargo's delivery limit is its file's `timeToDeliverInSeconds` times `1.5 - (year - 1900) / 160`, cut to whole seconds, until 2020, and times 0.75 from 2020 on. The step comes on 1 January, and every cargo type uses the same factor (10,075 readings, 1900 to 2000, none more than 1 s off; the floor held for every year logged from 2020 to 2032). The earlier "about 0.84 in 2000" was wrong: the log reads 0.875. The 0.75 at 2191 agrees with the floor.
+- **What does not move it.** Difficulty level (Hard against Easy at 1919) and delivery sensitivity at Very High (1900). The function takes only a cargo type, so a vehicle cannot change the limit; it can change a unit's age.
+- **The spoiled flag follows the corrected age (Observed).** A unit is spoiled when `ageMs - ext` is over the limit, `ext` being `deliveryExtensionDuration`. 51,115 of 51,116 arrivals agree (the one miss is 0.6 s over, inside the limit's own rounding); among units that waited in a specialized warehouse, none with a corrected age under the limit was spoiled and none over it was good (closest good 18.6 s inside, closest spoiled 3.6 s over, fuel). So a specialized warehouse stops the spoil timer, and `ext` is the paused time.
+- **What the mod's freshness means over the years.** The same trip uses a growing share of the limit until 2020, then the share is fixed. Lines cross into stale and then spoiled in the order their trip length against the limit gives; in this save the first spoiled units outside grain came in 1998, and by 2032 ten lines had warned (table below).
+- **How sure we are.** Sure of the rule between 1900 and 2020 and of the 0.75 floor to 2032 (one save, one calendar speed). Sure of the flag against the corrected age on this save. Not tested: a universal warehouse (nothing in this save), other difficulty options one by one, years after 2032, and whether the floor depends on anything but the year.
+- **Open.** Why the game's own arithmetic gives 1 s less in 244 of the 10,075 readings (1932, 1952, 1964, 1972, all where the product is a whole number; probably float rounding), and what `ext` equals exactly (the whole stay in the specialized warehouse is likely, the log carries no arrival time at the warehouse to check).
+
+## Setup of the run
+
+The one 1900 save with the two grain test trains (WR26A Giga-T 1900), calendar speed and game speed at 4x, `logLevel = "curve"`, autosave every 10 minutes. The mod's log carried `deliveryLimit` lines (one per cargo type, once a game month and at every year change) and, from the 1974 autosave on, `lineName` lines (the line's entity id beside its name, once a game month for every tracked line, so ids in the arrival lines read as names). Two logs: `local/logs/stdout-20261025-years1900.txt` (1900 to 1973) and `local/logs/stdout-20261025-years1974g.txt` (June 1974 to 2032); about nine game months between them are in neither, because the second run was started from an autosave.
 
 ## Needed log line
 
@@ -14,7 +19,7 @@ One `BEST_BEFORE deliveryLimit` line per cargo type at the first update after a 
 
 ## Tests
 
-Each test is one save, reloaded where the option changes, run for a few game months at speed. Read the `deliveryLimit` lines; units need not spoil.
+Each test is one save, reloaded where the option changes, run for a few game months at speed. Read the `deliveryLimit` lines; units need not spoil. Status: 1 done (1900 to 2032, one save), 4 done (the flag against the corrected age, fuel and grain), 2 partly (Hard against Easy at 1919, delivery sensitivity at Very High in 1900), 3 and 5 not done in the sense written here (the two grain trains took different times, and no universal warehouse is in the save); the run shows the specialized warehouse pause directly.
 
 1. **Factor against the date.** Load a save, run at 4x across several game years (a year at the boundary shows the step), and read the factor each month. Repeat from saves of other eras (1900, 1950, 2000, 2100, 2191). Gives the rule between the sampled years. Result to record: a table of date against factor, and whether the step happens at the year boundary only.
 2. **Each difficulty option, same save.** Load one save once per setting, change one option per load, run one in-game month and read the factor. The options to try: delivery sensitivity (all seven levels, the 1900 test only used two), then the other sensitivities, inflation, vehicle costs, industry productivity, subsidies and anything else the load screen offers ([settings.md](https://github.com/WuphonsReach/tf3-save-format/blob/00c4039160d26f4fd15df0fdaf9466e67c737f7d/docs/settings.md) lists them). Same game date every time (reload from the same save, do not play on). Result: which option, if any, changes the factor.
@@ -24,7 +29,7 @@ Each test is one save, reloaded where the option changes, run for a few game mon
 
 ## After the tests
 
-Update "In short" in [findings.md](../findings.md), the sibling repo's `delivery-times.md` (the 604 section still reads as a flat 1.5; pin the link to a new commit once it merges), and the second item under Freshness in [revisit-later.md](revisit-later.md). Redo the replays of the 2000 and 2191 runs with the game's limit.
+Left to do: update the sibling repo's `delivery-times.md` and `spoilage.md` (the 604 section still reads as a flat 1.5; pin the link to a new commit once the sibling merges), redo the replays of the 2000 and 2191 runs with the game's limit, and settle the open questions in "In short". The second item under Freshness in [revisit-later.md](revisit-later.md) is updated.
 
 ## Test results
 
@@ -52,3 +57,28 @@ Update "In short" in [findings.md](../findings.md), the sibling repo's `delivery
 - **Screenshots.** 43 shots from 07:55 to 08:09 follow the trains from Cranbrook to Dereham; the income tooltips read $3,043,520 (2/1898), $740,297 (11/1899), $399,735 (10/4/1900), $827,966 (5/1899) and $1,979,576 (10/4/1900); the first four are earlier bars on the edited save, only the last is this delivery.
 - **Universal train at 1900 (64 units; log `local/logs/stdout-20261025-delivery-limit-1900b.txt`):** all 64 good, ages 1,688,400 to 1,801,400 ms (the same minimum and maximum as the 1919 Easy run), freshness +0.066 to +0.125 against the 1,929,000 ms limit, load and unload windows 63.0 s each. Expected payout $1,950,507; its income bar reads $1,952,223 (screenshot 08:16:46 local), 0.09% over. No unit of the run (4,899 arrivals) spoiled.
 - **Reading across the year.** The limit alone moved with the year (1.5 at 1900, 1.38125 at 1919); the same trip, the same car windows (31.6 s and 63.0 s) and the same payout accuracy held in both. The two trains' ages did not depend on the year or the difficulty level, so a car type's effect is the load and unload time (up to about 30 s more age for the slower train), not the limit.
+
+### 1900 to 2032 run (WR26A Giga-T 1900, 4x, `curve`; logs above)
+
+- **Factor against the year.** Grain (1,286 s file time) reads 1,929 s in 1900 (1.5), 1,768 in 1920, 1,607 in 1940, 1,446 in 1960, 1,390 in 1967, 1,334 in 1974, 1,269 in 1982, 1,020 in 2013 (0.7932), 972 in 2019, **964 in 2020 (0.7496)**, and 964 in every year from 2021 to 2032 (fuel, 2,250 s: 1,687 s, 2,250 x 0.75 cut). The rule gives exactly 0.75 for 2020 and 0.6813 for 2031, so the factor stopped at 0.75. The step landed on 1 January at all 99 year boundaries checked from 1900 to 1999; every cargo type used the same factor.
+- **The spoiled flag.** Over 51,116 arrivals: units with `ext` of 0 (23,363) flip at the raw age against the limit (one good unit is 0.6 s over, grain 1919, where the unrounded limit is 1,776.29 s); units with `ext` above 0 (27,753, only crude oil, fish and fuel, all road units after a warehouse, two legs) flip at the age less `ext`. Judged on the raw age instead, 2,753 good units would count as over. The logged `corrected` equals `1 - (age - ext) / limit` to rounding.
+- **Lines that crossed, in order (stale warning year, first spoiled year, each line's units).**
+
+| Cargo | Line | Warned | First spoiled | Trip against limit |
+|---|---|---|---|---|
+| grain | CRA-DER CXR West Grain (rail) | 1920 (cleared 1909, warned again) | 1919 | trip 1,680 to 1,830 s from 1900, limit passes it about 1924 to 1929 |
+| logs | CRA-DER CXR Logs | 1994 | 2006 | trips 2,700 to 2,800 s |
+| logs | SHE-DER CXR Logs N-1 | 1995 | 2007 | same class |
+| fuel | Line 1, Line 2 (trucks from the Thornwick warehouse) | 2000 | 1998 | two legs, warehouse stay not counted; deliveries come in bursts |
+| logs | SHE-DER CXR Logs N-2 | 2001 | 2006 | same class |
+| grain | ASH Grain Trucks 1 | 2004 | 2007 | trips 1,057 to 1,076 s |
+| fuel | PET-THO CXR Fuel (rail, direct) | 2007 | 2007 | trips 1,860 to 1,880 s against 1,870 s |
+| vegetables | PET Crop Trucks 1 | 2014 | 2016 | trips about 880 s |
+| fuel | HOL Fuel Trucks 1 | 2015 | 2017 | |
+| fuel | PET-HOL CXR Fuel | 2026 | none by 2032 | stale share 0.5010 at the warning |
+
+  Fish, crude oil and the other vegetable lines never warned. The warning came before the first spoiled unit on CRA-DER CXR Logs and SHE-DER CXR Logs N-1 (12 years), N-2 (5), ASH Grain Trucks 1 (3), PET Crop Trucks 1 (2) and HOL Fuel Trucks 1 (2): the stale setting (5% in this run) acting on freshness ahead of spoilage. On PET-THO CXR Fuel it came in the same year, and on Line 1 and Line 2 two years after, since their deliveries come in bursts with years between. No warned line cleared except the grain one.
+- **Fuel from the refinery.** PET-THO's rail train takes the cargo straight to Thornwick's industries (`legs=1`, `ext` 0); what the industries do not take goes into the Thornwick Warehouse (specialized for liquids) and the road trucks (Line 1 and Line 2) carry it on (`legs=2`, `ext` 18 to 475 s). The trucks' units are older at delivery, so they spoiled first (1998), nine years ahead of the direct train (2007). Those two lines delivered in bursts (1976 to 1979, 1987 to 1988, 1998 to 2000), nothing between. More oil ships and faster shuttle trucks at the Peterlee port lifted the refinery's output about 47% (crude in 742 in 1989, 1,092 in 1995); its crude stock stays near empty, so the refinery is short of crude, not of capacity. PET-THO's trains still left part-full in the 1970s (a Load of 178 against a capacity of 400, the 3-minute wait for a full load timing out) and were full by 1997.
+- **Town ratings.** The game's own "Delivery" rating alerts for Thornwick (yellow in 1999, red in 2000), Dereham and Ashenvale followed the same spoiled deliveries. In the vanilla game a spoiled unit still pays in full and the rating is the cost; the mod's curve is the graduated part, and the stale warning the early one.
+- **Mod behaviour on this run.** The stale warnings showed as notifications on the dates the log gave, one per line, and the 12-month stale ring runs on game-clock months of 121,750 units, about four calendar months at this calendar speed. `verify_run.py` passes on the second log (33,134 arrivals, 11 lines warned at the end).
+- **Method note.** Cargo ids in the logs read as names through the sibling's [cargo-ids.md](https://github.com/WuphonsReach/tf3-save-format/blob/00c4039160d26f4fd15df0fdaf9466e67c737f7d/docs/cargo-ids.md) (the logged `fileSeconds` of all 31 ids matched the cargo the table names, so this save has base numbering); lines by the new `lineName` log line. An independent re-derivation of the claims above from the raw logs agreed on all of them except three corrections now in the text (the stale setting was 5%, not 10%; lines 1 and 2 delivered in bursts, not continuously; the grain warning cleared once in 1909).

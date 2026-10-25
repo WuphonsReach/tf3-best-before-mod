@@ -789,6 +789,11 @@ local updateStaleLines = function(state : GameScriptState<BookingState>, booking
 			end
 		end
 		if lines[key] ~= nil and entry.warned then warned[#warned + 1] = key end
+		-- The line's name beside its entity id, so the ids in the arrival lines can be read as names. Once per roll, since the
+		-- state remembers no earlier one and a line can be renamed.
+		if logUnits and lines[key] ~= nil then
+			log.message("BEST_BEFORE lineName t=" .. tostring(now) .. " line=" .. key .. " name=\"" .. nameOf(entry.line) .. "\"")
+		end
 		-- Every roll at "curve" and "full"; a warning that comes or goes, and a line reset, at any level but "off".
 		if logUnits or (logAny and (entry.warned ~= wasWarned or wasReset)) then
 			log.message("BEST_BEFORE staleLine t=" .. tostring(now) .. " month=" .. tostring(month) .. " decision=" .. decision
