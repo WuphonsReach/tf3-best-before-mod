@@ -8,7 +8,7 @@
 - **How sure we are.** One save, about seven game months (WR26A, 4,617 units): every answer matched the unit's freshness, the player's income matched the base pay times the answers plus passenger fares to 0.1%, every tracked line's income moved by the average answer of the units it carried (boats and trucks of two-leg chains alike), and the grain train's window showed $827,966 for a trip worth $3,043,520 in full ([line-billing](future/line-billing.md)).
 - **Fallback.** `billing = "bookings"` in `settings.tl` goes back to the earlier way: the game pays in full and the mod books one correcting entry to the player's account only, from a prediction of the pay (below).
 - **Side effect to know.** With the default -100% penalty a spoiled unit pays nothing, and a save that spoils a lot can run its account down. By design the mod does not soften this for a low balance; see [future/revisit-later.md](future/revisit-later.md).
-- **Unknown.** How the mod's answer combines with a subsidy's x2 (the game multiplies the answers, so likely the product), and what happens to a save's event subscription when the mod is removed.
+- **Unknown.** How the mod's answer combines with a subsidy's x2 (the game multiplies the answers, so likely the product). A save loaded without the mod drops the mod's game script and its event subscription, so the billing leaves nothing behind (a Stale Cargo warning does, see [stale-line-warnings](stale-line-warnings.md)).
 
 ## The steps
 
