@@ -7,6 +7,7 @@ The mod is public on mod.io as an early test version; [publishing.md](publishing
 | Note | Covers |
 |---|---|
 | [changing-settings.md](changing-settings.md) | How a player changes the mod's settings on a new game and on a saved game, with screenshots, and what each setting does |
+| [removing-the-mod.md](removing-the-mod.md) | How to take the mod out of a save: clear the Stale Cargo warnings first, with screenshots and the test |
 | [how-it-works.md](how-it-works.md) | How the mod turns freshness into a pay multiplier (or a booking), and where it can over-penalize or miss |
 | [stale-line-warnings.md](stale-line-warnings.md) | The "Stale Cargo" warning for lines that mostly deliver stale cargo: the rule, the settings, lines that change, and the tests so far |
 | [findings.md](findings.md) | What we have verified in the game: how pay works, cargo units and freshness, what a mod can and cannot do, test results |
