@@ -36,11 +36,15 @@
 -- above staleWarnAbove the line is warned, below staleClearBelow the warning goes, in between nothing changes. A line whose
 -- stops change (or that is deleted) starts over. staleWarnings = false turns the warnings off (and removes those shown).
 --
--- ticketPriceProbe (test only): whether the engine's ticket price event can scale a unit's pay before the game shares it out,
--- so the line and vehicle that carried it see the change. "off" (shipped), "observe" (log every cargo item the event names,
--- change nothing), "scale" (answer ticketPriceMultiplier for every cargo item and book no adjustments; 1 leaves the pay as
--- it is) or "curve" (answer 1 + the curve's adjustment for each cargo item and book no adjustments: the bonus or deduction
--- goes into the game's own pay, so it lands on every vehicle and line that carried the unit). Logged at "curve" and "full" only. Read on each load like logLevel; the event stays subscribed once it was.
+-- billing: how the curve's bonus or deduction reaches the pay. "ticket" (shipped): the mod answers the game's ticket price
+-- event for each delivered unit with its pay multiplier (1 + the adjustment), so the game pays the changed amount and shares
+-- it along the unit's chain, and every vehicle and line that carried the unit shows it. "bookings": the game pays in full and
+-- the mod books the adjustment to the player's account only. Read on each load like logLevel; the event stays subscribed
+-- once it was (with "bookings" the mod then answers nothing).
+--
+-- ticketPriceProbe (test only, overrides billing): "off" (shipped), "observe" (log every cargo item the ticket price event
+-- names and answer nothing, so the bookings run) or "scale" (answer ticketPriceMultiplier for every cargo item and book
+-- nothing; 1 leaves the pay as it is). The event's lines are logged at "curve" and "full" only.
 return {
 	staleWarnings = true,
 	staleBelowFreshness = 0.1,
@@ -54,6 +58,7 @@ return {
 	breakevenFreshness = 0.2,
 	penaltyBelowFreshness = 0.0,
 	penaltyPercent = -1.0,
+	billing = "ticket",
 	ticketPriceProbe = "off",
 	ticketPriceMultiplier = 1.0,
 }
