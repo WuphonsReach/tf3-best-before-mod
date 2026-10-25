@@ -22,7 +22,7 @@ local settingsLoaded, loadedSettings = pcall(ug_require, "best_before_1::/settin
 local settings : {string:any} = settingsLoaded and (loadedSettings as {string:any}) or fallbackSettings
 
 -- Set it to the release number in the release commit, equal to that CHANGELOG.md entry; between releases it is the next number with "-dev" (the changelog lists its changes under "not released").
-local modVersion = "1.2-dev"
+local modVersion = "1.2"
 
 local maxLoggedCalls = 400
 local loggedCalls = 0
