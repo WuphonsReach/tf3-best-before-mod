@@ -263,7 +263,8 @@ def check_stale(lines, start):
     rolls = replayed = 0
 
     # Each unit's staleUnit against the rule: not good, or corrected freshness below the stale threshold. The threshold is
-    # fixed within a load (only a load can change an in-game setting) and every staleRoll line logs it.
+    # fixed within a load (only a load can change an in-game setting) and every staleRoll line logs it. A load with the warnings switched
+    # off writes no staleRoll line and counts no unit, so the check is skipped.
     thresholds = {m.group(1) for ln in lines[start:] for m in [re.search(r"BEST_BEFORE staleRoll .*?\bstaleBelow=(\S+)", ln)] if m}
     if len(thresholds) > 1:
         problems.append(f"staleRoll lines disagree on staleBelow: {sorted(thresholds)}")

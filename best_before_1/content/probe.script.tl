@@ -15,6 +15,7 @@ local record Curve
 	penaltyPercent : number
 	stored : string
 	staleBelowFreshness : number -- not part of the pay: a unit below it counts as stale for the line warnings
+	staleWarnings : boolean -- not part of the pay: false takes the Stale Cargo warnings down and stops counting
 end
 
 -- The file's values; settings.tl also holds logLevel, a diagnostic switch that is not part of the curve.
@@ -72,6 +73,7 @@ local normalizeCurve = function(raw : Curve) : Curve
 		penaltyPercent = clamp(raw.penaltyPercent, -1.0, 0.0),
 		stored = raw.stored,
 		staleBelowFreshness = clamp(raw.staleBelowFreshness or 0.1, 0.0, 1.0),
+		staleWarnings = raw.staleWarnings ~= false,
 	}
 end
 
@@ -79,6 +81,7 @@ local sameCurve = function(a : Curve, b : Curve) : boolean
 	return a.bonusPercent == b.bonusPercent and a.bonusDownToFreshness == b.bonusDownToFreshness
 		and a.breakevenFreshness == b.breakevenFreshness and a.penaltyBelowFreshness == b.penaltyBelowFreshness
 		and a.penaltyPercent == b.penaltyPercent and a.stored == b.stored and a.staleBelowFreshness == b.staleBelowFreshness
+		and a.staleWarnings == b.staleWarnings
 end
 
 -- How a unit that waited in a warehouse is judged. Only "corrected" is offered (not a setting); the other modes are kept in
@@ -93,6 +96,7 @@ local fileCurve : Curve = normalizeCurve({
 	penaltyPercent = rawSettings.penaltyPercent,
 	stored = storedMode,
 	staleBelowFreshness = rawSettings.staleBelowFreshness,
+	staleWarnings = rawSettings.staleWarnings,
 })
 
 local settings : Settings = {
@@ -116,7 +120,7 @@ local describeCurve = function(curve : Curve) : string
 	return "bonusPercent=" .. tostring(curve.bonusPercent) .. " bonusDownToFreshness=" .. tostring(curve.bonusDownToFreshness)
 		.. " breakevenFreshness=" .. tostring(curve.breakevenFreshness) .. " penaltyBelowFreshness=" .. tostring(curve.penaltyBelowFreshness)
 		.. " penaltyPercent=" .. tostring(curve.penaltyPercent) .. " stored=" .. tostring(curve.stored)
-		.. " staleBelowFreshness=" .. tostring(curve.staleBelowFreshness)
+		.. " staleBelowFreshness=" .. tostring(curve.staleBelowFreshness) .. " staleWarnings=" .. tostring(curve.staleWarnings)
 end
 
 -- Log work is skipped, not just the write: building a unit's line costs more than writing it, and runs once per delivered unit.
@@ -128,9 +132,9 @@ local logAny = settings.logLevel ~= "off"
 local monthClock = 121750
 local summaryInterval = monthClock
 
--- Stale line warnings (described in settings.tl), the file's values kept in range.
+-- Stale line warnings (described in settings.tl), the file's values kept in range. Whether they are on is an in-game setting,
+-- carried in the Curve as staleWarnings.
 local record StaleSettings
-	on : boolean
 	months : integer
 	minUnits : integer
 	warnAbove : number
@@ -139,7 +143,6 @@ end
 local staleSettings : StaleSettings = (function() : StaleSettings
 	local warnAbove = clamp(rawSettings.staleWarnAbove or 0.5, 0.0, 1.0)
 	return {
-		on = rawSettings.staleWarnings ~= false,
 		months = math.floor(clamp(rawSettings.staleMonths or 12, 1, 60)),
 		minUnits = math.floor(math.max(rawSettings.staleMinUnits or 10, 1)),
 		warnAbove = warnAbove,
@@ -485,7 +488,7 @@ local readParamCurve = function() : Curve, boolean
 	if mine == nil then return nil end
 	local fresh, bonusDown, breakeven = mine["bestBefore.freshPay"], mine["bestBefore.bonusDownTo"], mine["bestBefore.breakeven"]
 	local penaltyBelow, spoiled = mine["bestBefore.penaltyBelow"], mine["bestBefore.spoiledPay"]
-	local staleBelow = mine["bestBefore.staleBelow"]
+	local staleBelow, warnings = mine["bestBefore.staleBelow"], mine["bestBefore.staleWarnings"]
 	if fresh == nil or bonusDown == nil or breakeven == nil or penaltyBelow == nil or spoiled == nil then return nil end
 	local share = function(position : number) : number -- a 5% step position as a fraction, without float noise
 		return math.floor(position - 1 + 0.5) * 5 / 100
@@ -498,7 +501,9 @@ local readParamCurve = function() : Curve, boolean
 		penaltyPercent = share(spoiled) - 1.0, -- pay when spoiled, 0% to 100%: the penalty is the part taken away
 		stored = storedMode,
 		staleBelowFreshness = staleBelow ~= nil and share(staleBelow) or fileCurve.staleBelowFreshness, -- 0% to 25%
+		staleWarnings = fileCurve.staleWarnings,
 	}
+	if warnings ~= nil then raw.staleWarnings = warnings >= 2 end -- a check box: position 1 is unticked, 2 ticked
 	local curve = normalizeCurve(raw)
 	return curve, not sameCurve(raw, curve) -- the second value: the freshness points were out of order and were lowered
 end
@@ -711,9 +716,10 @@ local sendStaleWarnings = function(bookingState : BookingState, keys : {string},
 end
 
 local updateStaleLines = function(state : GameScriptState<BookingState>, bookingState : BookingState, now : number, curve : Curve)
-	if not staleSettings.on then
+	if not curve.staleWarnings then
 		-- Turned off: take down the warnings shown and forget the history, so turning it on again starts fresh. Tried once:
-		-- a failed send is logged, not repeated on every update.
+		-- a failed send is logged, not repeated on every update. This is also how a player clears the warnings before removing
+		-- the mod: a save that holds one fails to load without it (docs/stale-line-warnings.md).
 		local changed = bookingState.staleLines ~= nil or bookingState.staleMonth ~= nil
 		if bookingState.staleSent ~= nil and bookingState.staleSent ~= "" then
 			sendStaleWarnings(bookingState, {}, now)
@@ -1036,7 +1042,7 @@ local probe : GameScript<BookingState> = {
 				local lastLine : Engine.Entity = last and last.line
 				local staleKey : string = nil
 				local staleUnit = false
-				if staleSettings.on then staleKey, staleUnit = countStaleUnit(bookingState, lastLine, now, judged, good, curve) end
+				if curve.staleWarnings then staleKey, staleUnit = countStaleUnit(bookingState, lastLine, now, judged, good, curve) end
 				local rate = 1.0 + adjustment
 				local src = worldPosition(simCargo.sourceEntity)
 				local dst = worldPosition(unit[2][1])

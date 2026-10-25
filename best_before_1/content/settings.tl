@@ -34,7 +34,10 @@
 -- at 0% stale); a month whose deliveries reach staleMinUnits gets that month's stale share, a month with fewer inherits the
 -- previous bucket's share and its deliveries carry into the next month. Once a month the average of the buckets is compared:
 -- above staleWarnAbove the line is warned, below staleClearBelow the warning goes, in between nothing changes. A line whose
--- stops change (or that is deleted) starts over. staleWarnings = false turns the warnings off (and removes those shown).
+-- stops change (or that is deleted) starts over. The in-game setting "Show Stale Cargo warnings" (on by default) turns them
+-- off: the warnings shown are taken down and the history is forgotten. A save that holds a warning does not load without the
+-- mod, so a player removing it unticks this first, loads and saves. staleWarnings here is only its fallback, keep it equal
+-- to the mod.json default.
 --
 -- billing: how the curve's bonus or deduction reaches the pay. "ticket" (shipped): the mod answers the game's ticket price
 -- event for each delivered unit with its pay multiplier (1 + the adjustment), so the game pays the changed amount and shares
