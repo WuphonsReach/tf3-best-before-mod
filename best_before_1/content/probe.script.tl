@@ -31,6 +31,7 @@ local record Settings
 	staleMinUnits : number
 	staleWarnAbove : number
 	staleClearBelow : number
+	billing : string
 	ticketPriceProbe : string
 	ticketPriceMultiplier : number
 end
@@ -44,6 +45,7 @@ local fallbackSettings : Settings = {
 	staleWarnAbove = 0.5,
 	staleClearBelow = 0.25,
 	logLevel = "summary",
+	billing = "ticket",
 	bonusPercent = 0.2,
 	bonusDownToFreshness = 0.4,
 	breakevenFreshness = 0.2,
@@ -95,13 +97,20 @@ local fileCurve : Curve = normalizeCurve({
 
 local settings : Settings = {
 	logLevel = (rawSettings.logLevel == "off" or rawSettings.logLevel == "curve" or rawSettings.logLevel == "full") and rawSettings.logLevel or "summary",
-	ticketPriceProbe = (rawSettings.ticketPriceProbe == "observe" or rawSettings.ticketPriceProbe == "scale"
-		or rawSettings.ticketPriceProbe == "curve") and rawSettings.ticketPriceProbe or "off",
+	billing = rawSettings.billing == "bookings" and "bookings" or "ticket",
+	ticketPriceProbe = (rawSettings.ticketPriceProbe == "observe" or rawSettings.ticketPriceProbe == "scale")
+		and rawSettings.ticketPriceProbe or "off",
 	ticketPriceMultiplier = clamp(rawSettings.ticketPriceMultiplier or 1.0, 0.0, 10.0),
 }
--- Test only: in "scale" the engine's pay is scaled by the ticket price answer, so no adjustment is booked on top of it.
--- "scale" and "curve" answer the ticket price event themselves, so the arrival handler books nothing.
-local ticketAnswers = settings.ticketPriceProbe == "scale" or settings.ticketPriceProbe == "curve"
+-- How the curve's adjustment reaches the pay. "ticket": ticketPrice answers the engine's ticket price event with 1 + the
+-- adjustment, the engine pays that and shares it along the unit's chain, and nothing is booked. "bookings": the engine pays
+-- in full and update books the adjustment to the player. The test probe overrides both: "observe" answers nothing (the
+-- bookings run), "scale" answers a fixed multiplier (nothing is booked).
+local ticketCurve = settings.billing == "ticket" and settings.ticketPriceProbe == "off"
+local ticketAnswers = ticketCurve or settings.ticketPriceProbe == "scale"
+local ticketSubscribe = ticketCurve or settings.ticketPriceProbe ~= "off"
+local ticketMode = settings.ticketPriceProbe ~= "off" and settings.ticketPriceProbe or (ticketCurve and "curve" or "off")
+local billingMode = ticketCurve and "ticket" or (ticketAnswers and "probe" or "bookings")
 
 local describeCurve = function(curve : Curve) : string
 	return "bonusPercent=" .. tostring(curve.bonusPercent) .. " bonusDownToFreshness=" .. tostring(curve.bonusDownToFreshness)
@@ -208,7 +217,7 @@ local record BookingState
 	staleMonth : integer -- the game month the buckets were last rolled in
 	staleLines : {string : StaleLine} -- keyed by the line entity as text
 	staleSent : string -- the warned lines last sent to the notifications, comma separated
-	ticketPriceSubscribed : boolean -- OnCalcTicketPrice was subscribed (test only, settings.tl ticketPriceProbe)
+	ticketPriceSubscribed : boolean -- OnCalcTicketPrice was subscribed (ticket billing or the test probe)
 end
 
 -- One entry per carrier, summed over the queue.
@@ -562,7 +571,7 @@ local logSummary = function(state : GameScriptState<BookingState>, bookingState 
 		local bonus = bookingState.sumBonus or 0
 		log.message("BEST_BEFORE summary t=" .. tostring(now) .. " sinceT=" .. tostring(bookingState.summaryTime)
 			.. " arrivals=" .. arrivals .. " adjusted=" .. tostring(bookingState.sumAdjusted or 0)
-			.. " deducted=" .. deducted .. " bonus=" .. bonus .. " net=" .. (bonus - deducted))
+			.. " deducted=" .. deducted .. " bonus=" .. bonus .. " net=" .. (bonus - deducted) .. " billing=" .. billingMode)
 	end
 	bookingState.summaryTime = now
 	bookingState.sumArrivals = 0
@@ -792,23 +801,24 @@ local deliveryLimit = function(cargoTypeId : integer, fileSeconds : number) : nu
 	return fileSeconds * 1000.0 * deliverTimeMultiplier, "file"
 end
 
--- Test only (settings.tl ticketPriceProbe). Before it pays, the engine asks every OnCalcTicketPrice subscriber for pay
+-- Ticket billing and the test probe. Before it pays, the engine asks every OnCalcTicketPrice subscriber for pay
 -- multipliers: the param is a list of items (cargo from TransportVehicleSystem, passengers from SimEntityAtVehicleSystem),
 -- each naming a vehicle, a line and the unit, and an answer {[i] = m} scales item i ({[0] = m} all of them). The base game's
 -- company level and subsidies answer this way (game_mechanics.zip: company/company_growth.script.tl,
--- subventions/deliver_cargo/deliver_cargo.script.tl). "observe" logs the items and answers nothing; "scale" answers
--- ticketPriceMultiplier for every cargo item; "curve" answers 1 + the curve's adjustment for the unit's freshness, judged as
--- the arrival handler judges it (the event comes at the same clock time). Nothing is written to the state here: game scripts
+-- subventions/deliver_cargo/deliver_cargo.script.tl), and the game multiplies the answers. With ticket billing ("curve" in
+-- the log) it answers 1 + the curve's adjustment for the unit's freshness, judged as the arrival handler judges it (the event
+-- comes at the same clock time). The test probe's "observe" logs the items and answers nothing; "scale" answers
+-- ticketPriceMultiplier for every cargo item. Nothing is written to the state here: game scripts
 -- may run in one Lua state per thread, so a write from this handler could be lost; the curve is read from the in-game
 -- settings directly for the same reason.
 local ticketPrice = function(id : string, param : any) : {integer : number}
-	if settings.ticketPriceProbe == "off" then return nil end
+	if not ticketSubscribe then return nil end
 	local cargo = id == "TransportVehicleSystem"
 	local items = param as {CalcTicketPriceCargoEvent}
 	local multipliers : {integer : number} = {}
 	if cargo and settings.ticketPriceProbe == "scale" then
 		for i = 1, #items do multipliers[i] = settings.ticketPriceMultiplier end
-	elseif cargo and settings.ticketPriceProbe == "curve" then
+	elseif cargo and ticketCurve then
 		-- Under pcall: an error here must not abort the engine's event; a unit left unanswered is paid in full.
 		local ok, err = pcall(function() : string
 			local curve = readParamCurve() or fileCurve
@@ -841,9 +851,9 @@ local ticketPrice = function(id : string, param : any) : {integer : number}
 			local sum = 0.0
 			for i = 1, #items do sum = sum + items[i].basePrice end
 			log.message("BEST_BEFORE ticketPrice id=" .. id .. " now=" .. tostring(now) .. " items=" .. tostring(#items)
-				.. " basePriceSum=" .. tostring(sum) .. " probe=" .. settings.ticketPriceProbe
+				.. " basePriceSum=" .. tostring(sum) .. " probe=" .. ticketMode
 				.. " multiplier=" .. (not cargo and "none" or settings.ticketPriceProbe == "scale" and tostring(settings.ticketPriceMultiplier)
-					or settings.ticketPriceProbe == "curve" and "curve" or "none"))
+					or ticketCurve and "curve" or "none"))
 			if not cargo then return nil end
 			for i = 1, #items do
 				local item = items[i]
@@ -906,11 +916,11 @@ local probe : GameScript<BookingState> = {
 		end
 		local bookingState = state:get()
 		-- Saves from before the probe already have subscriptions, so this one is remembered in the state.
-		if settings.ticketPriceProbe ~= "off" and not bookingState.ticketPriceSubscribed then
+		if ticketSubscribe and not bookingState.ticketPriceSubscribed then
 			state:subscribeToEvent("OnCalcTicketPrice")
 			bookingState.ticketPriceSubscribed = true
 			state:set(bookingState)
-			log.message("BEST_BEFORE ticketPrice subscribed probe=" .. settings.ticketPriceProbe)
+			log.message("BEST_BEFORE ticketPrice subscribed probe=" .. ticketMode)
 		end
 		local curve = activeCurve(state, bookingState) -- reads the in-game settings, before any unit arrives
 		if logUnits then logJournalSnapshot(state, bookingState) end
@@ -1042,20 +1052,24 @@ local probe : GameScript<BookingState> = {
 					if logUnits then predicted = tostring(income) end
 					local exact = math.max(adjustment * income, -maxDeductionShare * income)
 					if logUnits then expected = tostring(exact) end
-					if math.abs(exact) >= 1 and not ticketAnswers then
-						bookingState.units = bookingState.units + 1
+					-- With ticket billing the engine has already paid the adjustment; the amounts here are its estimate from
+					-- the predicted pay, for the log and the summary.
+					if math.abs(exact) >= 1 and (ticketCurve or not ticketAnswers) then
 						local amount = exact < 0 and -math.floor(-exact + 0.5) or math.floor(exact + 0.5)
 						if amount < 0 then deduction = -amount else bonus = amount end
 						bookingState.sumAdjusted = (bookingState.sumAdjusted or 0) + 1
 						bookingState.sumDeducted = (bookingState.sumDeducted or 0) + deduction
 						bookingState.sumBonus = (bookingState.sumBonus or 0) + bonus
-						bookingState.pending[#bookingState.pending + 1] = {
-							number = bookingState.units,
-							amount = amount,
-							carrier = carrier,
-							x = dst[1], y = dst[2], z = dst[3],
-						}
-						if logUnits then queued = (amount < 0 and " DEDUCT#" or " BONUS#") .. bookingState.units end
+						if not ticketCurve then
+							bookingState.units = bookingState.units + 1
+							bookingState.pending[#bookingState.pending + 1] = {
+								number = bookingState.units,
+								amount = amount,
+								carrier = carrier,
+								x = dst[1], y = dst[2], z = dst[3],
+							}
+							if logUnits then queued = (amount < 0 and " DEDUCT#" or " BONUS#") .. bookingState.units end
+						end
 					end
 				end
 				if logUnits then
@@ -1064,7 +1078,7 @@ local probe : GameScript<BookingState> = {
 						.. " freshness=" .. tostring(freshness) .. " corrected=" .. tostring(correctedFreshness) .. " rate=" .. tostring(rate)
 						.. " payScale=" .. tostring(pay.scale) .. " predictedIncome=" .. predicted .. " deduction=" .. tostring(deduction)
 						.. " bonus=" .. tostring(bonus) .. " staleLine=" .. (staleKey or "none") .. " staleUnit=" .. tostring(staleUnit)
-						.. " expectedAdjustment=" .. expected .. (ticketAnswers and " billing=ticket" or "") .. queued
+						.. " expectedAdjustment=" .. expected .. " billing=" .. billingMode .. queued
 				end
 			end
 			if logUnits then

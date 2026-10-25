@@ -57,7 +57,7 @@ Cargo pay follows freshness. Cargo delivered fresh earns a bonus on top of its n
 EARLY TEST VERSION. This is early work, checked in the game on a handful of saves. Expect rough edges and changes. Keep a backup of any save you play with it.
 
 HOW IT WORKS
-- The game pays every delivered cargo unit in full, as usual. The mod then books one correcting entry to your account: a bonus for fresh cargo, a deduction for slow or spoiled cargo.
+- When a cargo unit is delivered, the mod sets its pay before the game pays it: more for fresh cargo, less for slow or spoiled cargo. The game then shares that pay along the unit's trip as usual, so the change shows on every vehicle and line that carried it, as well as in your account.
 - Freshness is 100% when cargo is picked up and falls to 0% at its delivery limit, as the game sets it for your save: the same limit the cargo bar in a vehicle's window runs against. Cargo that waited in a warehouse is judged on its age with the warehouse pause taken off.
 - Only cargo is adjusted. Passenger income is not touched.
 
@@ -87,12 +87,12 @@ Set them under Mods, with the gear next to the mod, in New Game or in Load Game.
 
 GOOD TO KNOW
 - With the default settings a spoiled unit pays nothing, so a save with a lot of spoiled cargo can lose money. Raise the spoiled pay if that is too harsh.
-- The entry goes to your company account. The per-vehicle and per-line figures in the game still show the full pay.
-- A unit whose source or target building is gone before it arrives gets no entry.
+- The change is part of the game's own pay, so the floating income numbers and the vehicle and line windows show it.
 - Works on a save that did not have the mod before. Settings of a save from before the mod existed show the defaults.
 
 COMPATIBILITY
 - The mod replaces the game's cargo income function with a copy of the base formula, so that it can log what the engine passes in. Pay is unchanged. Another mod that replaces the cargo income calculation will conflict with it; use one or the other.
+- The mod's pay change is a multiplier the game combines with its own (the company level) by multiplying them. Other mods that set a pay multiplier the same way should combine too (not tried yet).
 - It contains no files from the game.
 - Gameplay mods may disable achievements.
 

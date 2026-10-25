@@ -3,8 +3,16 @@
 
 Usage: tools/verify_run.py local/logs/stdout-....txt
 
-The probe books every freshness deduction to the player only (the game pays a delivered unit once and shares it along
-the supply chain by a formula we do not know). The run passes when
+With billing "ticket" (the default) the mod answers the game's ticket price event with each unit's pay multiplier and books
+nothing. The run passes when
+  - the log has no error lines and no gaps in the journal sequence numbers, and
+  - every arrival line billed by ticket has the ticket item logged before it, answered with the arrival's rate (1 + the
+    curve's adjustment, not below 0).
+The player's income against the logged base pay times the answers is reported for information (units near either end of a
+run blur it).
+
+With billing "bookings" the probe books every freshness deduction to the player only (the game pays a delivered unit once
+and shares it along the supply chain by a formula we do not know). The run passes when
   - the log has no error lines and no gaps in the journal sequence numbers,
   - the units adjusted (deducted or given a bonus) in the arrival lines equal the units in the "sending adjustment" lines (nothing lost in the
     per-update aggregation, apart from the last few still queued), and
@@ -44,6 +52,7 @@ def main(path):
         sys.exit(f"{path}: no per-unit arrival lines after the last load. This check reads them, so set logLevel = \"curve\" or "
                  f"\"full\" in settings.tl, load the save (no restart needed) and run again")
     arrivals, sends, snaps, errors = [], [], [], []
+    ticket_items, ticketed, ticket_events = {}, [], []     # ticket billing: items by unit, (arrival, item) pairs, events
     for i, ln in enumerate(lines[start:], start):
         if " - ERROR " in ln or "Error message" in ln:
             errors.append(ln.strip())
@@ -51,8 +60,15 @@ def main(path):
         if not m:
             continue
         kind, rest = m.groups()
+        if kind == "ticketItem":
+            d = kv(rest)
+            ticket_items[d["unit"]] = d                 # ids are reused: the next arrival of this unit takes it
+        elif kind == "ticketPrice" and "items=" in rest:
+            ticket_events.append(kv(rest))
         if kind == "arrival":
             d = kv(rest)
+            if d.get("billing") == "ticket":
+                ticketed.append((d, ticket_items.pop(d["unit"], None)))
             if "predictedIncome" in d and d["predictedIncome"] != "n/a":
                 arrivals.append({"i": i, "t": int(d["now"]), "vehicle": d.get("vehicle"), "line": d.get("line"),
                                  "pred": float(d["predictedIncome"]), "ded": int(d.get("deduction", 0)), "bonus": int(d.get("bonus", 0)),
@@ -80,6 +96,8 @@ def main(path):
     seqs = [s["seq"] for s in snaps]
     missing = sorted(set(range(min(seqs), max(seqs) + 1)) - set(seqs)) if seqs else []
     print(("PASS" if not missing else "FAIL") + f"  journal sequence numbers: {len(missing)} gaps")
+    if ticketed:
+        return check_ticket(lines, start, ticketed, ticket_events, snaps, sends, ok)
     if len(snaps) < 3 or not sends:
         print("FAIL  too little data (no snapshots or no adjustments sent)")
         return 1
@@ -196,6 +214,41 @@ def main(path):
     print(("PASS" if landed_ok else "FAIL") + f"  landing: {landed} of {checked} player entries showed up as an exact "
           f"step of the balance or income total in the next four snapshots ({rate:.0%}, needs {MIN_LANDED:.0%}{how})")
     ok = ok and landed_ok
+    ok = check_stale(lines, start) and ok
+    print("RESULT " + ("PASS" if ok else "FAIL"))
+    return 0 if ok else 1
+
+
+def check_ticket(lines, start, ticketed, events, snaps, sends, ok):
+    """Ticket billing: every ticketed arrival was answered with its rate; the player's income for information."""
+    missing = [a for a, it in ticketed if it is None]
+    wrong = [(a, it) for a, it in ticketed if it is not None
+             and abs(float(it["multiplier"]) - max(0.0, float(a["rate"]))) > 1e-6]
+    answered_ok = not missing and not wrong
+    print(("PASS" if answered_ok else "FAIL") + f"  ticket answers: {len(ticketed) - len(missing) - len(wrong)} of {len(ticketed)} "
+          f"arrivals billed by ticket were answered with their rate ({len(missing)} without a ticket item, {len(wrong)} "
+          f"answered otherwise)")
+    for a, it in wrong[:5]:
+        print(f"      unit {a['unit']} at {a['now']}: answered {it['multiplier']}, rate {a['rate']}")
+    for a in missing[:5]:
+        print(f"      unit {a['unit']} at {a['now']}: no ticket item before the arrival line")
+    if sends:
+        print(f"INFO  {len(sends)} adjustment entries sent although units were billed by ticket (a load with billing \"bookings\" "
+              f"in the same log?)")
+    est = [(float(a.get("deduction", 0)), float(a.get("bonus", 0))) for a, _ in ticketed]
+    print(f"      estimated from the predicted pay: {sum(d for d, _ in est):,.0f} deducted and {sum(b for _, b in est):,.0f} added")
+    if len(snaps) >= 2:
+        t0, t1 = snaps[0]["t"], snaps[-1]["t"]
+        income = snaps[-1]["bal"]["playerIncomeTotal"] - snaps[0]["bal"]["playerIncomeTotal"]
+        answered = sum(float(it["basePrice"]) * float(it["multiplier"]) for a, it in ticketed
+                       if it is not None and t0 <= int(a["now"]) <= t1)
+        people = sum(float(e["basePriceSum"]) for e in events if e["id"] != "TransportVehicleSystem" and t0 <= int(e["now"]) <= t1)
+        scales = sorted({float(a["payScale"]) for a, _ in ticketed if "payScale" in a})
+        if answered and scales:
+            print(f"INFO  player income {income:,} against (cargo basePrice x answers {answered:,.0f} + passenger basePrice "
+                  f"{people:,.0f}) x pay scale {scales[-1]:.4f}: {income / ((answered + people) * scales[-1]):.3f} (units near "
+                  f"either end of the run blur it; months of play bring it to about 1.00)")
+    ok = answered_ok and ok
     ok = check_stale(lines, start) and ok
     print("RESULT " + ("PASS" if ok else "FAIL"))
     return 0 if ok else 1
