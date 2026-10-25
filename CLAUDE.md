@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Transport Fever 3 script mod (`best_before_1/`) that makes cargo pay scale with freshness. It is public on mod.io as an early test version ([Best Before: Cargo Freshness](https://mod.io/g/transportfever3/m/best-before-cargo-freshness), mod id 6459472, release 1.0.1; mod.io labels every upload "1.0"), and still logs heavily for testing. The README and [docs/](docs/README.md) carry the status, the verified game facts ([docs/findings.md](docs/findings.md)) and the open questions ([docs/future/](docs/future/)). Read findings before changing mechanics; several approaches were tried and set aside ([docs/future/discarded.md](docs/future/discarded.md)).
+A Transport Fever 3 script mod (`best_before_1/`) that makes cargo pay scale with freshness. It is public on mod.io as an early test version ([Best Before: Cargo Freshness](https://mod.io/g/transportfever3/m/best-before-cargo-freshness), mod id 6459472, release 1.2; mod.io labels every upload "1.0"), and still logs heavily for testing. The README and [docs/](docs/README.md) carry the status, the verified game facts ([docs/findings.md](docs/findings.md)) and the open questions ([docs/future/](docs/future/)). Read findings before changing mechanics; several approaches were tried and set aside ([docs/future/discarded.md](docs/future/discarded.md)).
 
 There is no build step and no unit tests. The code is Teal (`.tl`) that the game loads directly, and the only checks are the type checker and testing in the game.
 
