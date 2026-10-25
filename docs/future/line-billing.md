@@ -111,3 +111,9 @@ All four came out right, so:
 | Line 261716 (one leg) | | 1.361 | 1.000 | 1.361 | 1.000 |
 
 - The grain train on "CRA-DER CXR West Grain" unloaded its 64 units at Dereham on Jul 13 to 15 1918 at 2.4% to 5.5% freshness (cargo bar 5% to 3% during the unload). Its window's income figure for the trip was $827,966 and its Last Year balance went from $-584,544 to $243,422, where each earlier trip showed $3,043,520. The log gives the same: full pay $3,043,567, pay x the answers $827,996 (average answer 0.272). The bookings would have taken $2,213,579 from the player and left the line at the full $3,043,520.
+
+**Ticket billing as the default** (`billing = "ticket"`, the shipped settings apart from `logLevel`), the same game from save 1024-1939 (Jul 1918 to Feb 1919; saved as 1024-2036), log `local/logs/stdout-20261024-ticket-default.txt`. 4,799 cargo units, no errors; `tools/verify_run.py` passed (every unit answered with its rate).
+
+- Player income 193.5 million against (cargo `basePrice` x the answers 200.3 million + passenger `basePrice` 71.4 million) x 0.714: 0.997.
+- The tracked lines' income moved by their units' average answer as in the curve run (0.95 to 1.06 of it; line 261716, one leg, 1.000).
+- The grain train unloaded 64 units at 2.4% to 5.1% freshness at Dereham on Feb 12 to 14 1919: its floating income figure read $740,297 and its Last Year balance went from $-584,544 to $138,217; the log gives full pay $3,043,567 and pay x the answers $740,327 (average answer 0.243).
