@@ -96,6 +96,7 @@ def main(path):
     seqs = [s["seq"] for s in snaps]
     missing = sorted(set(range(min(seqs), max(seqs) + 1)) - set(seqs)) if seqs else []
     print(("PASS" if not missing else "FAIL") + f"  journal sequence numbers: {len(missing)} gaps")
+    ok = ok and not missing
     if ticketed:
         return check_ticket(lines, start, ticketed, ticket_events, snaps, sends, ok)
     if len(snaps) < 3 or not sends:
@@ -221,9 +222,16 @@ def main(path):
 
 def check_ticket(lines, start, ticketed, events, snaps, sends, ok):
     """Ticket billing: every ticketed arrival was answered with its rate; the player's income for information."""
+    def answer(it):
+        """The item's answer as a number, or None when the probe logged none (an error in the answer, or no SimCargo)."""
+        try:
+            return float(it["multiplier"])
+        except (KeyError, ValueError):
+            return None
+
     missing = [a for a, it in ticketed if it is None]
     wrong = [(a, it) for a, it in ticketed if it is not None
-             and abs(float(it["multiplier"]) - max(0.0, float(a["rate"]))) > 1e-6]
+             and (answer(it) is None or abs(answer(it) - max(0.0, float(a["rate"]))) > 1e-6)]
     answered_ok = not missing and not wrong
     print(("PASS" if answered_ok else "FAIL") + f"  ticket answers: {len(ticketed) - len(missing) - len(wrong)} of {len(ticketed)} "
           f"arrivals billed by ticket were answered with their rate ({len(missing)} without a ticket item, {len(wrong)} "
@@ -240,8 +248,8 @@ def check_ticket(lines, start, ticketed, events, snaps, sends, ok):
     if len(snaps) >= 2:
         t0, t1 = snaps[0]["t"], snaps[-1]["t"]
         income = snaps[-1]["bal"]["playerIncomeTotal"] - snaps[0]["bal"]["playerIncomeTotal"]
-        answered = sum(float(it["basePrice"]) * float(it["multiplier"]) for a, it in ticketed
-                       if it is not None and t0 <= int(a["now"]) <= t1)
+        answered = sum(float(it["basePrice"]) * (1.0 if answer(it) is None else answer(it)) for a, it in ticketed
+                       if it is not None and t0 <= int(a["now"]) <= t1)   # an unanswered unit is paid in full
         people = sum(float(e["basePriceSum"]) for e in events if e["id"] != "TransportVehicleSystem" and t0 <= int(e["now"]) <= t1)
         scales = sorted({float(a["payScale"]) for a, _ in ticketed if "payScale" in a})
         if answered and scales:

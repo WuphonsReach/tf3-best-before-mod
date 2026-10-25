@@ -1,9 +1,11 @@
--- Freshness probe: for every cargo unit arriving at its destination, work out the freshness curve's adjustment (a deduction
--- for stale or spoiled cargo, a bonus for fresh cargo) and book it as an income entry to the player's account. Each unit
--- also counts for its last leg's line, and lines that mostly deliver stale cargo get a "Stale Cargo" warning.
--- The game pays a delivered unit once, at the consumer, and shares the pay back along the chain by a formula we do not
--- know, so the deduction is not tied to a vehicle or line. The log names every vehicle and line of the unit's pickup
--- chain so the split can be studied. Log lines start with "BEST_BEFORE"; tools/verify_run.py checks a run from the log.
+-- Freshness probe: for every delivered cargo unit, work out the freshness curve's adjustment (a deduction for stale or
+-- spoiled cargo, a bonus for fresh cargo). With billing "ticket" (the default) it answers the engine's ticket price event
+-- with 1 + the adjustment before the unit is paid, and the game pays that and shares it along the unit's chain. With
+-- billing "bookings" the game pays in full and the adjustment is booked as an income entry to the player's account only:
+-- the game shares a delivered unit's pay along the chain by a formula we do not know, so a booking cannot follow it. Each
+-- unit also counts for its last leg's line, and lines that mostly deliver stale cargo get a "Stale Cargo" warning. At "full"
+-- the log names every vehicle and line of the unit's pickup chain so the split can be studied. Log lines start with
+-- "BEST_BEFORE"; tools/verify_run.py checks a run from the log.
 
 -- The pay curve (described in settings.tl). It comes from the mod's in-game settings (the params in mod.json, which the game
 -- stores in the save and lets the player change on any load) and falls back to settings.tl for a save without them.
