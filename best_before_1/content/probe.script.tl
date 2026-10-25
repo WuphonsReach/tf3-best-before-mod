@@ -222,6 +222,8 @@ local record BookingState
 	staleMonth : integer -- the game month the buckets were last rolled in
 	staleLines : {string : StaleLine} -- keyed by the line entity as text
 	staleSent : string -- the warned lines last sent to the notifications, comma separated
+	limitSig : string -- the adjusted delivery times and year last logged by logDeliveryLimits
+	limitTime : number -- the clock time of that line
 	ticketPriceSubscribed : boolean -- OnCalcTicketPrice was subscribed (ticket billing or the test probe)
 end
 
@@ -787,6 +789,11 @@ local updateStaleLines = function(state : GameScriptState<BookingState>, booking
 			end
 		end
 		if lines[key] ~= nil and entry.warned then warned[#warned + 1] = key end
+		-- The line's name beside its entity id, so the ids in the arrival lines can be read as names. Once per roll, since the
+		-- state remembers no earlier one and a line can be renamed.
+		if logUnits and lines[key] ~= nil then
+			log.message("BEST_BEFORE lineName t=" .. tostring(now) .. " line=" .. key .. " name=\"" .. nameOf(entry.line) .. "\"")
+		end
 		-- Every roll at "curve" and "full"; a warning that comes or goes, and a line reset, at any level but "off".
 		if logUnits or (logAny and (entry.warned ~= wasWarned or wasReset)) then
 			log.message("BEST_BEFORE staleLine t=" .. tostring(now) .. " month=" .. tostring(month) .. " decision=" .. decision
@@ -910,6 +917,34 @@ local adjustedDeliveryTime = function(cargoTypeId : integer) : string
 	return ok and tostring(seconds) or "err"
 end
 
+-- One deliveryLimit line per cargo type when any adjusted delivery time (or the calendar year) differs from the last line, and at
+-- least once per game month: the factor over the cargo file's time against the date, for the tests in
+-- docs/future/delivery-limit-tests.md. Curve and full levels only; units need not arrive. The engine returns whole seconds.
+local logDeliveryLimits = function(state : GameScriptState<BookingState>, bookingState : BookingState, now : number)
+	if not logUnits then return end
+	pcall(function()
+		local year = api.engine.util.getYear()
+		local ids : {integer} = {}
+		for id, _ in pairs(api.res.cargoTypeRep.getAll()) do ids[#ids + 1] = id end
+		table.sort(ids)
+		local sigParts : {string} = {tostring(year)}
+		for _, id in ipairs(ids) do sigParts[#sigParts + 1] = adjustedDeliveryTime(id) end
+		local sig = table.concat(sigParts, ",")
+		if sig == bookingState.limitSig and bookingState.limitTime ~= nil and now - bookingState.limitTime < monthClock then return end
+		bookingState.limitSig = sig
+		bookingState.limitTime = now
+		state:set(bookingState)
+		for _, id in ipairs(ids) do
+			local cargoType = api.res.cargoTypeRep.get(id)
+			local fileSeconds = cargoType.timeToDeliverInSeconds
+			local adjusted = adjustedDeliveryTime(id)
+			local factor = tonumber(adjusted) ~= nil and fileSeconds > 0 and (tonumber(adjusted) / fileSeconds) or 0
+			log.message("BEST_BEFORE deliveryLimit t=" .. tostring(now) .. " year=" .. tostring(year) .. " cargoType=" .. tostring(id)
+				.. " fileSeconds=" .. tostring(fileSeconds) .. " adjustedSeconds=" .. adjusted .. " factor=" .. string.format("%.5f", factor))
+		end
+	end)
+end
+
 local vehicleQuality = function(vehicle : Engine.Entity, cargoTypeId : integer) : string
 	if not exists(vehicle) then return "gone" end
 	local ok, data = pcall(api.engine.util.cargo.getCargoQualityDataForVehicle, vehicle, cargoTypeId)
@@ -937,6 +972,7 @@ local probe : GameScript<BookingState> = {
 			currentPayScale(state, bookingState, gameTime.gameTime) -- logs the company and pay scale when they changed
 			logSummary(state, bookingState)
 		end
+		logDeliveryLimits(state, bookingState, gameTime.gameTime)
 		updateStaleLines(state, bookingState, gameTime.gameTime, curve)
 		if bookingState.pending == nil or #bookingState.pending == 0 then return end
 		local queue = bookingState.pending

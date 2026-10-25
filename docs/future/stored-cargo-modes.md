@@ -6,7 +6,7 @@
 - **Why that one.** On the logged runs the corrected age removes every disagreement with the game's own good flag, and it is the fairest reading of "how old was this cargo while it was spoiling". The other modes are kept in the code only to compare against.
 - **The other modes.** `formula` (plain age), `zero` and `neutral`; what each does and what it costs is below. The branches are still in `curveAdjustment` and `handleEvent` in [probe.script.tl](../../best_before_1/content/probe.script.tl), and `tools/replay_curve.py --stored` replays logged arrivals under any of them.
 - **How sure we are.** The corrected mode is checked on three saves (see [findings](../findings.md)). `formula` was run live once with a changed curve and its logged deductions matched the replay to about $12; `zero` and `neutral` have only been replayed, never run in the game.
-- **Unknown.** The game's exact spoil rule for stored cargo, and whether a player would ever want something other than corrected.
+- **Unknown.** What `deliveryExtensionDuration` equals exactly (the corrected age matches the game's flag on all but 7 of 69,907 units, [delivery-limit-tests.md](delivery-limit-tests.md)), and whether a player would ever want something other than corrected.
 
 ## The modes
 
