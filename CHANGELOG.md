@@ -2,6 +2,10 @@
 
 Newest first. The number in the title is `modVersion` at the top of [mod.script.tl](best_before_1/content/mod.script.tl), which the game log prints at every load as `BEST_BEFORE version <number>` (between releases it reads the next number with "-dev", for example `1.2-dev`). Each entry's last line is the one-liner for the Changelog field of the in-game uploader ([how to upload](docs/publishing.md#uploading-an-update)). mod.io labels every file we upload "1.0" whatever the number here is, so the number in this file and in the log is the one that tells builds apart.
 
+## 1.3 (not released)
+
+- Nothing yet.
+
 ## 1.2 (25 Oct 2026)
 
 - **Changed: the bonus or deduction is part of the game's own pay.** The mod hands the game a pay multiplier for each delivered cargo unit before the game pays it (1 + the adjustment), instead of booking a separate entry to the company account afterwards. The game shares that pay along the unit's trip as usual, so every vehicle and line that carried the unit shows the change in its window and floating income numbers. A spoiled unit at the default settings now pays exactly nothing, and units whose buildings vanished in transit are no longer skipped. `billing = "bookings"` in `settings.tl` brings back the old way. Log: `ticketPrice` and `ticketItem` lines at `curve` and `full`; the arrival line's `deduction` and `bonus` are now an estimate from the predicted pay, marked `billing=ticket`.
