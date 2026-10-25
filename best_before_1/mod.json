@@ -180,6 +180,19 @@
             "defaultIndex": 2,
             "yearFrom": 0,
             "yearTo": 0
+        },
+        {
+            "key": "bestBefore.staleWarnings",
+            "name": "Show Stale Cargo warnings",
+            "tooltip": "Untick to take down every Stale Cargo warning and stop counting stale cargo; ticking it again starts the count fresh. Pay is not affected. Before removing the mod, untick this, load, and save: a save that holds a Stale Cargo warning does not load without the mod.",
+            "uiType": "CheckBox",
+            "values": [
+                "Off",
+                "On"
+            ],
+            "defaultIndex": 1,
+            "yearFrom": 0,
+            "yearTo": 0
         }
     ],
     "postRunScript": {

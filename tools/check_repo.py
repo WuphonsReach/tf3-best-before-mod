@@ -52,12 +52,17 @@ else:
     else:
         fail(f"modVersion {version} does not match the top CHANGELOG entry {h.group(1)}")
 
-# settings.tl's curve is the fallback and must equal the mod.json defaults (the slider position as a number).
+# settings.tl's curve is the fallback and must equal the mod.json defaults (the slider position as a number, a check box as
+# true or false).
 settings = {k: v for k, v in re.findall(r"^\t(\w+) = ([^,\n]+),", (mod / "content/settings.tl").read_text(), re.M)}
 if "mod.json" in loaded:
-    default = {}
+    default, switches = {}, {}
     for p in loaded["mod.json"]["params"]:
-        default[p["key"].removeprefix("bestBefore.")] = int(p["values"][p["defaultIndex"]].rstrip("%")) / 100
+        key = p["key"].removeprefix("bestBefore.")
+        if p.get("uiType") == "CheckBox":
+            switches[key] = "true" if p["defaultIndex"] == 1 else "false"
+        else:
+            default[key] = int(p["values"][p["defaultIndex"]].rstrip("%")) / 100
     expected = {
         "bonusPercent": default["freshPay"] - 1,
         "bonusDownToFreshness": default["bonusDownTo"],
@@ -74,6 +79,9 @@ if "mod.json" in loaded:
             continue
         if abs(got - want) > 1e-9:
             fail(f"settings.tl {name} = {got:g} but the mod.json default is {want:g}")
+    for name, want in switches.items():
+        if settings.get(name) != want:
+            fail(f"settings.tl {name} = {settings.get(name)} but the mod.json default is {want}")
     if not any("settings.tl" in f for f in failures):
         ok("settings.tl curve equals the mod.json defaults")
 
