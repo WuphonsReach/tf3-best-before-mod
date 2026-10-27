@@ -6,8 +6,9 @@
 - **How it gets there.** Only through the game's own uploader: Mod Hub, My Mods, the mod's dialog. The mod.io website refuses uploads for Transport Fever 3. The uploader reads the name, summary, description and tags from [modinfo.json](../best_before_1/_metadata/modinfo.json) and the images from `best_before_1/_metadata/`. At the first upload it wrote `best_before_1/_metadata/mod.io_fileid.txt` (the mod id). Keep that file committed: with it the dialog updates the existing mod, without it the next upload would create a second one.
 - **Editing the page.** The mod belongs to the game's own mod.io account, which the website's Steam login does not reach. So the page text changes only through the uploader (Update Metadata ticked), from the text kept here and copied into `modinfo.json`.
 - **What ships.** The whole `content/` folder plus `mod.json` and `_content.json`, but no `_metadata`. The game builds the mod's file index from `_content.json`: a file the list leaves out is on disk but cannot be loaded. The 1.0 list named three of the four scripts, so the game refused to start ("Could not initialize game: try removing the mod"); see [CHANGELOG.md](../CHANGELOG.md).
-- **How sure we are.** First upload (private), Set Public, and Update Metadata have each been done once, and the public page shows the cover, description and tag from `modinfo.json`. The first upload (1.0) was compared byte for byte with the repo but not loaded until 18 Oct, and then it failed (the file list above). The 1.0.1 upload was then loaded from a subscribed copy with the staging link removed: `BEST_BEFORE version 1.1` in the log (the file was uploaded while still numbered 1.1), no crash, all six files in the downloaded `_content.json`, 17 summary windows of bookings. The 1.2 upload (25 Oct 2026) was checked the same way: `BEST_BEFORE version 1.2` and `rev. 2` in the log, loaded from `mods/6459472` with no conflict warning, no errors from the mod, two summary windows of ticket billing (1,463 and 1,614 units); the console file has not been run. So a release is only good once a save has loaded with the published copy. Search in the Mod Hub matches the mod's name only (see below).
-- **Update replaces the files (seen on 1.0.1).** The page is about a minute behind after an upload: reload before judging its file list. The version label stays "1.0" (seen again on 1.2 with `mod.json` `revision` 2: `revision` does not drive the label, so the changelog text on each file is what tells builds apart). **Unknown.** Whether cargo from other mods works (the description says it is expected to).
+- **How sure we are.** First upload (private), Set Public, and Update Metadata have each been done once, and the public page shows the cover, description and tag from `modinfo.json`. The first upload (1.0) was compared byte for byte with the repo but not loaded until 18 Oct, and then it failed (the file list above). The 1.0.1 upload was then loaded from a subscribed copy with the staging link removed: `BEST_BEFORE version 1.1` in the log (the file was uploaded while still numbered 1.1), no crash, all six files in the downloaded `_content.json`, and 17 summary windows of bookings. The 1.2 upload (25 Oct 2026) was checked the same way: `BEST_BEFORE version 1.2` and `rev. 2` in the log, loaded from `mods/6459472` with no conflict warning, no errors from the mod, two summary windows of ticket billing (1,463 and 1,614 units); the console file has not been run. A release counts as good only once a save has loaded with the published copy. Search in the Mod Hub matches the mod's name only (see below).
+- **An update replaces the files** (seen on 1.0.1 and 1.2). The page is about a minute behind after an upload, so reload it before judging its file list. The version label stays "1.0" (seen again on 1.2 with `mod.json` `revision` 2, so `revision` does not drive the label); the changelog text on each file is what tells builds apart.
+- **Unknown.** Whether cargo from other mods works (the description says it is expected to).
 
 ## Uploading an update
 
@@ -83,13 +84,13 @@ Set them under Mods, with the gear next to the mod, in New Game or in Load Game.
 - Normal pay at freshness percent: 0% to 100% (default 20%).
 - Lowest pay below freshness percent: 0% to 100% (default 0%).
 - Pay multiplier for spoiled cargo: 0% to 100% (default 0%).
-- Warn on cargo below freshness percent: 0% to 25% (default 10%). For the Stale Cargo warning only, pay is not affected; 0% counts only spoiled cargo.
+- Warn on cargo below freshness percent: 0% to 25% (default 10%). For the Stale Cargo warning only; pay is not affected, and 0% counts only spoiled cargo.
 - Show Stale Cargo warnings: on or off (default on). Off takes down every warning shown and stops counting stale cargo.
 
 GOOD TO KNOW
 - With the default settings a spoiled unit pays nothing, so a save with a lot of spoiled cargo can lose money. Raise the spoiled pay if that is too harsh.
 - The change is part of the game's own pay, so the floating income numbers and the vehicle and line windows show it.
-- Works on a save that did not have the mod before. Settings of a save from before the mod existed show the defaults.
+- Works on a save that did not have the mod before; its settings start at the defaults.
 - Before removing the mod from a save: untick "Show Stale Cargo warnings" in the settings on Load Game, load the save, and save it. A save that still holds a Stale Cargo warning does not load without the mod.
 
 COMPATIBILITY
