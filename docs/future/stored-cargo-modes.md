@@ -10,7 +10,7 @@
 
 ## The modes
 
-A unit counts as stored when the game flags it good but its plain age is past the spoil limit (freshness below 0).
+A unit counts as stored when the game flags it good but its plain age is past the delivery limit (freshness below 0).
 
 | Mode | Freshness used | Effect on stored cargo |
 |---|---|---|
