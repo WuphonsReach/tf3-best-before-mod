@@ -10,7 +10,7 @@
 - **Saves with the old warehouse setting.** Saves made while the mod still had a setting for warehouse cargo load fine: the dialog shows the sliders at the values the save holds, the mod ignores the extra key, and the next save leaves it out (checked on two such saves). Warehouse cargo is always judged by its corrected age.
 - **Stale threshold.** A sixth setting, "Warn on cargo below freshness percent" (0% to 25%, default 10%), sets only when a delivered unit counts as stale for the Stale Cargo warning ([stale-line-warnings.md](stale-line-warnings.md)); it does not change pay. It came with 1.2 and was checked in the game on one save: the dialog shows it, a change made before Load Game reaches the mod and is saved, and the logged value agrees (see the test at the end). A save from before it shows the default and stores it at the next save.
 - **Warnings switch.** A seventh setting, the check box "Show Stale Cargo warnings" (on by default), turns the Stale Cargo warnings off: the warnings shown are taken down and each line's history is forgotten, so ticking it again starts the count fresh. It is the way to clear the warnings before removing the mod from a save ([removing-the-mod.md](removing-the-mod.md)). It came with 1.2 and was checked once in the game: a save from before it shows the box ticked, and unticked on Load Game it reached the mod and took the warning down.
-- **Non-perishable cargo.** An eighth and ninth setting, "Non-perishable cargo" (a list: Full bonus, No bonus, No effect) and "Non-perishable delivery time" (15 to 75 min), choose how cargo with a long base delivery time is paid. They come with 1.3 and are **not yet checked in the game**: that a list setting is stored as its 1-based position like a slider is read from the game's settings dialog code (`gui/main/script_param_util.tl`), not seen in a save.
+- **Non-perishable cargo.** An eighth and ninth setting, "Non-perishable cargo" (a list: Full bonus, No bonus, No effect) and "Non-perishable delivery time" (15 to 75 min), choose how cargo with a long base delivery time is paid. They come with 1.3. Checked once in the game, with No bonus on an old save: the dialog showed the defaults, the game handed the list to the mod as its 1-based position like a slider, and every non-perishable unit was paid normal pay while the food kept its bonus (see the test at the end). Not yet checked: No effect, another cutoff, No bonus on late cargo, and the positions stored in the save header.
 - **Unknown.** Whether backing out of the dialog without pressing Load Game leaves the save untouched (not tried).
 
 ## On a new game
@@ -74,3 +74,17 @@ One old save with the mod already active (save series WR26A Giga-Tv3 1915, 1.2-d
 | Load Game with the slider raised to 20%, saved as `1024-1620` | `bestBefore.staleBelow` = 5 | `loadParams ... staleBelow=5`, `staleRoll ... staleBelow=0.2` |
 
 `verify_run.py` passed on the 20% run with 229 units checked against the threshold. Not tried: a 0% or 25% setting, and what the warning does on a line whose recent months were measured at the old threshold.
+
+## Test: non-perishable cargo, No bonus (28 Oct 2026)
+
+One old save made before the settings existed (WR26A Giga-Tv3 1900, Jan 1900, its own curve 150% / 50% / 15% / 0% / 0%), 1.3-dev from the staging folder. The dialog showed Full bonus and 25 min; No bonus was picked before Load Game. The log had `loadParams ... nonPerishable=2 nonPerishableTime=3` and `curveSettings ... nonPerishable=noBonus nonPerishableSeconds=1500`. About 11 minutes of play, 722 units, `verify_run.py` passed:
+
+| Class | Cargo type | Base time | Units | Pay | Freshness (corrected) |
+|---|---|---|---|---|---|
+| Perishable | 6 | 1125 s | 148 | x1.50 | 0.79 to 0.83 |
+| Perishable | 9 | 1125 s | 120 | x1.49 on average | 0.48 to 0.56 |
+| Non-perishable | 18 | 3000 s | 251 | x1.00 | 0.83 to 0.85 |
+| Non-perishable | 12, 13 | 3000 s | 120 | x1.00 | 0.77 to 0.93 |
+| Non-perishable | 20 | 2250 s | 83 | x1.00 | 0.44 to 0.52 |
+
+Every non-perishable unit was fresh enough for the full bonus and was paid normal pay. All 722 units were counted for the Stale Cargo warning; none was stale. No non-perishable unit fell below break-even, so the penalty side of No bonus was not exercised.
