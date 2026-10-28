@@ -3,7 +3,7 @@
 ## In short
 
 - **Where it is.** [Best Before: Cargo Freshness](https://mod.io/g/transportfever3/m/best-before-cargo-freshness) on mod.io, mod id 6459472. Public since 17 Oct 2026 as an early test version, tag Script Mod, creator WuphonsReach, two files (one for Windows, Mac and Linux, one for Xbox Series X/S and PlayStation 5; 23.17 KB each since 1.2). mod.io labels every file "1.0" whatever we upload and serves the newest file of each platform; the older files stay under "View 4 other versions" and can still be downloaded by hand. The changelog text is attached to each file, so it is what tells them apart. Players subscribe on that page or in the game's Mod Hub.
-- **How it gets there.** Only through the game's own uploader: Mod Hub, My Mods, the mod's dialog. The mod.io website refuses uploads for Transport Fever 3. The uploader reads the name, summary, description and tags from [modinfo.json](../best_before_1/_metadata/modinfo.json) and the images from `best_before_1/_metadata/`. At the first upload it wrote `best_before_1/_metadata/mod.io_fileid.txt` (the mod id). Keep that file committed: with it the dialog updates the existing mod, without it the next upload would create a second one.
+- **How it gets there.** Only through the game's own uploader: Mod Hub, My Mods, the mod's dialog. The mod.io website refuses uploads for Transport Fever 3. The uploader reads the name, summary, description and tags from [modinfo.json](../best_before_1/_metadata/modinfo.json) and the images from `best_before_1/_metadata/`. At the first upload it wrote `best_before_1/_metadata/mod.io_fileid.txt` (the mod id). Keep that file committed: with it the dialog updates the existing mod; without it the next upload would create a second one.
 - **Editing the page.** The mod belongs to the game's own mod.io account, which the website's Steam login does not reach. So the page text changes only through the uploader (Update Metadata ticked), from the text kept here and copied into `modinfo.json`.
 - **What ships.** The whole `content/` folder plus `mod.json` and `_content.json`, but no `_metadata`. The game builds the mod's file index from `_content.json`: a file the list leaves out is on disk but cannot be loaded. The 1.0 list named three of the four scripts, so the game refused to start ("Could not initialize game: try removing the mod"); see [CHANGELOG.md](../CHANGELOG.md).
 - **How sure we are.** First upload (private), Set Public, and Update Metadata have each been done once, and the public page shows the cover, description and tag from `modinfo.json`. The first upload (1.0) was compared byte for byte with the repo but not loaded until 18 Oct, and then it failed (the file list above). The 1.0.1 upload was then loaded from a subscribed copy with the staging link removed: `BEST_BEFORE version 1.1` in the log (the file was uploaded while still numbered 1.1), no crash, all six files in the downloaded `_content.json`, and 17 summary windows of bookings. The 1.2 upload (25 Oct 2026) was checked the same way: `BEST_BEFORE version 1.2` and `rev. 2` in the log, loaded from `mods/6459472` with no conflict warning, no errors from the mod, two summary windows of ticket billing (1,463 and 1,614 units); the console file has not been run. A release counts as good only once a save has loaded with the published copy. Search in the Mod Hub matches the mod's name only (see below).
@@ -31,7 +31,7 @@ The dialog's other parts: **Preview** (the cover, see [Preview image](#preview-i
 ## Hub search and tiles
 
 - **Search matches the name only.** In the Mod Hub, words that appear only in another mod's summary or description find nothing, and words in names do (case-insensitive part of a word: "namer" finds Auto Line Namer, "names" does not). So the name carries the search words: "best before", "cargo", "freshness".
-- **Tiles show the whole 16:9 preview, uncropped.** On a 4K screen a tile is about 620 px wide in the game and about 455 px on mod.io. The game's tile shows name, downloads and subscribers. mod.io's tile adds the author, the summary cut after about 130 characters, the first tag and the size.
+- **Tiles show the whole 16:9 preview, uncropped.** On a 4K screen a tile is about 620 px wide in the game and about 455 px on mod.io. The game's tile shows the name, downloads and subscribers. mod.io's tile adds the author, the summary cut after about 130 characters, the first tag and the size.
 - **Downloads ship without `_metadata`.** A subscribed mod's folder holds `mod.json`, `_content.json`, `content/` and any top-level files, but no `_metadata`; the hub builds its page from mod.io's own copy of the text.
 
 ## Name
@@ -63,10 +63,10 @@ HOW IT WORKS
 - Only cargo is adjusted. Passenger income is not touched.
 
 CARGO FROM OTHER MODS
-- Expected to work, for example the cargo of the Sugar Cane Industry mod (sugar cane, sugar, molasses, rum). The mod reads each cargo's own delivery time and price from the game's cargo list and has no list of cargo names, so a cargo that sets those the usual way is judged like the base game's, and its delivery time decides whether it counts as perishable. This has not been tried in the game yet.
+- Expected to work, for example with the cargo of the Sugar Cane Industry mod (sugar cane, sugar, molasses, rum). The mod reads each cargo's own delivery time and price from the game's cargo list and has no list of cargo names, so a cargo that sets those the usual way is judged like the base game's, and its delivery time decides whether it counts as perishable. This has not been tried in the game yet.
 
 STALE CARGO WARNINGS
-- A line whose deliveries are mostly stale gets a "Stale Cargo" warning: a pop-up, an entry in the notification log, and an icon on the line in the Line & Vehicle Management window (click it to open the line). It is a Caution, not a fault: stale cargo costs pay, nothing is broken.
+- A line whose deliveries are mostly stale gets a "Stale Cargo" warning: a pop-up, an entry in the notification log, and an icon on the line in the Line & Vehicle Management window (click it to open the line). It is a Caution, not a fault: stale cargo costs pay, but nothing is broken.
 - A unit counts as stale when its freshness is below the "Warn on cargo below freshness percent" setting (default 10%), or when the game marks it spoiled. It counts for the line of its last leg.
 - The mod looks at the last 12 game months, once a month, so a line has to deliver mostly stale cargo for several months before it is warned, and run well for several months before the warning goes.
 - To hide the warnings, filter "Stale Cargo (Best Before)" out of the notification log, or untick "Show Stale Cargo warnings" in the settings to turn them off.
@@ -97,7 +97,7 @@ GOOD TO KNOW
 
 COMPATIBILITY
 - The mod replaces no game function: it changes pay only by answering the game's ticket price event, the way the base game sets the company level's pay.
-- The mod's pay change is a multiplier the game combines with its own (the company level) by multiplying them. Other mods that set a pay multiplier the same way should combine too (not tried yet).
+- The mod's pay change is a multiplier the game combines with its own (the company level's) by multiplying them. Other mods that set a pay multiplier the same way should combine too (not tried yet).
 - It contains no files from the game.
 - Gameplay mods may disable achievements.
 

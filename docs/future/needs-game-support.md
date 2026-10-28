@@ -2,7 +2,7 @@
 
 ## In short
 
-Four limits where the mod works around what the game exposes: freshness is not an input to pay, the pay split is not visible, the game's own age for a unit is not exposed, and commands cannot be sent from event handlers. None of them blocks the mod today. The per-unit hook before pay that this list once asked for exists (the ticket price event) and is how the mod pays since 1.2 ([line-billing.md](line-billing.md)), so the pay split no longer matters for pay, and the command limit only for the Stale Cargo warnings.
+Four limits where the mod works around what the game exposes: freshness is not an input to pay, the pay split is not visible, the game's own age for a unit is not exposed, and commands cannot be sent from event handlers. None of them blocks the mod today. The per-unit hook before pay that this list once asked for exists (the ticket price event) and is how the mod has paid since 1.2 ([line-billing.md](line-billing.md)), so the pay split no longer matters for pay, and the command limit only for the Stale Cargo warnings.
 
 This is a record of where the limits are, not a request to anyone. If the game ever offers one of these, the mod gets simpler or more accurate.
 

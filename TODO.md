@@ -14,5 +14,5 @@ All in-game tests passed on 28 Oct 2026 (one 1900 run, four 1974 runs; details a
 - [x] Save header: the 1900 run's autosaves store `bestBefore.nonPerishable` = 2 and `bestBefore.nonPerishableTime` = 3.
 - [x] No bonus: fresh non-perishable cargo held at x1.00 (1900 and 1974), late logs and fuel still lose pay (1974, 30 min, break-even 20%).
 - [x] No effect: non-perishable units log `billing=none` and get no ticket answer, the late log train included (1974, 25 min).
-- [x] Another cutoff: at 40 min fuel (37.5 min) is perishable and back on the curve (1974, No effect).
+- [x] Another cutoff: at 40 min, fuel (37.5 min) is perishable and back on the curve (1974, No effect).
 - [ ] Reply on issue #27 (closed by the merge, no reply posted yet).
