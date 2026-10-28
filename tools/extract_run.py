@@ -25,7 +25,7 @@ Cargo Income setting and the multiplier stored in the save's company state, and 
 (`scaleSource` "none").
 
 Logs of the same save overlap, and a rerun of one log gives identical files. The raw log stays the source for
-tools/verify_run.py (it needs the sending lines and the error lines); replay_curve.py reads the arrivals file directly.
+tools/verify_run.py (it needs the ticket lines and the error lines); replay_curve.py reads the arrivals file directly.
 """
 import argparse
 import calendar
