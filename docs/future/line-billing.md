@@ -61,7 +61,7 @@ All four came out as expected, so:
 | THO CS Fishery 1 | boat | 0.112 | 0.066 | 0.591 |
 | Line 3 (THO fish trucks) | truck | 0.922 | 0.546 | 0.592 |
 
-  The two THO lines (63 units in the short run) and two oil boats not listed (S2 0.409, CRA-E1 0.531) are further from 0.5, as expected where few deliveries fall near the ends of a run. The shares themselves differ by chain (oil: boat about 87%, truck 10%; THO fish: boat 11%, truck 92%), so the split is not a fixed rule per leg.
+  The two THO lines (63 units in the short run) and two oil boats not listed (S2 0.409, CRA-E1 0.531) are further from 0.5, as expected on lines with few deliveries, where the units cut off when the run starts or is stopped weigh more. The shares themselves differ by chain (oil: boat about 87%, truck 10%; THO fish: boat 11%, truck 92%), so the split is not a fixed rule per leg.
 - The arrival lines now carry the game's adjusted delivery time and the delivering vehicle's average quality. The adjusted time was 1.4 x the cargo file's time for all eight cargo types (grain 1,800 s, fish 1,575 s, oil 4,200 s), and on the 130 arrivals where one unit was left in the vehicle the vehicle's quality equalled 1 - age / adjusted time to within 0.0006 (against up to 0.04 off for the mod's 1.5 x). See [revisit-later](revisit-later.md).
 
 **Scale 0**, the same game from save 1024-1746 (Oct 1916, stale slider back at 5%; saved as 1024-1804 on exit), log `local/logs/stdout-20261024-ticket-scale0.txt`. 1,024 cargo items, all answered 0.
