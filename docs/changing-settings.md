@@ -10,7 +10,7 @@
 - **Saves with the old warehouse setting.** Saves made while the mod still had a setting for warehouse cargo load fine: the dialog shows the sliders at the values the save holds, the mod ignores the extra key, and the next save leaves it out (checked on two such saves). Warehouse cargo is always judged by its corrected age.
 - **Stale threshold.** A sixth setting, "Warn on cargo below freshness percent" (0% to 25%, default 10%), sets only when a delivered unit counts as stale for the Stale Cargo warning ([stale-line-warnings.md](stale-line-warnings.md)); it does not change pay. It came with 1.2 and was checked in the game on one save: the dialog shows it, a change made before Load Game reaches the mod and is saved, and the logged value agrees (see the test at the end). A save from before it shows the default and stores it at the next save.
 - **Warnings switch.** A seventh setting, the check box "Show Stale Cargo warnings" (on by default), turns the Stale Cargo warnings off: the warnings shown are taken down and each line's history is forgotten, so ticking it again starts the count fresh. It is the way to clear the warnings before removing the mod from a save ([removing-the-mod.md](removing-the-mod.md)). It came with 1.2 and was checked once in the game: a save from before it shows the box ticked, and unticked on Load Game it reached the mod and took the warning down.
-- **Non-perishable cargo.** An eighth and ninth setting, "Non-perishable cargo" (a list: Full bonus, No bonus, No effect) and "Non-perishable delivery time" (15 to 75 min), choose how cargo with a long base delivery time is paid. They come with 1.3. Checked once in the game, with No bonus on an old save: the dialog showed the defaults, the game handed the list to the mod as its 1-based position like a slider and stored that position in the save, and every non-perishable unit was paid normal pay while the food kept its bonus (see the test at the end). Not yet checked: No effect, another cutoff, and No bonus on late cargo.
+- **Non-perishable cargo.** An eighth and ninth setting, "Non-perishable cargo" (a list: Full bonus, No bonus, No effect) and "Non-perishable delivery time" (15 to 75 min), choose how cargo with a long base delivery time is paid. They come with 1.3. Checked in the game on two old saves (1900 and 1974), each mode and the 25, 30 and 40 min cutoffs, about 8,000 units (see the tests at the end): the dialog showed the defaults, the game handed the list to the mod as its 1-based position like a slider and stored that position in the save, and every unit was paid as its class and mode say. No bonus held fresh non-perishable cargo at normal pay and still cut late logs below it; No effect left non-perishable cargo, late logs included, to the game; moving the cutoff from 25 to 40 min put fuel (37.5 min) back on the curve. The dialog shows no tooltips for mod settings, so the settings are explained in the mod description.
 - **Unknown.** Whether backing out of the dialog without pressing Load Game leaves the save untouched (not tried).
 
 ## On a new game
@@ -75,9 +75,13 @@ One old save with the mod already active (save series WR26A Giga-Tv3 1915, 1.2-d
 
 `verify_run.py` passed on the 20% run with 229 units checked against the threshold. Not tried: a 0% or 25% setting, and what the warning does on a line whose recent months were measured at the old threshold.
 
-## Test: non-perishable cargo, No bonus (28 Oct 2026)
+## Test: non-perishable cargo (28 Oct 2026)
 
-One old save made before the settings existed (WR26A Giga-Tv3 1900, Jan 1900, its own curve 150% / 50% / 15% / 0% / 0%), 1.3-dev from the staging folder. The dialog showed Full bonus and 25 min; No bonus was picked before Load Game. The log had `loadParams ... nonPerishable=2 nonPerishableTime=3` and `curveSettings ... nonPerishable=noBonus nonPerishableSeconds=1500`. About 11 minutes of play, 722 units, `verify_run.py` passed:
+Two old saves made before the settings existed, 1.3-dev from the staging folder, `logLevel` curve. Each run passed `verify_run.py`, and a separate recomputation of every unit's rate from its freshness, the logged curve and the non-perishable rule matched all of them. Cargo type numbers are the log's: 1 grain, 6 fish, 7 meat, 9 vegetables, 12 logs, 13 planks, 18 crude oil, 20 fuel.
+
+### No bonus on the 1900 save
+
+WR26A Giga-Tv3 1900 (Jan 1900, its own curve 150% / 50% / 15% / 0% / 0%). The dialog showed Full bonus and 25 min; No bonus was picked before Load Game. The log had `loadParams ... nonPerishable=2 nonPerishableTime=3` and `curveSettings ... nonPerishable=noBonus nonPerishableSeconds=1500`. About 11 minutes of play, 722 units, `verify_run.py` passed:
 
 | Class | Cargo type | Base time | Units | Pay | Freshness (corrected) |
 |---|---|---|---|---|---|
@@ -88,3 +92,30 @@ One old save made before the settings existed (WR26A Giga-Tv3 1900, Jan 1900, it
 | Non-perishable | 20 | 2250 s | 83 | x1.00 | 0.44 to 0.52 |
 
 Every non-perishable unit was fresh enough for the full bonus and was paid normal pay. All 722 units were counted for the Stale Cargo warning; none was stale. No non-perishable unit fell below break-even, so the penalty side of No bonus was not exercised. The autosaves made during the run store `bestBefore.nonPerishable` = 2 and `bestBefore.nonPerishableTime` = 3 (read with `save_header.py`), the same positions the log showed.
+
+### Four runs on the 1974 save
+
+WR26A Giga-Tv3 1974-test (Jun 1974, rank CEO, delivery limit x1.0375), loaded four times from the same Load Game, so the runs replay largely the same deliveries; each ran about 6 to 8 minutes. The save's own curve is 150% / 50% / 15% / 0% / 0% with the warning at 5%; run B used 170% / 60% / 20% / 0% / 0%. On this save the logs and part of the fuel arrive below break-even. It carries no cargo with a base time between 21.4 min (grain) and 37.5 min (fuel), so any cutoff from 25 to 35 min splits it the same way.
+
+| Run | Mode, cutoff | `loadParams` | Units | Left alone |
+|---|---|---|---|---|
+| A | Full bonus, 25 min | `nonPerishable=1 nonPerishableTime=3` | 2,007 | 0 |
+| B | No bonus, 30 min | `nonPerishable=2 nonPerishableTime=4` (`nonPerishableSeconds=1800`) | 1,631 | 0 |
+| C | No effect, 25 min | `nonPerishable=3 nonPerishableTime=3` | 1,715 | 1,205 |
+| D | No effect, 40 min | `nonPerishable=3 nonPerishableTime=6` (`nonPerishableSeconds=2400`) | 1,964 | 917 |
+
+Average pay multiplier by cargo (units paid below x1 in brackets; "game" is a unit the mod left alone, paid in full):
+
+| Cargo | Base time | A | B | C | D |
+|---|---|---|---|---|---|
+| Fish (6) | 18.75 min | x1.43 | x1.52 | x1.43 | x1.43 |
+| Vegetables (9) | 18.75 min | x1.26 | x1.25 | x1.27 | x1.26 |
+| Grain (1), mostly late | 21.4 min | x0.38 (64) | x0.32 (93) | x0.35 (64) | x0.38 (64) |
+| Fuel (20) | 37.5 min | x1.21 (95) | x0.94 (78) | game | x1.22 (90) |
+| Logs (12) | 50 min | x0.69 (all) | x0.59 (all) | game | game |
+| Crude oil (18), planks (13) | 50 min | x1.48, x1.50 | x1.00 | game | game |
+
+- No bonus (B): crude oil, planks and the 302 fresh fuel units were held at exactly x1.00, while all 64 logs and 78 late fuel units still lost pay.
+- No effect (C, D): every non-perishable unit logged `billing=none` and got no ticket answer. The log train (line 412766, 64 units at freshness 0.11 to 0.13, about $4.8M of predicted pay) was paid in full; the same unit was answered x0.805 in A and x0.603 in B.
+- The 40 min cutoff (D) made fuel perishable again: its pay matched run A, unit for unit on 411 of the 468 units both runs delivered (the others arrived seconds apart in the replay, so their freshness differed).
+- The player's income matched base pay times the answers plus passenger fares within 1% in every run (C: 1.000). All units were counted for the Stale Cargo warning in every mode; one grain line stayed warned throughout.
