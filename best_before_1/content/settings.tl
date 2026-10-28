@@ -15,7 +15,7 @@
 -- bonusPercent runs from 0 to 2 (up to +200%, a unit paying 3x in the full bonus window), penaltyPercent from -1 to 0
 -- (-1 takes the whole pay); the mod clamps values outside those ranges. Keep
 -- 1 >= bonusDownToFreshness >= breakevenFreshness >= penaltyBelowFreshness >= 0 (the mod clamps these into that order).
--- A deduction never takes more than 100% of a unit's predicted pay. Set bonusPercent = 0 for deductions only,
+-- A unit never pays less than nothing. Set bonusPercent = 0 for deductions only,
 -- penaltyPercent = 0 for bonuses only.
 --
 -- logLevel: how much the mod writes to the game log (every line starts with BEST_BEFORE). Any other value counts as "summary".
@@ -39,20 +39,16 @@
 -- mod, so a player removing it unticks this first, loads and saves. staleWarnings here is only its fallback, keep it equal
 -- to the mod.json default.
 --
--- billing: how the curve's bonus or deduction reaches the pay. "ticket" (shipped): the mod answers the game's ticket price
--- event for each delivered unit with its pay multiplier (1 + the adjustment), so the game pays the changed amount and shares
--- it along the unit's chain, and every vehicle and line that carried the unit shows it. "bookings": the game pays in full and
--- the mod books the adjustment to the player's account only. Read on each load like logLevel; the event stays subscribed
--- once it was (with "bookings" the mod then answers nothing).
---
 -- incomeLogging (test only): true makes the mod replace the game's cargo income function with a copy of the base formula that
 -- logs its first 400 calls (BEST_BEFORE income call lines, pay unchanged). Only one mod can replace that function, so it
 -- conflicts with any other mod that does; false (shipped) leaves it to the game. It is read when the game loads the mod's
 -- scripts, so restart the game after changing it.
 --
--- ticketPriceProbe (test only, overrides billing): "off" (shipped), "observe" (log every cargo item the ticket price event
--- names and answer nothing, so the bookings run) or "scale" (answer ticketPriceMultiplier for every cargo item and book
--- nothing; 1 leaves the pay as it is). The event's lines are logged at "curve" and "full" only.
+-- ticketPriceProbe (test only): "off" (shipped) answers the game's ticket price event for each delivered unit with its pay
+-- multiplier (1 + the curve's adjustment), so the game pays the changed amount and shares it along the unit's chain.
+-- "observe" logs every cargo item the event names and answers nothing, so the game pays in full; "scale" answers
+-- ticketPriceMultiplier for every cargo item (1 leaves the pay as it is). Read on each load like logLevel. The event's
+-- lines are logged at "curve" and "full" only.
 return {
 	staleWarnings = true,
 	staleBelowFreshness = 0.1,
@@ -67,7 +63,6 @@ return {
 	breakevenFreshness = 0.2,
 	penaltyBelowFreshness = 0.0,
 	penaltyPercent = -1.0,
-	billing = "ticket",
 	ticketPriceProbe = "off",
 	ticketPriceMultiplier = 1.0,
 }
