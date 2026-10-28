@@ -18,6 +18,13 @@
 -- A unit never pays less than nothing. Set bonusPercent = 0 for deductions only,
 -- penaltyPercent = 0 for bonuses only.
 --
+-- Non-perishable cargo: a cargo type whose file time (timeToDeliverInSeconds, the base delivery time) is at least
+-- nonPerishableMinutes counts as non-perishable, and nonPerishable says how the curve pays it: "full" (the whole curve, as
+-- perishable cargo), "noBonus" (the curve capped at normal pay, so penalties only) or "noEffect" (no answer, normal game pay).
+-- The stale line warnings count it either way. In-game settings "Non-perishable cargo" (default Full bonus) and
+-- "Non-perishable delivery time" (15 to 75 min, default 25 min, so only food is perishable); these are only their fallback,
+-- keep them equal to the mod.json defaults.
+--
 -- logLevel: how much the mod writes to the game log (every line starts with BEST_BEFORE). Any other value counts as "summary".
 --   "off"      the start-up lines only (settings.tl's numbers, the in-game settings as list positions, a warning for an unknown logLevel)
 --   "summary"  plus a totals line about once a game month (units delivered, pay taken away, bonus paid), the curve in force, the
@@ -63,6 +70,8 @@ return {
 	breakevenFreshness = 0.2,
 	penaltyBelowFreshness = 0.0,
 	penaltyPercent = -1.0,
+	nonPerishable = "full",
+	nonPerishableMinutes = 25,
 	ticketPriceProbe = "off",
 	ticketPriceMultiplier = 1.0,
 }

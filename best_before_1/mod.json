@@ -193,6 +193,44 @@
             "defaultIndex": 1,
             "yearFrom": 0,
             "yearTo": 0
+        },
+        {
+            "key": "bestBefore.nonPerishable",
+            "name": "Non-perishable cargo",
+            "tooltip": "How the mod pays non-perishable cargo: the full pay curve, its penalties only, or normal game pay. Stale Cargo warnings count it in every case.",
+            "uiType": "ComboBox",
+            "values": [
+                "Full bonus",
+                "No bonus",
+                "No effect"
+            ],
+            "defaultIndex": 0,
+            "yearFrom": 0,
+            "yearTo": 0
+        },
+        {
+            "key": "bestBefore.nonPerishableTime",
+            "name": "Non-perishable delivery time",
+            "tooltip": "Cargo whose base delivery time is at least this counts as non-perishable. The Delivery Time tab shows the base time x 1.5 in 1900, falling to x 0.75 from 2020.",
+            "uiType": "Slider",
+            "values": [
+                "15 min",
+                "20 min",
+                "25 min",
+                "30 min",
+                "35 min",
+                "40 min",
+                "45 min",
+                "50 min",
+                "55 min",
+                "60 min",
+                "65 min",
+                "70 min",
+                "75 min"
+            ],
+            "defaultIndex": 2,
+            "yearFrom": 0,
+            "yearTo": 0
         }
     ],
     "postRunScript": {

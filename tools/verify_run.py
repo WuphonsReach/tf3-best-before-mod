@@ -6,7 +6,10 @@ Usage: tools/verify_run.py local/logs/stdout-....txt
 The mod answers the game's ticket price event with each unit's pay multiplier. The run passes when
   - the log has no error lines and no gaps in the journal sequence numbers, and
   - every arrival line billed by ticket has the ticket item logged before it, answered with the arrival's rate (1 + the
-    curve's adjustment, not below 0).
+    curve's adjustment, not below 0), and every arrival billed "none" (non-perishable cargo under "No effect") was left
+    unanswered, and
+  - each arrival's perishable flag follows its file time against the "Non-perishable delivery time" of the `loadParams` line,
+    and its non-perishable cargo is paid as "Non-perishable cargo" says (full curve, rate at most 1, or not answered).
 The player's income against the logged base pay times the answers is reported for information (units near either end of a
 run blur it). A run under the test probe (ticketPriceProbe "observe" or "scale") bills nothing by ticket; read it with
 tools/ticket_probe.py.
@@ -32,8 +35,9 @@ def main(path):
     if not any("BEST_BEFORE arrival " in ln for ln in lines[start:]):
         sys.exit(f"{path}: no per-unit arrival lines after the last load. This check reads them, so set logLevel = \"curve\" or "
                  f"\"full\" in settings.tl, load the save (no restart needed) and run again")
-    arrivals, snaps, errors = 0, [], []
+    arrivals, snaps, errors = [], [], []
     ticket_items, ticketed, ticket_events = {}, [], []     # items by unit, (arrival, item) pairs, events
+    unbilled = []                                          # (arrival, item) pairs of units the mod left alone
     for i, ln in enumerate(lines[start:], start):
         if " - ERROR " in ln or "Error message" in ln:
             errors.append(ln.strip())
@@ -48,17 +52,19 @@ def main(path):
             ticket_events.append(kv(rest))
         elif kind == "arrival":
             d = kv(rest)
-            arrivals += 1
+            arrivals.append(d)
             if d.get("billing") == "ticket":
                 ticketed.append((d, ticket_items.pop(d["unit"], None)))
+            elif d.get("billing") == "none":
+                unbilled.append((d, ticket_items.pop(d["unit"], None)))
         elif kind == "journal":
             seq = int(re.match(r"#(\d+)", rest).group(1))
             t = int(re.search(r" t=(\d+)", rest).group(1))
             bal = {k: int(v) for k, v in re.findall(r"(\w+)=(-?\d+)", rest.split(" t=")[1].split(" ", 1)[1])}
             snaps.append({"i": i, "seq": seq, "t": t, "bal": bal})
 
-    print(f"{path}: {len(lines) - start} lines after the last load, {arrivals} arrivals, {len(ticketed)} billed by ticket, "
-          f"{len(snaps)} journal snapshots")
+    print(f"{path}: {len(lines) - start} lines after the last load, {len(arrivals)} arrivals, {len(ticketed)} billed by ticket, "
+          f"{len(unbilled)} left alone, {len(snaps)} journal snapshots")
     ok = True
 
     if errors:
@@ -71,14 +77,52 @@ def main(path):
     missing = sorted(set(range(min(seqs), max(seqs) + 1)) - set(seqs)) if seqs else []
     print(("PASS" if not missing else "FAIL") + f"  journal sequence numbers: {len(missing)} gaps")
     ok = ok and not missing
-    if not ticketed:
+    if not ticketed and not unbilled:
         print("FAIL  no arrival billed by ticket (a test probe run? read it with tools/ticket_probe.py)")
         return 1
-    return check_ticket(lines, start, ticketed, ticket_events, snaps, ok)
+    ok = check_non_perishable(lines, start, arrivals, unbilled) and ok
+    return check_ticket(lines, start, ticketed, unbilled, ticket_events, snaps, ok)
 
 
-def check_ticket(lines, start, ticketed, events, snaps, ok):
-    """Every ticketed arrival was answered with its rate; the player's income for information."""
+def check_non_perishable(lines, start, arrivals, unbilled):
+    """Units left alone were not answered; each arrival's perishable flag and pay follow the non-perishable settings."""
+    answered = [(a, it) for a, it in unbilled if it is not None and it.get("multiplier") != "none"]
+    print(("PASS" if not answered else "FAIL") + f"  units left alone: {len(unbilled) - len(answered)} of {len(unbilled)} "
+          f"arrivals billed \"none\" had no ticket answer")
+    for a, it in answered[:5]:
+        print(f"      unit {a['unit']} at {a['now']}: answered {it['multiplier']}")
+    params = {}
+    for ln in lines[start:]:
+        if "BEST_BEFORE loadParams " in ln:
+            params = kv(ln.split("BEST_BEFORE loadParams ", 1)[1])
+    flagged = [a for a in arrivals if "perishable" in a and "fileSeconds" in a]
+    if "nonPerishable" not in params or "nonPerishableTime" not in params:
+        print(f"INFO  no non-perishable settings in the loadParams line, {len(flagged)} arrivals with a perishable flag not checked")
+        return not answered
+    mode = {1: "full", 2: "noBonus", 3: "noEffect"}.get(round(float(params["nonPerishable"])), "full")
+    cutoff = (15 + round(float(params["nonPerishableTime"]) - 1) * 5) * 60
+    problems = []
+    for a in flagged:
+        perishable = float(a["fileSeconds"]) < cutoff
+        if a["perishable"] != str(perishable).lower():
+            problems.append(f"unit {a['unit']}: fileSeconds {a['fileSeconds']} against {cutoff} s, perishable={a['perishable']}")
+        elif perishable or mode == "full":
+            if a.get("billing") == "none":
+                problems.append(f"unit {a['unit']}: billed none although the curve applies")
+        elif mode == "noBonus" and float(a["rate"]) > 1.0 + 1e-9:
+            problems.append(f"unit {a['unit']}: non-perishable under noBonus at rate {a['rate']}")
+        elif mode == "noEffect" and (a.get("billing") != "none" or abs(float(a["rate"]) - 1.0) > 1e-9):
+            problems.append(f"unit {a['unit']}: non-perishable under noEffect billed {a.get('billing')} at rate {a['rate']}")
+    kept = sum(1 for a in flagged if a["perishable"] == "false")
+    print(("PASS" if not problems else "FAIL") + f"  non-perishable cargo ({mode}, from {cutoff // 60} min): {len(flagged)} arrivals "
+          f"checked, {kept} non-perishable, {len(problems)} problems")
+    for p in problems[:5]:
+        print(f"      {p}")
+    return not answered and not problems
+
+
+def check_ticket(lines, start, ticketed, unbilled, events, snaps, ok):
+    """Every ticketed arrival was answered with its rate; the player's income for information (units left alone at full pay)."""
     def answer(it):
         """The item's answer as a number, or None when the probe logged none (an error in the answer, or no SimCargo)."""
         try:
@@ -102,7 +146,7 @@ def check_ticket(lines, start, ticketed, events, snaps, ok):
     if len(snaps) >= 2:
         t0, t1 = snaps[0]["t"], snaps[-1]["t"]
         income = snaps[-1]["bal"]["playerIncomeTotal"] - snaps[0]["bal"]["playerIncomeTotal"]
-        answered = sum(float(it["basePrice"]) * (1.0 if answer(it) is None else answer(it)) for a, it in ticketed
+        answered = sum(float(it["basePrice"]) * (1.0 if answer(it) is None else answer(it)) for a, it in ticketed + unbilled
                        if it is not None and t0 <= int(a["now"]) <= t1)   # an unanswered unit is paid in full
         people = sum(float(e["basePriceSum"]) for e in events if e["id"] != "TransportVehicleSystem" and t0 <= int(e["now"]) <= t1)
         scales = sorted({float(a["payScale"]) for a, _ in ticketed if "payScale" in a})

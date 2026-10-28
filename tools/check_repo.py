@@ -53,16 +53,22 @@ else:
         fail(f"modVersion {version} does not match the top CHANGELOG entry {h.group(1)}")
 
 # settings.tl's curve is the fallback and must equal the mod.json defaults (the slider position as a number, a check box as
-# true or false).
+# true or false, the non-perishable list as the probe's name for it).
+NON_PERISHABLE_MODES = {"Full bonus": '"full"', "No bonus": '"noBonus"', "No effect": '"noEffect"'}
 settings = {k: v for k, v in re.findall(r"^\t(\w+) = ([^,\n]+),", (mod / "content/settings.tl").read_text(), re.M)}
 if "mod.json" in loaded:
     default, switches = {}, {}
     for p in loaded["mod.json"]["params"]:
         key = p["key"].removeprefix("bestBefore.")
+        label = p["values"][p["defaultIndex"]]
         if p.get("uiType") == "CheckBox":
             switches[key] = "true" if p["defaultIndex"] == 1 else "false"
+        elif key == "nonPerishable":
+            switches[key] = NON_PERISHABLE_MODES.get(label, f"(unknown label {label})")
+        elif label.endswith(" min"):
+            default[key] = int(label.removesuffix(" min"))
         else:
-            default[key] = int(p["values"][p["defaultIndex"]].rstrip("%")) / 100
+            default[key] = int(label.rstrip("%")) / 100
     expected = {
         "bonusPercent": default["freshPay"] - 1,
         "bonusDownToFreshness": default["bonusDownTo"],
@@ -70,6 +76,7 @@ if "mod.json" in loaded:
         "penaltyBelowFreshness": default["penaltyBelow"],
         "penaltyPercent": default["spoiledPay"] - 1,
         "staleBelowFreshness": default["staleBelow"],
+        "nonPerishableMinutes": default["nonPerishableTime"],
     }
     for name, want in expected.items():
         try:
