@@ -4,7 +4,7 @@ Newest first. The number in the title is `modVersion` at the top of [mod.script.
 
 ## 1.3 (not released)
 
-- Nothing yet.
+- **Changed: the mod no longer replaces the game's cargo income function.** Up to 1.2 it swapped in a copy of the base formula that only logged what the engine passed in (pay unchanged), which clashed with any other mod that replaces that function. Neither way of paying needed it. The copy stays in the code behind a test switch, `incomeLogging` in `settings.tl` (off; read when the game starts). The log's start-up line now reads `BEST_BEFORE preRunFn: cargoIncomeScript left to the game`.
 
 ## 1.2 (25 Oct 2026)
 

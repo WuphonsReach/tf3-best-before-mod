@@ -45,6 +45,11 @@
 -- the mod books the adjustment to the player's account only. Read on each load like logLevel; the event stays subscribed
 -- once it was (with "bookings" the mod then answers nothing).
 --
+-- incomeLogging (test only): true makes the mod replace the game's cargo income function with a copy of the base formula that
+-- logs its first 400 calls (BEST_BEFORE income call lines, pay unchanged). Only one mod can replace that function, so it
+-- conflicts with any other mod that does; false (shipped) leaves it to the game. It is read when the game loads the mod's
+-- scripts, so restart the game after changing it.
+--
 -- ticketPriceProbe (test only, overrides billing): "off" (shipped), "observe" (log every cargo item the ticket price event
 -- names and answer nothing, so the bookings run) or "scale" (answer ticketPriceMultiplier for every cargo item and book
 -- nothing; 1 leaves the pay as it is). The event's lines are logged at "curve" and "full" only.
@@ -56,6 +61,7 @@ return {
 	staleWarnAbove = 0.5,
 	staleClearBelow = 0.25,
 	logLevel = "summary",
+	incomeLogging = false,
 	bonusPercent = 0.2,
 	bonusDownToFreshness = 0.4,
 	breakevenFreshness = 0.2,

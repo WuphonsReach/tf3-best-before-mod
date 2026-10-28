@@ -94,7 +94,7 @@ GOOD TO KNOW
 - Before removing the mod from a save: untick "Show Stale Cargo warnings" in the settings on Load Game, load the save, and save it. A save that still holds a Stale Cargo warning does not load without the mod.
 
 COMPATIBILITY
-- The mod replaces the game's cargo income function with a copy of the base formula, so that it can log what the engine passes in. Pay is unchanged. Another mod that replaces the cargo income calculation will conflict with it; use one or the other.
+- The mod replaces no game function: it changes pay only by answering the game's ticket price event, the way the base game sets the company level's pay.
 - The mod's pay change is a multiplier the game combines with its own (the company level) by multiplying them. Other mods that set a pay multiplier the same way should combine too (not tried yet).
 - It contains no files from the game.
 - Gameplay mods may disable achievements.
