@@ -1,9 +1,7 @@
 -- Freshness probe: for every delivered cargo unit, work out the freshness curve's adjustment (a deduction for stale or
--- spoiled cargo, a bonus for fresh cargo). With billing "ticket" (the default) it answers the engine's ticket price event
--- with 1 + the adjustment before the unit is paid, and the game pays that and shares it along the unit's chain. With
--- billing "bookings" the game pays in full and the adjustment is booked as an income entry to the player's account only:
--- the game shares a delivered unit's pay along the chain by a formula we do not know, so a booking cannot follow it. Each
--- unit also counts for its last leg's line, and lines that mostly deliver stale cargo get a "Stale Cargo" warning. At "full"
+-- spoiled cargo, a bonus for fresh cargo). It answers the engine's ticket price event with 1 + the adjustment before the
+-- unit is paid, and the game pays that and shares it along the unit's chain. Each unit also counts for its last leg's
+-- line, and lines that mostly deliver stale cargo get a "Stale Cargo" warning. At "full"
 -- the log names every vehicle and line of the unit's pickup chain so the split can be studied. Log lines start with
 -- "BEST_BEFORE"; tools/verify_run.py checks a run from the log.
 
@@ -34,7 +32,6 @@ local record Settings
 	staleMinUnits : number
 	staleWarnAbove : number
 	staleClearBelow : number
-	billing : string
 	ticketPriceProbe : string
 	ticketPriceMultiplier : number
 end
@@ -48,7 +45,6 @@ local fallbackSettings : Settings = {
 	staleWarnAbove = 0.5,
 	staleClearBelow = 0.25,
 	logLevel = "summary",
-	billing = "ticket",
 	bonusPercent = 0.2,
 	bonusDownToFreshness = 0.4,
 	breakevenFreshness = 0.2,
@@ -103,20 +99,16 @@ local fileCurve : Curve = normalizeCurve({
 
 local settings : Settings = {
 	logLevel = (rawSettings.logLevel == "off" or rawSettings.logLevel == "curve" or rawSettings.logLevel == "full") and rawSettings.logLevel or "summary",
-	billing = rawSettings.billing == "bookings" and "bookings" or "ticket",
 	ticketPriceProbe = (rawSettings.ticketPriceProbe == "observe" or rawSettings.ticketPriceProbe == "scale")
 		and rawSettings.ticketPriceProbe or "off",
 	ticketPriceMultiplier = clamp(rawSettings.ticketPriceMultiplier or 1.0, 0.0, 10.0),
 }
--- How the curve's adjustment reaches the pay. "ticket": ticketPrice answers the engine's ticket price event with 1 + the
--- adjustment, the engine pays that and shares it along the unit's chain, and nothing is booked. "bookings": the engine pays
--- in full and update books the adjustment to the player. The test probe overrides both: "observe" answers nothing (the
--- bookings run), "scale" answers a fixed multiplier (nothing is booked).
-local ticketCurve = settings.billing == "ticket" and settings.ticketPriceProbe == "off"
-local ticketAnswers = ticketCurve or settings.ticketPriceProbe == "scale"
-local ticketSubscribe = ticketCurve or settings.ticketPriceProbe ~= "off"
-local ticketMode = settings.ticketPriceProbe ~= "off" and settings.ticketPriceProbe or (ticketCurve and "curve" or "off")
-local billingMode = ticketCurve and "ticket" or (ticketAnswers and "probe" or "bookings")
+-- How the curve's adjustment reaches the pay: ticketPrice answers the engine's ticket price event with 1 + the adjustment,
+-- and the engine pays that and shares it along the unit's chain. The test probe overrides it: "observe" answers nothing (the
+-- game pays in full), "scale" answers a fixed multiplier.
+local ticketCurve = settings.ticketPriceProbe == "off"
+local ticketMode = ticketCurve and "curve" or settings.ticketPriceProbe
+local billingMode = ticketCurve and "ticket" or "probe"
 
 local describeCurve = function(curve : Curve) : string
 	return "bonusPercent=" .. tostring(curve.bonusPercent) .. " bonusDownToFreshness=" .. tostring(curve.bonusDownToFreshness)
@@ -155,10 +147,6 @@ end)()
 -- The warning's notification type: stale_line_warning.res.lua registers it, stale_line_warning.script.tl draws it.
 local staleNotificationType = "best_before_1::/stale_line_warning.script"
 
--- A deduction never takes more than this share of a unit's predicted pay. At 1.0 a full deduction on a prediction a
--- little above the real pay (it is good to about 1%) can leave the unit a hair negative.
-local maxDeductionShare = 1.0
-
 -- What the engine applies after the income function when the real value cannot be read: 0.96426, measured on Normal
 -- saves at rank 3 (it is the Inflation Normal ticket price multiplier there, 1 - 2 x 0.25 / 14).
 local engineFactor = 0.96426
@@ -169,17 +157,6 @@ local deliverTimeMultiplier = 1.5
 -- Vehicles and lines whose ledger balance is logged (every vehicle and line in an arriving unit's pickup chain, up to
 -- this many).
 local maxTracked = 200
-
--- Commands cannot be sent while the engine is delivering an event, so the handler queues the deductions and update
--- sends them. The queue lives in the game script state: module-level variables do not survive between calls.
-local record PendingDeduction
-	number : integer
-	amount : integer -- negative for a deduction, positive for a bonus
-	carrier : string
-	x : number
-	y : number
-	z : number
-end
 
 -- One line's stale history: a ring of monthly stale shares, oldest first, and the deliveries not yet put into a bucket.
 local record StaleLine
@@ -200,9 +177,6 @@ local record BookingState
 	payScaleValue : number -- the pay scale read at payScaleTime, see currentPayScale
 	payScaleText : string
 	payScaleTime : number
-	units : integer -- cargo units deducted so far
-	batches : integer
-	pending : {PendingDeduction}
 	tracked : {Engine.Entity}
 	loggedCargoTypes : {string : boolean}
 	lastSnapshot : string
@@ -225,16 +199,6 @@ local record BookingState
 	limitSig : string -- the adjusted delivery times and year last logged by logDeliveryLimits
 	limitTime : number -- the clock time of that line
 	ticketPriceSubscribed : boolean -- OnCalcTicketPrice was subscribed (ticket billing or the test probe)
-end
-
--- One entry per carrier, summed over the queue.
-local record Aggregate
-	carrier : string
-	amount : integer
-	units : integer
-	x : number
-	y : number
-	z : number
 end
 
 -- Vehicles and lines can be sold while their cargo is still on its way, and asking the engine about a vanished entity
@@ -417,7 +381,7 @@ local track = function(bookingState : BookingState, entity : Engine.Entity)
 	end
 end
 
--- A pickup point's carrier as the name of the journal carrier it books under.
+-- A pickup point's carrier as a name for the log.
 local carrierNameOf = function(carrier : Carrier) : string
 	if carrier == nil then return "OTHER" end
 	local carriers = api.type.enum.Carrier
@@ -427,37 +391,6 @@ local carrierNameOf = function(carrier : Carrier) : string
 	if carrier == carriers.AIR then return "AIR" end
 	if carrier == carriers.WATER then return "WATER" end
 	return "OTHER"
-end
-
-local journalCarrier = function(name : string) : JournalEntry.Carrier
-	local carriers = api.type.JournalEntry.Carrier
-	if name == "ROAD" then return carriers.ROAD end
-	if name == "RAIL" then return carriers.RAIL end
-	if name == "TRAM" then return carriers.TRAM end
-	if name == "AIR" then return carriers.AIR end
-	if name == "WATER" then return carriers.WATER end
-	return carriers.OTHER
-end
-
-local aggregate = function(queue : {PendingDeduction}) : {Aggregate}
-	local result : {Aggregate} = {}
-	for _, item in ipairs(queue) do
-		local found = false
-		for _, a in ipairs(result) do
-			if a.carrier == item.carrier then
-				a.amount = a.amount + item.amount
-				a.units = a.units + 1
-				found = true
-				break
-			end
-		end
-		if not found then
-			result[#result + 1] = {
-				carrier = item.carrier, amount = item.amount, units = 1, x = item.x, y = item.y, z = item.z,
-			}
-		end
-	end
-	return result
 end
 
 local nameOf = function(entity : Engine.Entity) : string
@@ -827,7 +760,6 @@ end
 -- may run in one Lua state per thread, so a write from this handler could be lost; the curve is read from the in-game
 -- settings directly for the same reason.
 local ticketPrice = function(id : string, param : any) : {integer : number}
-	if not ticketSubscribe then return nil end
 	local cargo = id == "TransportVehicleSystem"
 	local items = param as {CalcTicketPriceCargoEvent}
 	local multipliers : {integer : number} = {}
@@ -959,7 +891,7 @@ local probe : GameScript<BookingState> = {
 		end
 		local bookingState = state:get()
 		-- Saves from before the probe already have subscriptions, so this one is remembered in the state.
-		if ticketSubscribe and not bookingState.ticketPriceSubscribed then
+		if not bookingState.ticketPriceSubscribed then
 			state:subscribeToEvent("OnCalcTicketPrice")
 			bookingState.ticketPriceSubscribed = true
 			state:set(bookingState)
@@ -974,34 +906,12 @@ local probe : GameScript<BookingState> = {
 		end
 		logDeliveryLimits(state, bookingState, gameTime.gameTime)
 		updateStaleLines(state, bookingState, gameTime.gameTime, curve)
-		if bookingState.pending == nil or #bookingState.pending == 0 then return end
-		local queue = bookingState.pending
-		bookingState.pending = {}
-		bookingState.batches = (bookingState.batches or 0) + 1
-		state:set(bookingState)
-		local player = api.engine.util.getPlayer()
-		for _, a in ipairs(aggregate(queue)) do
-			local entry = api.type.JournalEntry.new()
-			entry.amount = a.amount
-			entry.time = -1 -- the engine fills in the time
-			entry.category.type = api.type.JournalEntry.Type.INCOME
-			entry.category.carrier = journalCarrier(a.carrier)
-			local cmd = api.cmd.makeJournalBookAssetCmd(player, entry, api.type.Vec3f.new(a.x, a.y, a.z))
-			if logUnits then
-				log.message("BEST_BEFORE sending adjustment batch=" .. bookingState.batches .. " ledger=player"
-					.. " entity=" .. tostring(player) .. " carrier=" .. a.carrier
-					.. " amount=" .. tostring(a.amount) .. " units=" .. tostring(a.units))
-			end
-			api.cmd.sendCommand(cmd)
-		end
 	end,
 	handleEvent = function(_userParams : table, state : GameScriptState<BookingState>, _src : string, id : string, name : string, param : any) : any
 		if name == "OnCalcTicketPrice" then return ticketPrice(id, param) end
 		if id ~= "SimCargoSystem" or name ~= "OnToArriveAtDestination" then return end
 
 		local bookingState = state:get()
-		bookingState.units = bookingState.units or 0
-		bookingState.pending = bookingState.pending or {}
 		bookingState.loggedCargoTypes = bookingState.loggedCargoTypes or {}
 		local curve = activeCurve(state, bookingState) -- the settings may have changed on loading, before any update ran
 
@@ -1021,10 +931,9 @@ local probe : GameScript<BookingState> = {
 			bookingState.sumArrivals = (bookingState.sumArrivals or 0) + 1
 			if simCargo ~= nil then
 				-- The unit may have changed vehicles: the first pickup point is the first leg, the last the leg that
-				-- delivered it, and the carrier of the last leg is the one the deduction is booked under.
+				-- delivered it.
 				local points = simCargo.pickupPoints or {}
 				local last = points[#points]
-				local carrier = last ~= nil and carrierNameOf(last.carrier) or "OTHER"
 				if logUnits then
 					detail = "cargoType=" .. tostring(simCargo.cargoType)
 						.. " startTime=" .. tostring(simCargo.startTime)
@@ -1032,7 +941,7 @@ local probe : GameScript<BookingState> = {
 						.. " ext=" .. tostring(simCargo.deliveryExtensionDuration)
 						.. " source=" .. tostring(simCargo.sourceEntity)
 						.. " legs=" .. tostring(#points)
-						.. " carrier=" .. carrier
+						.. " carrier=" .. (last ~= nil and carrierNameOf(last.carrier) or "OTHER")
 				end
 				if logFull then
 					local first = points[1]
@@ -1088,32 +997,21 @@ local probe : GameScript<BookingState> = {
 				local expected = "n/a"
 				local deduction = 0
 				local bonus = 0
-				local queued = ""
 				if src ~= nil and dst ~= nil and priceFactor ~= nil then
 					local dx, dy, dz = dst[1] - src[1], dst[2] - src[2], dst[3] - src[3]
 					local d = math.sqrt(dx * dx + dy * dy + dz * dz) + 8. * math.max(dz, 0.)
 					local income = priceFactor * d * pay.scale
 					if logUnits then predicted = tostring(income) end
-					local exact = math.max(adjustment * income, -maxDeductionShare * income)
+					local exact = adjustment * income
 					if logUnits then expected = tostring(exact) end
-					-- With ticket billing the engine has already paid the adjustment; the amounts here are its estimate from
-					-- the predicted pay, for the log and the summary.
-					if math.abs(exact) >= 1 and (ticketCurve or not ticketAnswers) then
+					-- The engine has already paid the adjustment (ticketPrice); the amounts here are its estimate from the
+					-- predicted pay, for the log and the summary. Under the test probe the curve is not paid, so none.
+					if math.abs(exact) >= 1 and ticketCurve then
 						local amount = exact < 0 and -math.floor(-exact + 0.5) or math.floor(exact + 0.5)
 						if amount < 0 then deduction = -amount else bonus = amount end
 						bookingState.sumAdjusted = (bookingState.sumAdjusted or 0) + 1
 						bookingState.sumDeducted = (bookingState.sumDeducted or 0) + deduction
 						bookingState.sumBonus = (bookingState.sumBonus or 0) + bonus
-						if not ticketCurve then
-							bookingState.units = bookingState.units + 1
-							bookingState.pending[#bookingState.pending + 1] = {
-								number = bookingState.units,
-								amount = amount,
-								carrier = carrier,
-								x = dst[1], y = dst[2], z = dst[3],
-							}
-							if logUnits then queued = (amount < 0 and " DEDUCT#" or " BONUS#") .. bookingState.units end
-						end
 					end
 				end
 				if logUnits then
@@ -1122,7 +1020,7 @@ local probe : GameScript<BookingState> = {
 						.. " freshness=" .. tostring(freshness) .. " corrected=" .. tostring(correctedFreshness) .. " rate=" .. tostring(rate)
 						.. " payScale=" .. tostring(pay.scale) .. " predictedIncome=" .. predicted .. " deduction=" .. tostring(deduction)
 						.. " bonus=" .. tostring(bonus) .. " staleLine=" .. (staleKey or "none") .. " staleUnit=" .. tostring(staleUnit)
-						.. " expectedAdjustment=" .. expected .. " billing=" .. billingMode .. queued
+						.. " expectedAdjustment=" .. expected .. " billing=" .. billingMode
 				end
 			end
 			if logUnits then

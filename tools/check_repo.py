@@ -2,7 +2,7 @@
 """Cheap consistency checks for the repo; exit code 1 if any fails. Runs in CI (.github/workflows/checks.yml) and by hand.
 
 Checks: the mod's JSON files parse, mod.io_fileid.txt is present, modVersion matches the top CHANGELOG entry, settings.tl's
-curve equals the mod.json defaults, and settings.tl ships logLevel "summary", billing "ticket", ticketPriceProbe "off" and incomeLogging false.
+curve equals the mod.json defaults, and settings.tl ships logLevel "summary", ticketPriceProbe "off" and incomeLogging false.
 """
 import json
 import re
@@ -91,8 +91,8 @@ if settings.get("logLevel") == '"summary"':
 else:
     fail(f'settings.tl logLevel is {settings.get("logLevel")}, the shipped value is "summary"')
 
-# Nor a test billing or probe setting.
-for name, shipped in (("billing", '"ticket"'), ("ticketPriceProbe", '"off"'), ("incomeLogging", "false")):
+# Nor a test probe or logging setting.
+for name, shipped in (("ticketPriceProbe", '"off"'), ("incomeLogging", "false")):
     if settings.get(name) == shipped:
         ok(f"settings.tl {name} is {shipped}")
     else:
