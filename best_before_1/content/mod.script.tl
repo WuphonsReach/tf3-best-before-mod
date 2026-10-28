@@ -1,4 +1,6 @@
--- Scaffold: same pay as the base game, plus logging of what the engine passes to the income function.
+-- Load-time script: logs the version, settings.tl's numbers and the in-game settings of each load. With incomeLogging on in
+-- settings.tl (test only) it also replaces the game's cargo income function with a copy of the base formula that logs what the
+-- engine passes in (pay unchanged); off, as shipped, the mod replaces nothing, since only one mod can replace that function.
 -- Each log line starts with "BEST_BEFORE" so it can be found in the game log.
 
 local record BestBeforeMod
@@ -12,6 +14,7 @@ local mod : BestBeforeMod = {}
 -- mod runs on these numbers, which mirror settings.tl, instead of the game refusing to start. preRunFn logs when that happens.
 local fallbackSettings : {string:any} = {
 	logLevel = "summary",
+	incomeLogging = false,
 	bonusPercent = 0.2,
 	bonusDownToFreshness = 0.4,
 	breakevenFreshness = 0.2,
@@ -44,11 +47,15 @@ local describe = function(value : any) : string
 end
 
 mod.preRunFn = function(_captureParams : {string:any}, _configDict : {{string, string}}, allModParams : {string : {string : integer}}, baseConfig : BaseConfig)
-	baseConfig.economy.cargoIncomeScript.fileName = "best_before_1::/mod.script@calcCargoIncomeFn"
 	-- Which copy loaded: the published mod and the staging_area copy share the id best_before_1, and the game does not log which
 	-- one it picked. modVersion is the number in the changelog; the script's own path is only the virtual best_before_1::/ one.
 	log.message("BEST_BEFORE version " .. modVersion)
-	log.message("BEST_BEFORE preRunFn: cargoIncomeScript replaced")
+	if settings.incomeLogging == true then
+		baseConfig.economy.cargoIncomeScript.fileName = "best_before_1::/mod.script@calcCargoIncomeFn"
+		log.message("BEST_BEFORE preRunFn: cargoIncomeScript replaced (incomeLogging is on in settings.tl)")
+	else
+		log.message("BEST_BEFORE preRunFn: cargoIncomeScript left to the game")
+	end
 	if not settingsLoaded then
 		log.message("BEST_BEFORE settings.tl could not be loaded (" .. tostring(loadedSettings) .. "); running on the built-in defaults")
 	end
@@ -82,7 +89,7 @@ end
 
 mod.calcCargoIncomeFn = function(captureParams : {string:any}, incomeFactor : number, posDifference : {number}) : number
 	local income = incomeFactor * (captureParams.difficultyFactor as number) * travelDistance(posDifference)
-	if (settings.logLevel == "full" or settings.logLevel == "curve") and loggedCalls < maxLoggedCalls then
+	if loggedCalls < maxLoggedCalls then
 		loggedCalls = loggedCalls + 1
 		log.message("BEST_BEFORE income call " .. loggedCalls
 			.. " captureParams=" .. describe(captureParams)
