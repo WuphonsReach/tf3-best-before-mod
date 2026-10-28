@@ -7,12 +7,12 @@
 
 ## Non-perishable cargo, issue #27 (merged as PR #34, which closed the issue)
 
-- [x] Check the dialog: the two new settings show under the mod's gear with their names and defaults (Full bonus, 25 min), and the list offers Full bonus, No bonus, No effect.
-- [ ] Check the two tooltips (not in any screenshot yet).
-- [x] No bonus in game (save WR26A Giga-Tv3 1900, 722 units): `loadParams nonPerishable=2 nonPerishableTime=3`, `curveSettings nonPerishable=noBonus nonPerishableSeconds=1500`, `verify_run.py` passed; the 454 non-perishable units were paid x1.00 and the food kept its bonus.
-- [x] Save header: the run's autosaves store `bestBefore.nonPerishable` = 2 and `bestBefore.nonPerishableTime` = 3 (`save_header.py`).
-- [ ] No bonus on late cargo: a non-perishable unit below break-even must still lose pay (none was late enough in the first run).
-- [ ] No effect in game: units at or above the cutoff log `billing=none` and get no ticket answer; `verify_run.py` checks both.
-- [ ] A cutoff other than 25 min (for example 50 min, which moves the 37.5 min goods to the perishable side).
-- [x] Old save: the 1900 save, made before the settings existed, showed the defaults in the dialog and kept its own curve.
+All in-game tests passed on 28 Oct 2026 (one 1900 run, four 1974 runs; details at the end of `docs/changing-settings.md`).
+
+- [x] Dialog: both settings show with their names and defaults (Full bonus, 25 min); the list offers Full bonus, No bonus, No effect. The game shows no tooltips for mod settings, so there is nothing to check there.
+- [x] Old saves: the 1900 and 1974 saves, made before the settings existed, showed the defaults and kept their own curves.
+- [x] Save header: the 1900 run's autosaves store `bestBefore.nonPerishable` = 2 and `bestBefore.nonPerishableTime` = 3.
+- [x] No bonus: fresh non-perishable cargo held at x1.00 (1900 and 1974), late logs and fuel still lose pay (1974, 30 min, break-even 20%).
+- [x] No effect: non-perishable units log `billing=none` and get no ticket answer, the late log train included (1974, 25 min).
+- [x] Another cutoff: at 40 min fuel (37.5 min) is perishable and back on the curve (1974, No effect).
 - [ ] Reply on issue #27 (closed by the merge, no reply posted yet).
