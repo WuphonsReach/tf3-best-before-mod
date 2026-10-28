@@ -14,6 +14,12 @@ applies the five-setting curve to every unit, so the defaults can be tuned witho
   penalty-below-freshness  freshness where the penalty reaches its maximum
   penalty-percent          maximum penalty, negative (-0.95 = -95%), also used for spoiled units
 
+and the non-perishable settings: a cargo type whose file time is at least `--non-perishable-minutes` is non-perishable and is
+paid as `--non-perishable` says: `full` (the whole curve), `noBonus` (the curve capped at normal pay) or `noEffect` (no
+adjustment). A unit logged without `fileSeconds` (older probes) takes its file time from a limit of 1.5 x that time, which
+the probes before 1.2 used; a unit with neither counts as perishable. A run from before the settings existed was played on
+`full`.
+
 The flags are the settings.tl names in kebab case (bonusPercent -> --bonus-percent).
 
 Each run is replayed on the curve it was played on, unless a flag overrides a setting. That curve is read from the log's
@@ -50,6 +56,9 @@ MAX_DEDUCTION = 1.0                                   # of the unit's predicted 
 SETTINGS = ("bonus-percent", "bonus-down-to-freshness", "breakeven-freshness", "penalty-below-freshness", "penalty-percent")
 PARAM_KEYS = {"bonus-percent": "freshPay", "bonus-down-to-freshness": "bonusDownTo", "breakeven-freshness": "breakeven",
               "penalty-below-freshness": "penaltyBelow", "penalty-percent": "spoiledPay"}      # the loadParams names
+NP_MODE, NP_MINUTES = "non-perishable", "non-perishable-minutes"
+NP_MODES = ("full", "noBonus", "noEffect")              # the "Non-perishable cargo" list, in its order
+BEFORE_NP = {NP_MODE: "full", NP_MINUTES: 25.0}         # a run from before the settings: the curve applied to every cargo
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "best_before_1", "content", "settings.tl")
 
 
@@ -63,6 +72,8 @@ def file_defaults():
     """The numbers in the mod's settings.tl (one `name = value,` per line), so the replay starts from the mod's own."""
     found = dict(re.findall(r'^\s*(\w+)\s*=\s*("?[-\w.]+"?),', open(SETTINGS_FILE).read(), re.M))
     numbers = {name: float(found[camel(name)]) for name in SETTINGS}
+    numbers[NP_MODE] = found.get("nonPerishable", '"full"').strip('"')
+    numbers[NP_MINUTES] = float(found.get("nonPerishableMinutes", BEFORE_NP[NP_MINUTES]))
     return numbers, "corrected"   # the mod judges stored cargo as corrected; --stored tries the other modes
 
 
@@ -91,7 +102,12 @@ def params_curve(positions):
     share = lambda position: round(float(position) - 1) * 5 / 100
     s = {name: share(positions[key]) for name, key in PARAM_KEYS.items()}
     s["penalty-percent"] -= 1.0
-    return normalize(s)
+    curve = dict(normalize(s), **BEFORE_NP)
+    if "nonPerishable" in positions:                    # a list position, 1 is the first entry
+        curve[NP_MODE] = NP_MODES[clamp(round(float(positions["nonPerishable"])), 1, 3) - 1]
+    if "nonPerishableTime" in positions:                # 15 to 75 min in 5 min steps, position 1 is 15 min
+        curve[NP_MINUTES] = 15.0 + round(float(positions["nonPerishableTime"]) - 1) * 5
+    return curve
 
 
 def curve_from_lines(lines):
@@ -105,7 +121,12 @@ def curve_from_lines(lines):
     if params and all(key in params for key in PARAM_KEYS.values()):
         return params_curve(params), "loadParams"
     if notes and all(camel(name) in notes for name in SETTINGS):
-        return {name: float(notes[camel(name)]) for name in SETTINGS}, "curveSettings"
+        curve = dict({name: float(notes[camel(name)]) for name in SETTINGS}, **BEFORE_NP)
+        if notes.get("nonPerishable") in NP_MODES:
+            curve[NP_MODE] = notes["nonPerishable"]
+        if "nonPerishableSeconds" in notes:
+            curve[NP_MINUTES] = float(notes["nonPerishableSeconds"]) / 60
+        return curve, "curveSettings"
     return None, None
 
 
@@ -135,6 +156,16 @@ def arrival_fields(path, lines=None):
             yield kv(ln.split("BEST_BEFORE arrival ", 1)[1])
 
 
+def file_seconds(d):
+    """The cargo file's time of a unit: logged as `fileSeconds`, or for a probe that took 1.5 x the file time as the limit
+    (before 1.2 no `limitFrom`, later `limitFrom=file`) the limit over 1.5; None when neither tells it."""
+    if "fileSeconds" in d:
+        return float(d["fileSeconds"])
+    if d.get("limitFrom", "file") == "file" and float(d.get("limitMs", 0)) > 0:
+        return round(float(d["limitMs"]) / 1500)
+    return None
+
+
 def read_arrivals(path):
     """(units, curve source); every unit carries `s`, the curve its run was played on."""
     lines = None
@@ -145,6 +176,7 @@ def read_arrivals(path):
     curve, source = run_curve(path, lines)
     if curve is None:
         curve, source = dict(DEFAULTS), "settings.tl"
+    curve = dict(BEFORE_NP, **curve)                    # a run extracted before the non-perishable settings
     out = []
     for d in arrival_fields(path, lines):
         # an extracted csv carries `predictedCorrected`, the pay prediction at the right scale (difficulty x rank multiplier);
@@ -162,6 +194,7 @@ def read_arrivals(path):
             corrected = fresh
         out.append({"s": curve, "pred": float(pred), "fresh": fresh, "corrected": corrected, "good": d.get("good") == "true",
                     "cargo": d.get("cargoType", "?"), "carrier": d.get("carrier", "?"),
+                    "file": file_seconds(d),
                     "logged": int(d.get("deduction", 0)),
                     "pred_logged": float(d.get("predictedIncome", pred))})
     return out, source
@@ -176,7 +209,16 @@ def check_order(s):
 
 
 def adjustment(u, s, stored):
-    """Fraction of the unit's pay added (positive) or taken away (negative)."""
+    """Fraction of the unit's pay added (positive) or taken away (negative), with the non-perishable setting applied
+    (probe.script.tl unitAdjustment)."""
+    a = curve_adjustment(u, s, stored)
+    if u["file"] is None or u["file"] < s[NP_MINUTES] * 60 or s[NP_MODE] == "full":
+        return a
+    return 0.0 if s[NP_MODE] == "noEffect" else min(a, 0.0)
+
+
+def curve_adjustment(u, s, stored):
+    """The curve's fraction for the unit's freshness (probe.script.tl curveAdjustment)."""
     fresh, good = (u["corrected"] if stored == "corrected" else u["fresh"]), u["good"]
     if not good:
         return s["penalty-percent"]
@@ -229,7 +271,7 @@ def describe_curve(units, overrides):
     curves = {tuple(sorted({**u["s"], **overrides}.items())) for u in units}
     if len(curves) > 1:
         return f"{len(curves)} different curves (one per run)"
-    return " ".join(f"{name}={value:g}" for name, value in next(iter(curves)))
+    return " ".join(f"{name}={value:g}" if isinstance(value, float) else f"{name}={value}" for name, value in next(iter(curves)))
 
 
 def report(name, units, overrides, stored, tables, source):
@@ -261,6 +303,9 @@ def main():
     ap.add_argument("logs", nargs="+")
     for name in SETTINGS:
         ap.add_argument("--" + name, type=float, default=None, help="replace this setting of each run's own curve")
+    ap.add_argument("--" + NP_MODE, choices=NP_MODES, default=None, help="replace how each run paid non-perishable cargo")
+    ap.add_argument("--" + NP_MINUTES, type=float, default=None,
+                    help="replace the file time in minutes from which each run's cargo counts as non-perishable")
     ap.add_argument("--use-defaults", action="store_true",
                     help="start from the settings.tl numbers instead of each run's own curve (to tune the defaults over runs played on other curves)")
     ap.add_argument("--stored", choices=("corrected", "formula", "zero", "neutral"), default=DEFAULT_STORED)
@@ -268,7 +313,8 @@ def main():
     ap.add_argument("--solve-bonus", action="store_true", help="also print the bonus that nets to zero")
     ap.add_argument("--tables", action="store_true", help="also print the net per carrier and per cargo type")
     args = ap.parse_args()
-    overrides = {name: getattr(args, name.replace("-", "_")) for name in SETTINGS if getattr(args, name.replace("-", "_")) is not None}
+    overrides = {name: getattr(args, name.replace("-", "_")) for name in SETTINGS + (NP_MODE, NP_MINUTES)
+                 if getattr(args, name.replace("-", "_")) is not None}
 
     data = []
     for p in args.logs:

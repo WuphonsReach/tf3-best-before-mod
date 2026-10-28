@@ -46,7 +46,7 @@ It sits under the hub's Misc group. Other cargo mods there (Route-Based Cargo In
 
 ## Summary
 
-Cargo pay follows freshness: fresh deliveries earn a bonus, slow or spoiled cargo earns less. Seven adjustable settings, and warnings for lines that deliver stale cargo.
+Cargo pay follows freshness: fresh deliveries earn a bonus, slow or spoiled cargo earns less. Nine adjustable settings, and warnings for lines that deliver stale cargo.
 
 ## Description
 
@@ -63,7 +63,7 @@ HOW IT WORKS
 - Only cargo is adjusted. Passenger income is not touched.
 
 CARGO FROM OTHER MODS
-- Expected to work, for example the cargo of the Sugar Cane Industry mod (sugar cane, sugar, molasses, rum). The mod reads each cargo's own delivery time and price from the game's cargo list and has no list of cargo names, so a cargo that sets those the usual way is judged like the base game's. This has not been tried in the game yet.
+- Expected to work, for example the cargo of the Sugar Cane Industry mod (sugar cane, sugar, molasses, rum). The mod reads each cargo's own delivery time and price from the game's cargo list and has no list of cargo names, so a cargo that sets those the usual way is judged like the base game's, and its delivery time decides whether it counts as perishable. This has not been tried in the game yet.
 
 STALE CARGO WARNINGS
 - A line whose deliveries are mostly stale gets a "Stale Cargo" warning: a pop-up, an entry in the notification log, and an icon on the line in the Line & Vehicle Management window (click it to open the line). It is a Caution, not a fault: stale cargo costs pay, nothing is broken.
@@ -77,8 +77,8 @@ THE DEFAULT CURVE
 - 20% down to 0%: falls in a straight line to no pay.
 - Spoiled cargo: no pay.
 
-SEVEN SETTINGS
-Set them under Mods, with the gear next to the mod, in New Game or in Load Game. The game keeps them in the save, so you can retune a save on any load. All sliders move in 5% steps.
+NINE SETTINGS
+Set them under Mods, with the gear next to the mod, in New Game or in Load Game. The game keeps them in the save, so you can retune a save on any load. The percent sliders move in 5% steps.
 - Bonus pay multiplier for fresh cargo: 100% to 200% (default 120%).
 - Get full bonus down to freshness percent: 0% to 100% (default 40%).
 - Normal pay at freshness percent: 0% to 100% (default 20%).
@@ -86,6 +86,8 @@ Set them under Mods, with the gear next to the mod, in New Game or in Load Game.
 - Pay multiplier for spoiled cargo: 0% to 100% (default 0%).
 - Warn on cargo below freshness percent: 0% to 25% (default 10%). For the Stale Cargo warning only; pay is not affected, and 0% counts only spoiled cargo.
 - Show Stale Cargo warnings: on or off (default on). Off takes down every warning shown and stops counting stale cargo.
+- Non-perishable cargo: Full bonus, No bonus or No effect (default Full bonus). How the mod pays cargo with a long delivery time: the whole curve, its penalties only, or normal game pay. Stale Cargo warnings count it in every case.
+- Non-perishable delivery time: 15 to 75 min (default 25 min). Cargo whose base delivery time is at least this counts as non-perishable; at 25 min only food (meat, fish, vegetables, beverages, grain) is perishable. The Delivery Time tab shows the base time x 1.5 in 1900, falling to x 0.75 from 2020.
 
 GOOD TO KNOW
 - With the default settings a spoiled unit pays nothing, so a save with a lot of spoiled cargo can lose money. Raise the spoiled pay if that is too harsh.

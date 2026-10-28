@@ -10,6 +10,7 @@
 - **Saves with the old warehouse setting.** Saves made while the mod still had a setting for warehouse cargo load fine: the dialog shows the sliders at the values the save holds, the mod ignores the extra key, and the next save leaves it out (checked on two such saves). Warehouse cargo is always judged by its corrected age.
 - **Stale threshold.** A sixth setting, "Warn on cargo below freshness percent" (0% to 25%, default 10%), sets only when a delivered unit counts as stale for the Stale Cargo warning ([stale-line-warnings.md](stale-line-warnings.md)); it does not change pay. It came with 1.2 and was checked in the game on one save: the dialog shows it, a change made before Load Game reaches the mod and is saved, and the logged value agrees (see the test at the end). A save from before it shows the default and stores it at the next save.
 - **Warnings switch.** A seventh setting, the check box "Show Stale Cargo warnings" (on by default), turns the Stale Cargo warnings off: the warnings shown are taken down and each line's history is forgotten, so ticking it again starts the count fresh. It is the way to clear the warnings before removing the mod from a save ([removing-the-mod.md](removing-the-mod.md)). It came with 1.2 and was checked once in the game: a save from before it shows the box ticked, and unticked on Load Game it reached the mod and took the warning down.
+- **Non-perishable cargo.** An eighth and ninth setting, "Non-perishable cargo" (a list: Full bonus, No bonus, No effect) and "Non-perishable delivery time" (15 to 75 min), choose how cargo with a long base delivery time is paid. They come with 1.3 and are **not yet checked in the game**: that a list setting is stored as its 1-based position like a slider is read from the game's settings dialog code (`gui/main/script_param_util.tl`), not seen in a save.
 - **Unknown.** Whether backing out of the dialog without pressing Load Game leaves the save untouched (not tried).
 
 ## On a new game
@@ -44,7 +45,7 @@
 
 ## What the settings do
 
-Pay is shown as a share of normal pay, so 100% is the pay the game gives and 150% is a 50% bonus. Freshness is 100% when cargo is picked up and falls to 0% at its delivery limit. Every slider moves in 5% steps. The curve is drawn out in [how-it-works.md](how-it-works.md).
+Pay is shown as a share of normal pay, so 100% is the pay the game gives and 150% is a 50% bonus. Freshness is 100% when cargo is picked up and falls to 0% at its delivery limit. Every percent slider moves in 5% steps. The curve is drawn out in [how-it-works.md](how-it-works.md).
 
 | Setting | Range | Default | Meaning |
 |---|---|---|---|
@@ -55,6 +56,8 @@ Pay is shown as a share of normal pay, so 100% is the pay the game gives and 150
 | Pay multiplier for spoiled cargo | 0% to 100% | 0% | The lowest pay: 0% takes the whole pay of a unit. Also used for cargo the game marks as spoiled. |
 | Warn on cargo below freshness percent | 0% to 25% | 10% | Only the Stale Cargo warning ([stale-line-warnings.md](stale-line-warnings.md)): a delivered unit below this freshness, or spoiled, counts as stale. Does not change pay. 0% counts only spoiled cargo. A new threshold applies to deliveries from then on; months already measured keep the old one until they leave the 12-month window, so a warned line clears only gradually after a change. |
 | Show Stale Cargo warnings | on or off | on | Only the Stale Cargo warning. Off takes down every warning shown and forgets the lines' history; on again starts it fresh. Untick it, load and save before removing the mod: a save that holds a warning does not load without it ([removing-the-mod.md](removing-the-mod.md)). Does not change pay. |
+| Non-perishable cargo | Full bonus, No bonus, No effect | Full bonus | How cargo at or above the non-perishable delivery time is paid: the whole curve, the curve's penalties only (pay never above normal), or normal game pay. Stale Cargo warnings count it in every case. |
+| Non-perishable delivery time | 15 to 75 min, 5 min steps | 25 min | The base delivery time (the cargo file's `timeToDeliverInSeconds`) from which a cargo is non-perishable. At 25 min only food is perishable (meat 15 min, fish, vegetables and beverages 18.75 min, grain 21.4 min); goods sit at 25 to 37.5 min, raw and bulk cargo at 50 and 75 min. The Delivery Time tab shows the base time x 1.5 in 1900, falling to x 0.75 from 2020. |
 
 If the freshness points are not in order (full bonus >= normal pay >= lowest pay), the mod lowers the later point to the earlier one: with 35%, 45% and 70% it runs on 35%, 35% and 35%, while the dialog keeps showing what was set. The mod writes the values it used to the game log as `BEST_BEFORE curveSettings`, with the source (`params` for the in-game settings) and `adjusted=yes` when it had to lower points. That line comes only when the curve differs from the one stored in the save; the `BEST_BEFORE loadParams` line (the settings as list positions, one per load) is what the tools read to know the curve a run was played on.
 

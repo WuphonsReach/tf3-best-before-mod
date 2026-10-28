@@ -41,7 +41,7 @@ OLD_PROBE_SCALE = 0.96426                              # the fixed factor logs b
 INFLATION_AT_TYCOON = {1: 1.0, 2: 0.9, 3: 0.75, 4: 0.6, 5: 0.5}     # Inflation option -> multiplier reached at rank 15 (604); tf3-save-format docs/inflation.md
 CARGO_INCOME_FACTORS = {1: 0.5, 2: 0.75, 3: 1.0, 4: 1.25, 5: 1.5}   # the header stores the list position; tf3-save-format docs/settings.md
 ARRIVAL_COLUMNS = ["now", "unit", "cargoType", "carrier", "legs", "source", "target", "startTime", "pickupTime", "ext", "ageMs",
-                   "limitMs", "limitFrom", "freshness", "corrected", "good", "rate", "payScale", "predictedIncome", "predictedCorrected", "deduction", "bonus",
+                   "limitMs", "limitFrom", "fileSeconds", "perishable", "billing", "freshness", "corrected", "good", "rate", "payScale", "predictedIncome", "predictedCorrected", "deduction", "bonus",
                    "vehicle", "line", "lastVehicle", "lastLine", "chain"]
 SAVE_FORMAT_TOOLS = os.path.join(HERE, "..", "..", "tf3-save-format", "tools")
 SAVE_DIR_GLOB = os.path.expanduser("~/snap/steam/common/.local/share/Steam/userdata")
@@ -216,7 +216,7 @@ def extract(path, out_dir, slug, note, min_arrivals):
     curve, curve_source = curve_from_lines(lines[start:])
     if curve_source == "loadParams" and curve_notes:    # the probe's own note of the curve in force should agree with it
         noted = curve_from_lines([f"BEST_BEFORE curveSettings {curve_notes[-1]}"])[0]
-        if noted and any(abs(noted[k] - curve[k]) > 1e-9 for k in curve):
+        if noted and any(noted[k] != curve[k] if isinstance(curve[k], str) else abs(noted[k] - curve[k]) > 1e-9 for k in curve):
             print(f"  warning: the last curveSettings line ({curve_notes[-1]}) differs from the loadParams curve {curve}")
     if curve is None:
         print("  note: no loadParams or curveSettings line, so the curve this run was played on is unknown (replay_curve.py uses settings.tl)")

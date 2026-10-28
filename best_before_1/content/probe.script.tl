@@ -16,6 +16,8 @@ local record Curve
 	stored : string
 	staleBelowFreshness : number -- not part of the pay: a unit below it counts as stale for the line warnings
 	staleWarnings : boolean -- not part of the pay: false takes the Stale Cargo warnings down and stops counting
+	nonPerishable : string -- how non-perishable cargo is paid: "full", "noBonus" or "noEffect"
+	nonPerishableSeconds : number -- a cargo type whose file time is at least this is non-perishable
 end
 
 -- The file's values; settings.tl also holds logLevel, a diagnostic switch that is not part of the curve.
@@ -25,6 +27,8 @@ local record Settings
 	breakevenFreshness : number
 	penaltyBelowFreshness : number
 	penaltyPercent : number
+	nonPerishable : string
+	nonPerishableMinutes : number
 	logLevel : string
 	staleWarnings : boolean
 	staleBelowFreshness : number
@@ -50,6 +54,8 @@ local fallbackSettings : Settings = {
 	breakevenFreshness = 0.2,
 	penaltyBelowFreshness = 0.0,
 	penaltyPercent = -1.0,
+	nonPerishable = "full",
+	nonPerishableMinutes = 25,
 }
 local settingsLoaded, loadedSettings = pcall(ug_require, "best_before_1::/settings.tl")
 local rawSettings : Settings = settingsLoaded and (loadedSettings as Settings) or fallbackSettings
@@ -72,6 +78,8 @@ local normalizeCurve = function(raw : Curve) : Curve
 		stored = raw.stored,
 		staleBelowFreshness = clamp(raw.staleBelowFreshness or 0.1, 0.0, 1.0),
 		staleWarnings = raw.staleWarnings ~= false,
+		nonPerishable = (raw.nonPerishable == "noBonus" or raw.nonPerishable == "noEffect") and raw.nonPerishable or "full",
+		nonPerishableSeconds = math.max(raw.nonPerishableSeconds or 1500, 0),
 	}
 end
 
@@ -79,7 +87,8 @@ local sameCurve = function(a : Curve, b : Curve) : boolean
 	return a.bonusPercent == b.bonusPercent and a.bonusDownToFreshness == b.bonusDownToFreshness
 		and a.breakevenFreshness == b.breakevenFreshness and a.penaltyBelowFreshness == b.penaltyBelowFreshness
 		and a.penaltyPercent == b.penaltyPercent and a.stored == b.stored and a.staleBelowFreshness == b.staleBelowFreshness
-		and a.staleWarnings == b.staleWarnings
+		and a.staleWarnings == b.staleWarnings and a.nonPerishable == b.nonPerishable
+		and a.nonPerishableSeconds == b.nonPerishableSeconds
 end
 
 -- How a unit that waited in a warehouse is judged. Only "corrected" is offered (not a setting); the other modes are kept in
@@ -95,6 +104,8 @@ local fileCurve : Curve = normalizeCurve({
 	stored = storedMode,
 	staleBelowFreshness = rawSettings.staleBelowFreshness,
 	staleWarnings = rawSettings.staleWarnings,
+	nonPerishable = rawSettings.nonPerishable,
+	nonPerishableSeconds = (rawSettings.nonPerishableMinutes or 25) * 60,
 })
 
 local settings : Settings = {
@@ -115,6 +126,7 @@ local describeCurve = function(curve : Curve) : string
 		.. " breakevenFreshness=" .. tostring(curve.breakevenFreshness) .. " penaltyBelowFreshness=" .. tostring(curve.penaltyBelowFreshness)
 		.. " penaltyPercent=" .. tostring(curve.penaltyPercent) .. " stored=" .. tostring(curve.stored)
 		.. " staleBelowFreshness=" .. tostring(curve.staleBelowFreshness) .. " staleWarnings=" .. tostring(curve.staleWarnings)
+		.. " nonPerishable=" .. curve.nonPerishable .. " nonPerishableSeconds=" .. tostring(curve.nonPerishableSeconds)
 end
 
 -- Log work is skipped, not just the write: building a unit's line costs more than writing it, and runs once per delivered unit.
@@ -426,6 +438,7 @@ local readParamCurve = function() : Curve, boolean
 	local fresh, bonusDown, breakeven = mine["bestBefore.freshPay"], mine["bestBefore.bonusDownTo"], mine["bestBefore.breakeven"]
 	local penaltyBelow, spoiled = mine["bestBefore.penaltyBelow"], mine["bestBefore.spoiledPay"]
 	local staleBelow, warnings = mine["bestBefore.staleBelow"], mine["bestBefore.staleWarnings"]
+	local nonPerishable, nonPerishableTime = mine["bestBefore.nonPerishable"], mine["bestBefore.nonPerishableTime"]
 	if fresh == nil or bonusDown == nil or breakeven == nil or penaltyBelow == nil or spoiled == nil then return nil end
 	local share = function(position : number) : number -- a 5% step position as a fraction, without float noise
 		return math.floor(position - 1 + 0.5) * 5 / 100
@@ -439,8 +452,15 @@ local readParamCurve = function() : Curve, boolean
 		stored = storedMode,
 		staleBelowFreshness = staleBelow ~= nil and share(staleBelow) or fileCurve.staleBelowFreshness, -- 0% to 25%
 		staleWarnings = fileCurve.staleWarnings,
+		nonPerishable = fileCurve.nonPerishable,
+		-- 15 to 75 min in 5 min steps: position 1 is 15 min
+		nonPerishableSeconds = nonPerishableTime ~= nil and (15 + math.floor(nonPerishableTime - 1 + 0.5) * 5) * 60
+			or fileCurve.nonPerishableSeconds,
 	}
 	if warnings ~= nil then raw.staleWarnings = warnings >= 2 end -- a check box: position 1 is unticked, 2 ticked
+	if nonPerishable ~= nil then -- a list: Full bonus, No bonus, No effect
+		raw.nonPerishable = nonPerishable >= 3 and "noEffect" or nonPerishable >= 2 and "noBonus" or "full"
+	end
 	local curve = normalizeCurve(raw)
 	return curve, not sameCurve(raw, curve) -- the second value: the freshness points were out of order and were lowered
 end
@@ -484,6 +504,17 @@ local curveAdjustment = function(curve : Curve, freshness : number, good : boole
 		return curve.penaltyPercent * (curve.breakevenFreshness - freshness) / (curve.breakevenFreshness - curve.penaltyBelowFreshness)
 	end
 	return curve.penaltyPercent
+end
+
+-- A unit's adjustment with the non-perishable setting applied, and whether its cargo type is perishable (its file time,
+-- timeToDeliverInSeconds, below nonPerishableSeconds). Non-perishable cargo gets the whole curve ("full"), the curve capped at
+-- normal pay ("noBonus") or nil ("noEffect": no answer, so the game pays it in full).
+local unitAdjustment = function(curve : Curve, freshness : number, good : boolean, fileSeconds : number) : number, boolean
+	local adjustment = curveAdjustment(curve, freshness, good)
+	if fileSeconds < curve.nonPerishableSeconds then return adjustment, true end
+	if curve.nonPerishable == "noEffect" then return nil, false end
+	if curve.nonPerishable == "noBonus" then return math.min(adjustment, 0.0), false end
+	return adjustment, false
 end
 
 -- "key=value,key=value" with the keys sorted, for the one-time cargo type log line.
@@ -755,9 +786,9 @@ end
 -- company level and subsidies answer this way (game_mechanics.zip: company/company_growth.script.tl,
 -- subventions/deliver_cargo/deliver_cargo.script.tl), and the game multiplies the answers. With ticket billing ("curve" in
 -- the log) it answers 1 + the curve's adjustment for the unit's freshness, judged as the arrival handler judges it (the event
--- comes at the same clock time). The test probe's "observe" logs the items and answers nothing; "scale" answers
--- ticketPriceMultiplier for every cargo item. Nothing is written to the state here: game scripts
--- may run in one Lua state per thread, so a write from this handler could be lost; the curve is read from the in-game
+-- comes at the same clock time); non-perishable cargo under "noEffect" is left unanswered. The test probe's "observe" logs
+-- the items and answers nothing; "scale" answers ticketPriceMultiplier for every cargo item. Nothing is written to the state
+-- here: game scripts may run in one Lua state per thread, so a write from this handler could be lost; the curve is read from the in-game
 -- settings directly for the same reason.
 local ticketPrice = function(id : string, param : any) : {integer : number}
 	local cargo = id == "TransportVehicleSystem"
@@ -782,8 +813,8 @@ local ticketPrice = function(id : string, param : any) : {integer : number}
 					local freshness = limitMs > 0 and (1.0 - ageMs / limitMs) or 1.0
 					local corrected = limitMs > 0 and (1.0 - (ageMs - simCargo.deliveryExtensionDuration) / limitMs) or 1.0
 					local judged = curve.stored == "corrected" and corrected or freshness
-					local adjustment = curveAdjustment(curve, judged, api.engine.util.cargo.isGoodQuality(unit))
-					multipliers[i] = math.max(0.0, 1.0 + adjustment)
+					local adjustment = unitAdjustment(curve, judged, api.engine.util.cargo.isGoodQuality(unit), cargoType.timeToDeliverInSeconds)
+					if adjustment ~= nil then multipliers[i] = math.max(0.0, 1.0 + adjustment) end
 				end
 			end
 			return nil
@@ -985,7 +1016,10 @@ local probe : GameScript<ProbeState> = {
 				-- time, so the corrected age is the age minus it (checked against the game's good flag on logged runs).
 				local correctedFreshness = limitMs > 0 and (1.0 - (ageMs - simCargo.deliveryExtensionDuration) / limitMs) or 1.0
 				local judged = curve.stored == "corrected" and correctedFreshness or freshness
-				local adjustment = curveAdjustment(curve, judged, good)
+				-- Non-perishable cargo under "noEffect" is not answered (billing none) and its rate is 1; the stale count takes it anyway.
+				local answered, perishable = unitAdjustment(curve, judged, good, cargoType.timeToDeliverInSeconds)
+				local adjustment = answered or 0.0
+				local billing = answered ~= nil and billingMode or "none"
 				local lastLine : Engine.Entity = last and last.line
 				local staleKey : string = nil
 				local staleUnit = false
@@ -1016,11 +1050,12 @@ local probe : GameScript<ProbeState> = {
 				end
 				if logUnits then
 					correction = "ageMs=" .. tostring(ageMs) .. " limitMs=" .. tostring(limitMs) .. " limitFrom=" .. limitFrom
+						.. " fileSeconds=" .. tostring(cargoType.timeToDeliverInSeconds) .. " perishable=" .. tostring(perishable)
 						.. " vehicleQuality=" .. vehicleQuality(last and last.vehicle, simCargo.cargoType)
 						.. " freshness=" .. tostring(freshness) .. " corrected=" .. tostring(correctedFreshness) .. " rate=" .. tostring(rate)
 						.. " payScale=" .. tostring(pay.scale) .. " predictedIncome=" .. predicted .. " deduction=" .. tostring(deduction)
 						.. " bonus=" .. tostring(bonus) .. " staleLine=" .. (staleKey or "none") .. " staleUnit=" .. tostring(staleUnit)
-						.. " expectedAdjustment=" .. expected .. " billing=" .. billingMode
+						.. " expectedAdjustment=" .. expected .. " billing=" .. billing
 				end
 			end
 			if logUnits then
