@@ -2,7 +2,7 @@
 
 ## In short
 
-Nine routes were tried or weighed and are not pursued. Seven fail on what the game lets a mod do; two (swapping every cargo type's price function, and a step instead of a straight line) are choices not made. They are listed so they are not rediscovered: each row gives the reason, and "Revisit if" says what would make us look again. The facts behind them are in [findings](../findings.md).
+Ten routes were tried or weighed and are not pursued. Seven fail on what the game lets a mod do; two (swapping every cargo type's price function, and a step instead of a straight line) are choices not made; one (booking the adjustment after the game pays in full) worked and was replaced by ticket billing. They are listed so they are not rediscovered: each row gives the reason, and "Revisit if" says what would make us look again. The facts behind them are in [findings](../findings.md).
 
 | Idea | Why not now | Revisit if |
 |---|---|---|
