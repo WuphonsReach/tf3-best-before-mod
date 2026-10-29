@@ -26,3 +26,12 @@ A fourth entry in the "Non-perishable cargo" list, second after Full bonus: the 
 - [x] Half bonus, bonus side: on the 1900 save (150% curve) all 1,030 non-perishable units were paid x1.25 and all 557 perishable ones x1.50; `verify_run.py` passed (29 Oct 2026, 1,587 units).
 - [ ] Half bonus, penalty side: non-perishable cargo below break-even paid as under Full bonus. The 1900 save has none (lowest 0.40 freshness); the 1974 save's logs and late fuel would show it.
 - [ ] No bonus and No effect still behave as before at their new positions (`loadParams` 3 and 4).
+
+## Listing gallery images (for the 1.2 upload)
+
+The cover `0.jpg` already draws the pay curve; a third image showing pay in play was considered and skipped.
+
+- [ ] Check that the uploader takes numbered images from `best_before_1/_metadata/` into the gallery: put `1.jpg` there, press Refresh in the mod's dialog, and see whether the gallery shows it. Only `workshop_preview.jpg` (picked up by itself) and `0.jpg` (written from the Preview slot) are known so far.
+- [ ] `1.jpg`: the mod's settings dialog in 1.2, all nine settings at their defaults. The same capture replaces `docs/images/mod-settings-dialog.png` in `docs/changing-settings.md` (its caption notes the missing stale slider).
+- [ ] `2.jpg`: a line window with the Stale Cargo banner, taken in 1.2 (text "below the mod's stale freshness setting"); add the [L] line manager with the icon on that line's row if it fits in one frame.
+- [ ] Write the gallery images into `docs/publishing.md` once the check above shows how the uploader takes them.
