@@ -33,7 +33,7 @@ There are nine settings, set in game: New Game or Load Game, the Mods tab, the g
 - Pay for spoiled cargo (0% to 100%).
 - The freshness below which a delivery counts as stale for the Stale Cargo warning (0% to 25%, default 10%; no effect on pay).
 - A check box that turns the Stale Cargo warnings off (on by default). Before removing the mod from a save, untick it, load and save; see [docs/removing-the-mod.md](docs/removing-the-mod.md).
-- How non-perishable cargo is paid: the whole curve (the default), penalties only, or not touched.
+- How non-perishable cargo is paid: the whole curve (the default), half the bonus, penalties only, or not touched.
 - The base delivery time (the cargo file's) from which a cargo counts as non-perishable (15 to 75 min, default 25 min: only food is perishable).
 
 `logLevel` is not an in-game setting; it stays in `best_before_1/content/settings.tl` and sets how much the mod writes to the game log: `off`, `summary` (a totals line about once a game month; the default), `curve` (a line per delivered unit, enough for the tools below) or `full` (adds vehicle and line names, chains and per-vehicle ledgers). Measured on one save at 4x over the same game dates, `full` cost the simulation threads about 1 to 3% more CPU than `off`, inside the run-to-run noise, and the game ran at the same speed. So the levels differ in log size and readability, not speed.

@@ -197,10 +197,11 @@
         {
             "key": "bestBefore.nonPerishable",
             "name": "Non-perishable cargo",
-            "tooltip": "How the mod pays non-perishable cargo: the full pay curve, its penalties only, or normal game pay. Stale Cargo warnings count it in every case.",
+            "tooltip": "How the mod pays non-perishable cargo: the full pay curve, the curve with half its bonus, its penalties only, or normal game pay. Stale Cargo warnings count it in every case.",
             "uiType": "ComboBox",
             "values": [
                 "Full bonus",
+                "Half bonus",
                 "No bonus",
                 "No effect"
             ],

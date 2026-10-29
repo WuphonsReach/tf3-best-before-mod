@@ -99,7 +99,8 @@ def check_non_perishable(lines, start, arrivals, unbilled):
     if "nonPerishable" not in params or "nonPerishableTime" not in params:
         print(f"INFO  no non-perishable settings in the loadParams line, {len(flagged)} arrivals with a perishable flag not checked")
         return not answered
-    mode = {1: "full", 2: "noBonus", 3: "noEffect"}.get(round(float(params["nonPerishable"])), "full")
+    mode = {1: "full", 2: "halfBonus", 3: "noBonus", 4: "noEffect"}.get(round(float(params["nonPerishable"])), "full")
+    half = 1.0 + round(float(params.get("freshPay", 1)) - 1) * 5 / 100 / 2  # top rate under halfBonus: half the fresh bonus
     cutoff = (15 + round(float(params["nonPerishableTime"]) - 1) * 5) * 60
     problems = []
     for a in flagged:
@@ -109,6 +110,8 @@ def check_non_perishable(lines, start, arrivals, unbilled):
         elif perishable or mode == "full":
             if a.get("billing") == "none":
                 problems.append(f"unit {a['unit']}: billed none although the curve applies")
+        elif mode == "halfBonus" and float(a["rate"]) > half + 1e-9:
+            problems.append(f"unit {a['unit']}: non-perishable under halfBonus at rate {a['rate']}, above {half:.3f}")
         elif mode == "noBonus" and float(a["rate"]) > 1.0 + 1e-9:
             problems.append(f"unit {a['unit']}: non-perishable under noBonus at rate {a['rate']}")
         elif mode == "noEffect" and (a.get("billing") != "none" or abs(float(a["rate"]) - 1.0) > 1e-9):

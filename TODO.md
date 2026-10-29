@@ -16,3 +16,11 @@ All in-game tests passed on 28 Oct 2026 (one 1900 run, four 1974 runs; details a
 - [x] No effect: non-perishable units log `billing=none` and get no ticket answer, the late log train included (1974, 25 min).
 - [x] Another cutoff: at 40 min, fuel (37.5 min) is perishable and back on the curve (1974, No effect).
 - [ ] Reply on issue #27 (closed by the merge, no reply posted yet).
+
+## Half bonus for non-perishable cargo
+
+A fourth entry in the "Non-perishable cargo" list, second after Full bonus: the curve with any bonus halved (120% becomes 110%), penalties in full. Not released, so the list was renumbered (No bonus 2 -> 3, No effect 3 -> 4); the 28 Oct test saves that store 2 now load as Half bonus.
+
+- [ ] Dialog: the list shows Full bonus, Half bonus, No bonus, No effect, and Full bonus stays the default.
+- [ ] Half bonus: fresh non-perishable cargo paid at 1 + half the bonus (x1.25 on the 150% test curve), late cargo below break-even paid as under Full bonus; `verify_run.py` passes.
+- [ ] No bonus and No effect still behave as before at their new positions (`loadParams` 3 and 4).
