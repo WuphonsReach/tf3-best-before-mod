@@ -20,7 +20,8 @@
 --
 -- Non-perishable cargo: a cargo type whose file time (timeToDeliverInSeconds, the base delivery time) is at least
 -- nonPerishableMinutes counts as non-perishable, and nonPerishable says how the curve pays it: "full" (the whole curve, as
--- perishable cargo), "noBonus" (the curve capped at normal pay, so penalties only) or "noEffect" (no answer, normal game pay).
+-- perishable cargo), "halfBonus" (the curve with its bonus halved, penalties in full), "noBonus" (the curve capped at normal
+-- pay, so penalties only) or "noEffect" (no answer, normal game pay).
 -- The stale line warnings count it either way. In-game settings "Non-perishable cargo" (default Full bonus) and
 -- "Non-perishable delivery time" (15 to 75 min, default 25 min, so only food is perishable); these are only their fallback,
 -- keep them equal to the mod.json defaults.

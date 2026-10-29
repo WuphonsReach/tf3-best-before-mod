@@ -15,8 +15,8 @@ applies the five-setting curve to every unit, so the defaults can be tuned witho
   penalty-percent          maximum penalty, negative (-0.95 = -95%), also used for spoiled units
 
 and the non-perishable settings: a cargo type whose file time is at least `--non-perishable-minutes` is non-perishable and is
-paid as `--non-perishable` says: `full` (the whole curve), `noBonus` (the curve capped at normal pay) or `noEffect` (no
-adjustment). A unit logged without `fileSeconds` (older probes) takes its file time from a limit of 1.5 x that time, which
+paid as `--non-perishable` says: `full` (the whole curve), `halfBonus` (the curve with its bonus halved), `noBonus` (the
+curve capped at normal pay) or `noEffect` (no adjustment). A unit logged without `fileSeconds` (older probes) takes its file time from a limit of 1.5 x that time, which
 the probes before 1.2 used; a unit with neither counts as perishable. A run from before the settings existed was played on
 `full`.
 
@@ -57,7 +57,7 @@ SETTINGS = ("bonus-percent", "bonus-down-to-freshness", "breakeven-freshness", "
 PARAM_KEYS = {"bonus-percent": "freshPay", "bonus-down-to-freshness": "bonusDownTo", "breakeven-freshness": "breakeven",
               "penalty-below-freshness": "penaltyBelow", "penalty-percent": "spoiledPay"}      # the loadParams names
 NP_MODE, NP_MINUTES = "non-perishable", "non-perishable-minutes"
-NP_MODES = ("full", "noBonus", "noEffect")              # the "Non-perishable cargo" list, in its order
+NP_MODES = ("full", "halfBonus", "noBonus", "noEffect") # the "Non-perishable cargo" list, in its order
 BEFORE_NP = {NP_MODE: "full", NP_MINUTES: 25.0}         # a run from before the settings: the curve applied to every cargo
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "best_before_1", "content", "settings.tl")
 
@@ -104,7 +104,7 @@ def params_curve(positions):
     s["penalty-percent"] -= 1.0
     curve = dict(normalize(s), **BEFORE_NP)
     if "nonPerishable" in positions:                    # a list position, 1 is the first entry
-        curve[NP_MODE] = NP_MODES[clamp(round(float(positions["nonPerishable"])), 1, 3) - 1]
+        curve[NP_MODE] = NP_MODES[clamp(round(float(positions["nonPerishable"])), 1, len(NP_MODES)) - 1]
     if "nonPerishableTime" in positions:                # 15 to 75 min in 5 min steps, position 1 is 15 min
         curve[NP_MINUTES] = 15.0 + round(float(positions["nonPerishableTime"]) - 1) * 5
     return curve
@@ -214,6 +214,8 @@ def adjustment(u, s, stored):
     a = curve_adjustment(u, s, stored)
     if u["file"] is None or u["file"] < s[NP_MINUTES] * 60 or s[NP_MODE] == "full":
         return a
+    if s[NP_MODE] == "halfBonus":
+        return a / 2 if a > 0 else a
     return 0.0 if s[NP_MODE] == "noEffect" else min(a, 0.0)
 
 

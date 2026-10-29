@@ -16,7 +16,7 @@ local record Curve
 	stored : string
 	staleBelowFreshness : number -- not part of the pay: a unit below it counts as stale for the line warnings
 	staleWarnings : boolean -- not part of the pay: false takes the Stale Cargo warnings down and stops counting
-	nonPerishable : string -- how non-perishable cargo is paid: "full", "noBonus" or "noEffect"
+	nonPerishable : string -- how non-perishable cargo is paid: "full", "halfBonus", "noBonus" or "noEffect"
 	nonPerishableSeconds : number -- a cargo type whose file time is at least this is non-perishable
 end
 
@@ -78,7 +78,8 @@ local normalizeCurve = function(raw : Curve) : Curve
 		stored = raw.stored,
 		staleBelowFreshness = clamp(raw.staleBelowFreshness or 0.1, 0.0, 1.0),
 		staleWarnings = raw.staleWarnings ~= false,
-		nonPerishable = (raw.nonPerishable == "noBonus" or raw.nonPerishable == "noEffect") and raw.nonPerishable or "full",
+		nonPerishable = (raw.nonPerishable == "halfBonus" or raw.nonPerishable == "noBonus" or raw.nonPerishable == "noEffect")
+			and raw.nonPerishable or "full",
 		nonPerishableSeconds = math.max(raw.nonPerishableSeconds or 1500, 0),
 	}
 end
@@ -458,8 +459,9 @@ local readParamCurve = function() : Curve, boolean
 			or fileCurve.nonPerishableSeconds,
 	}
 	if warnings ~= nil then raw.staleWarnings = warnings >= 2 end -- a check box: position 1 is unticked, 2 ticked
-	if nonPerishable ~= nil then -- a list: Full bonus, No bonus, No effect
-		raw.nonPerishable = nonPerishable >= 3 and "noEffect" or nonPerishable >= 2 and "noBonus" or "full"
+	if nonPerishable ~= nil then -- a list: Full bonus, Half bonus, No bonus, No effect
+		raw.nonPerishable = nonPerishable >= 4 and "noEffect" or nonPerishable >= 3 and "noBonus"
+			or nonPerishable >= 2 and "halfBonus" or "full"
 	end
 	local curve = normalizeCurve(raw)
 	return curve, not sameCurve(raw, curve) -- the second value: the freshness points were out of order and were lowered
@@ -507,12 +509,14 @@ local curveAdjustment = function(curve : Curve, freshness : number, good : boole
 end
 
 -- A unit's adjustment with the non-perishable setting applied, and whether its cargo type is perishable (its file time,
--- timeToDeliverInSeconds, below nonPerishableSeconds). Non-perishable cargo gets the whole curve ("full"), the curve capped at
--- normal pay ("noBonus") or nil ("noEffect": no answer, so the game pays it in full).
+-- timeToDeliverInSeconds, below nonPerishableSeconds). Non-perishable cargo gets the whole curve ("full"), the curve with its
+-- bonus halved ("halfBonus"), the curve capped at normal pay ("noBonus") or nil ("noEffect": no answer, so the game pays it
+-- in full).
 local unitAdjustment = function(curve : Curve, freshness : number, good : boolean, fileSeconds : number) : number, boolean
 	local adjustment = curveAdjustment(curve, freshness, good)
 	if fileSeconds < curve.nonPerishableSeconds then return adjustment, true end
 	if curve.nonPerishable == "noEffect" then return nil, false end
+	if curve.nonPerishable == "halfBonus" and adjustment > 0.0 then return adjustment / 2, false end
 	if curve.nonPerishable == "noBonus" then return math.min(adjustment, 0.0), false end
 	return adjustment, false
 end

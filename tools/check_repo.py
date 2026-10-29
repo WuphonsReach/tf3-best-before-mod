@@ -54,7 +54,7 @@ else:
 
 # settings.tl's curve is the fallback and must equal the mod.json defaults (the slider position as a number, a check box as
 # true or false, the non-perishable list as the probe's name for it).
-NON_PERISHABLE_MODES = {"Full bonus": '"full"', "No bonus": '"noBonus"', "No effect": '"noEffect"'}
+NON_PERISHABLE_MODES = {"Full bonus": '"full"', "Half bonus": '"halfBonus"', "No bonus": '"noBonus"', "No effect": '"noEffect"'}
 settings = {k: v for k, v in re.findall(r"^\t(\w+) = ([^,\n]+),", (mod / "content/settings.tl").read_text(), re.M)}
 if "mod.json" in loaded:
     default, switches = {}, {}
