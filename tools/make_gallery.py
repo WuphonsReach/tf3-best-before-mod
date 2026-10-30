@@ -1,4 +1,4 @@
-"""Draw the listing's first gallery image (1920x1080 JPG): the mod's settings at their defaults, as a screenshot of the dialog's
+"""Draw the listing's second gallery image (1920x1080 JPG): the mod's settings at their defaults, as a screenshot of the dialog's
 Settings box, with each group of settings explained beside it. The dialog shows no tooltips for mod settings, so this image
 and the description are where a player learns what they do. The background is the cover's (tools/make_preview.py) with its
 grid but not its curve, which would run through the text.
@@ -9,7 +9,7 @@ dialog's title and Settings box; a new shot of the same dialog at the same resol
 expects them. The same cut, scaled down, is the settings image in docs/changing-settings.md, which the tool also writes.
 
 Usage: python3 tools/make_gallery.py [OUT_FILE] [--shot SCREENSHOT.png]
-OUT_FILE defaults to best_before_1/_metadata/1.jpg, SCREENSHOT.png to SHOT. Needs rsvg-convert and Lato.
+OUT_FILE defaults to best_before_1/_metadata/workshop_preview.jpg (the gallery's second image, see docs/publishing.md), SCREENSHOT.png to SHOT. Needs rsvg-convert and Lato.
 """
 import subprocess
 import sys
@@ -130,7 +130,7 @@ def main():
         i = args.index("--shot")
         shot = Path(args[i + 1])
         del args[i:i + 2]
-    out = Path(args[0]) if args else ROOT / "best_before_1/_metadata/1.jpg"
+    out = Path(args[0]) if args else ROOT / "best_before_1/_metadata/workshop_preview.jpg"
     cut = Image.open(shot).convert("RGB").crop(CROP)
     cut.resize((round(cut.width * DOCS_SCALE), round(cut.height * DOCS_SCALE)), Image.LANCZOS).save(DOCS_IMAGE, optimize=True)
     print(DOCS_IMAGE)

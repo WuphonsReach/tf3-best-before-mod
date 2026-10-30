@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Transport Fever 3 script mod (`best_before_1/`) that makes cargo pay scale with freshness. It is public on mod.io as an early test version ([Best Before: Cargo Freshness](https://mod.io/g/transportfever3/m/best-before-cargo-freshness), mod id 6459472, release 1.2; mod.io labels every upload "1.0"), and still logs heavily for testing. The README and [docs/](docs/README.md) carry the status, the verified game facts ([docs/findings.md](docs/findings.md)) and the open questions ([docs/future/](docs/future/)). Read findings before changing mechanics; several approaches were tried and set aside ([docs/future/discarded.md](docs/future/discarded.md)).
+A Transport Fever 3 script mod (`best_before_1/`) that makes cargo pay scale with freshness. It is public on mod.io as an early test version ([Best Before: Cargo Freshness](https://mod.io/g/transportfever3/m/best-before-cargo-freshness), mod id 6459472, release 1.3; mod.io labels every upload "1.0"), and still logs heavily for testing. The README and [docs/](docs/README.md) carry the status, the verified game facts ([docs/findings.md](docs/findings.md)) and the open questions ([docs/future/](docs/future/)). Read findings before changing mechanics; several approaches were tried and set aside ([docs/future/discarded.md](docs/future/discarded.md)).
 
 There is no build step and no unit tests. The code is Teal (`.tl`) that the game loads directly, and the only checks are the type checker and testing in the game.
 
@@ -35,11 +35,11 @@ python3 tools/replay_curve.py local/runs/<name>.arrivals.csv [more]   # pool the
 python3 tools/cpu_sample.py sample local/cpu/<name> [--also "steam|code"]   # writes <name>.process.csv and <name>.system.csv; run at least 5 minutes
 python3 tools/cpu_sample.py report local/cpu/<name> [--log local/logs/<log>.txt | --game-months N]
 
-# Redraw the mod's preview image (best_before_1/_metadata/workshop_preview.jpg, 1920x1080; needs rsvg-convert and the Lato font)
+# Redraw the mod's cover (best_before_1/_metadata/1.jpg, the gallery's first image, 1920x1080; needs rsvg-convert and the Lato font)
 python3 tools/make_preview.py [--version 0.1] [--keep-svg local/preview/workshop_preview.svg]   # the version goes in the upper right corner, kept clear for it; --keep-svg also saves the SVG it was drawn from (not into best_before_1/)
-cp best_before_1/_metadata/workshop_preview.jpg best_before_1/_metadata/0.jpg   # 0.jpg is the cover the in-game uploader made from it (byte-identical); copy again after every redraw
+cp best_before_1/_metadata/1.jpg best_before_1/_metadata/0.jpg   # 0.jpg is the Preview slot's cover (byte-identical); copy again after every redraw
 
-# Redraw the gallery's 1.jpg: the settings at their defaults with each group explained beside them, on the cover's background
+# Redraw the gallery's second image (workshop_preview.jpg; the gallery orders by file name, see docs/publishing.md): the settings at their defaults with each group explained beside them, on the cover's background
 python3 tools/make_gallery.py [--shot art/gallery/<screenshot>.png]   # cuts the dialog from the screenshot kept in art/gallery/ (not shipped); also rewrites docs/images/mod-settings-dialog.png from the same cut
 ```
 

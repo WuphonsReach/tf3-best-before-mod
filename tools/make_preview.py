@@ -4,7 +4,7 @@ The background curve is the default curve from mod.json. The upper right corner 
 
 Usage: python3 tools/make_preview.py [OUT_FILE] [--version 0.1] [--keep-svg SVG_FILE]
 --keep-svg also writes the SVG the image is rendered from (for example to local/preview/workshop_preview.svg); keep it out of best_before_1/.
-OUT_FILE defaults to best_before_1/_metadata/workshop_preview.jpg, where the game looks for a mod's preview.
+OUT_FILE defaults to best_before_1/_metadata/1.jpg, the gallery's first image; copy it to 0.jpg for the cover (docs/publishing.md).
 """
 import math
 import shutil
@@ -384,7 +384,7 @@ def main():
         i = args.index("--keep-svg")
         keep_svg = Path(args[i + 1])
         del args[i:i + 2]
-    out = Path(args[0] if args else Path(__file__).resolve().parent.parent / "best_before_1/_metadata/workshop_preview.jpg")
+    out = Path(args[0] if args else Path(__file__).resolve().parent.parent / "best_before_1/_metadata/1.jpg")
     from PIL import Image
     with tempfile.TemporaryDirectory() as tmp:
         svg, png = Path(tmp) / "preview.svg", Path(tmp) / "preview.png"
