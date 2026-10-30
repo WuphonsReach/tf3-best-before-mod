@@ -2,6 +2,10 @@
 
 Newest first. The number in the title is `modVersion` at the top of [mod.script.tl](best_before_1/content/mod.script.tl), which the game log prints at every load as `BEST_BEFORE version <number>` (between releases it reads the next number with "-dev", for example `1.2-dev`). Each entry's last line is the one-liner for the Changelog field of the in-game uploader ([how to upload](docs/publishing.md#uploading-an-update)). mod.io labels every file we upload "1.0" whatever the number here is, so the number in this file and in the log is the one that tells builds apart.
 
+## 1.4 (not released)
+
+- Nothing yet.
+
 ## 1.3 (30 Oct 2026)
 
 - **New: non-perishable cargo can be paid differently.** Two in-game settings. "Non-perishable delivery time" (15 to 75 min, default 25 min): a cargo whose base delivery time (the time in its cargo file) is at least this counts as non-perishable, so at the default only food (meat, fish, vegetables, beverages, grain) is perishable. "Non-perishable cargo" (default Half bonus) says how the mod pays it: Full bonus (the whole curve, as up to 1.2), Half bonus (the curve with half its bonus, penalties in full), No bonus (penalties only) or No effect (normal game pay). Bulk cargo has delivery limits two to five times those of food, so on the logged runs it earned the full bonus on 92% to 100% of deliveries, which made the bonus a flat raise for it. **Saves already on the mod switch to Half bonus on their first load with 1.3** (the game gives a save the default of a setting it has not stored), so at the default curve their bulk cargo earns up to 110% instead of 120%; pick Full bonus in Load Game to keep the old pay. Stale Cargo warnings count non-perishable cargo in every case. Cargo from other mods is sorted by its own delivery time. Log: the arrival line gains `fileSeconds` and `perishable`, and reads `billing=none` for a unit the mod left alone. Asked for in issue #27.
