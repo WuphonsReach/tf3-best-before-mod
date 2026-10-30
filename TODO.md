@@ -22,9 +22,9 @@ All in-game tests passed on 28 Oct 2026 (one 1900 run, four 1974 runs; details a
 A fourth entry in the "Non-perishable cargo" list, second after Full bonus: the curve with any bonus halved (120% becomes 110%), penalties in full. Not released, so the list was renumbered (No bonus 2 -> 3, No effect 3 -> 4); the 28 Oct test saves that store 2 now load as Half bonus.
 
 - [x] Renumbering: a 1900 test save that stored position 2 (No bonus on the old list, dialog shot 05:02) showed Half bonus after the restart and logged `nonPerishable=halfBonus` (29 Oct 2026).
-- [ ] Dialog: the list opened shows Full bonus, Half bonus, No bonus, No effect (no shot of it open yet), and a save without the setting shows Full bonus.
+- [ ] Dialog: the list opened shows Full bonus, Half bonus, No bonus, No effect (no shot of it open yet), and a save without the setting shows Half bonus (the default since 30 Oct 2026).
 - [x] Half bonus, bonus side: on the 1900 save (150% curve) all 1,030 non-perishable units were paid x1.25 and all 557 perishable ones x1.50; `verify_run.py` passed (29 Oct 2026, 1,587 units).
-- [ ] Half bonus, penalty side: non-perishable cargo below break-even paid as under Full bonus. The 1900 save has none (lowest 0.40 freshness); the 1974 save's logs and late fuel would show it.
+- [x] Half bonus, penalty side: on the 1974 save, 217 logs and late fuel units below break-even were paid exactly run A's (Full bonus) rate, unit for unit; `verify_run.py` passed (30 Oct 2026, 1,997 units).
 - [ ] No bonus and No effect still behave as before at their new positions (`loadParams` 3 and 4).
 
 ## Listing gallery images (for the 1.2 upload)
