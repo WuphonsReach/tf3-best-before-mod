@@ -35,11 +35,11 @@ python3 tools/replay_curve.py local/runs/<name>.arrivals.csv [more]   # pool the
 python3 tools/cpu_sample.py sample local/cpu/<name> [--also "steam|code"]   # writes <name>.process.csv and <name>.system.csv; run at least 5 minutes
 python3 tools/cpu_sample.py report local/cpu/<name> [--log local/logs/<log>.txt | --game-months N]
 
-# Redraw the mod's preview image (best_before_1/_metadata/workshop_preview.jpg, 1920x1080; needs rsvg-convert and the Lato font)
+# Redraw the mod's cover (best_before_1/_metadata/1.jpg, the gallery's first image, 1920x1080; needs rsvg-convert and the Lato font)
 python3 tools/make_preview.py [--version 0.1] [--keep-svg local/preview/workshop_preview.svg]   # the version goes in the upper right corner, kept clear for it; --keep-svg also saves the SVG it was drawn from (not into best_before_1/)
-cp best_before_1/_metadata/workshop_preview.jpg best_before_1/_metadata/0.jpg   # 0.jpg is the cover the in-game uploader made from it (byte-identical); copy again after every redraw
+cp best_before_1/_metadata/1.jpg best_before_1/_metadata/0.jpg   # 0.jpg is the Preview slot's cover (byte-identical); copy again after every redraw
 
-# Redraw the gallery's 1.jpg: the settings at their defaults with each group explained beside them, on the cover's background
+# Redraw the gallery's second image (workshop_preview.jpg; the gallery orders by file name, see docs/publishing.md): the settings at their defaults with each group explained beside them, on the cover's background
 python3 tools/make_gallery.py [--shot art/gallery/<screenshot>.png]   # cuts the dialog from the screenshot kept in art/gallery/ (not shipped); also rewrites docs/images/mod-settings-dialog.png from the same cut
 ```
 

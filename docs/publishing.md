@@ -26,7 +26,7 @@
 6. Open the page (**Open Mod Page** in the dialog) and check the text, the files and their dates.
 7. Test the published copy: remove the `staging_area` link (with the link in place the game loads the staging copy even when the mod is subscribed: it logs `Multiple (2) mods with same id found best_before_1, the one from .../staging_area/best_before_1/ has been selected`, so such a run says nothing about the published file), subscribe, load a save with the mod active, and look in the log for `BEST_BEFORE version <the new number>` and the downloaded `_content.json` for all files. Only then tell anyone it works. Unsubscribe and restore the link afterwards.
 
-The dialog's other parts: **Preview** (the cover, see [Preview image](#preview-image)), a gallery that picks up `workshop_preview.jpg` by itself, **Tags** (with + to add), **Author**, **View**, **Report**, and at the top a pencil, **Open Folder** and **Refresh**.
+The dialog's other parts: **Preview** (the cover, see [Preview image](#preview-image)), the gallery (see [Gallery](#gallery)), **Tags** (with + to add), **Author**, **View**, **Report**, and at the top a pencil, **Open Folder** and **Refresh**.
 
 ## Hub search and tiles
 
@@ -107,15 +107,26 @@ Source and notes: https://github.com/WuphonsReach/tf3-best-before-mod (MIT licen
 
 ## Preview image
 
-`best_before_1/_metadata/workshop_preview.jpg` is drawn by `tools/make_preview.py`. `best_before_1/_metadata/0.jpg` is the cover: the uploader made it when the image was picked in the dialog's Preview slot, and it is byte-identical to `workshop_preview.jpg`. Both are committed. The name `0.jpg` follows the developer's own mods, whose cover is `0.png`.
+The cover is `best_before_1/_metadata/0.jpg`, the image in the dialog's Preview slot and on the mod's card. It is drawn by `tools/make_preview.py`, which writes `1.jpg`; `0.jpg` is a byte-identical copy. Both are committed. The name `0.jpg` follows the developer's own mods, whose cover is `0.png`.
 
 To re-create `0.jpg` after the image is redrawn, or if it is lost:
 
-1. Redraw (optional): `python3 tools/make_preview.py [--version 0.1]` writes `workshop_preview.jpg` (1920x1080; needs `rsvg-convert` and the Lato font).
-2. Copy it: `cp best_before_1/_metadata/workshop_preview.jpg best_before_1/_metadata/0.jpg`. Check with `cmp` that the two are identical.
+1. Redraw (optional): `python3 tools/make_preview.py [--version 0.1]` writes `1.jpg` (1920x1080; needs `rsvg-convert` and the Lato font).
+2. Copy it: `cp best_before_1/_metadata/1.jpg best_before_1/_metadata/0.jpg`. Check with `cmp` that the two are identical.
 3. In the game, open the mod's dialog in My Mods and click the Preview slot (camera icon) to pick the image, so the uploader takes it as the cover. Without a cover the card shows a "?".
 
 Whether the uploader needs step 2 or makes `0.jpg` from step 3 alone is not known.
+
+## Gallery
+
+The gallery under the large image on the mod's page (and in the dialog) holds `1.jpg` (the cover) and then `workshop_preview.jpg` (the settings at their defaults, drawn by `tools/make_gallery.py`). `0.jpg` is not in it.
+
+- **The order is the file names.** On the 1.3 upload (30 Oct 2026) the dialog showed `1.jpg` first; when it held the settings image, the settings came first. Each thumbnail in the dialog has a small < (Move Left), > (Move Right) and bin over its top right corner. Moving a thumbnail swapped the two files' contents on disk and wrote nothing else, so the order lives only in which image has which name. Commit the files as the dialog leaves them, or the next upload goes back to the old order.
+- **The page follows the dialog's order.** After that upload the mod.io page showed the cover thumbnail first and the settings thumbnail second.
+- **mod.io keeps old names.** It already had a `workshop_preview.jpg` (the cover, from earlier uploads), so it stored the new one as `workshop_preview.1.jpg`; the old file stays on its image server. The files there are byte-identical to the repo's (`image.modcdn.io/mods/7cd8/6459472/<name>` for the original, `thumb.modcdn.io/mods/7cd8/6459472/crop_1280x720/<name>` and `crop_320x180` for the sizes the page uses; a size not yet asked for redirects once while it is rendered).
+- **Clicking the second thumbnail did not show it** right after the 1.3 upload, although every size of `workshop_preview.1.jpg` loaded correctly on its own. Other mods' galleries (Bus And Truck Bay, Industry Upgrades) worked at the same time, so it looks like a stale cache on mod.io's side; not yet rechecked.
+- **Other mods' layout.** Industry Upgrades stores `0.png` (the cover) and `1.png` to `7.png`, and no `workshop_preview`. Renaming ours the same way (`2.jpg` for the settings image, no `workshop_preview.jpg`) would avoid mod.io's renaming; whether the game's dialog then makes a `workshop_preview.jpg` by itself is not known.
+- **Unknown:** whether a `2.jpg` would join the gallery, and where it would sort.
 
 ## What was checked
 
