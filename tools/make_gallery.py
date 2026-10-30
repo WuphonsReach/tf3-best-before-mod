@@ -3,12 +3,13 @@ Settings box, with each group of settings explained beside it. The dialog shows 
 and the description are where a player learns what they do. The background is the cover's (tools/make_preview.py) with its
 grid but not its curve, which would run through the text.
 
-The screenshot is a hand-cut piece of a 3840x2160 shot, kept in local/gallery/ (gitignored): Screenshot_20261030_082413.png
-(a save that never had the mod, Load Game > Mods > Activate > gear, 30 Oct 2026) cut to (567, 278, 1280, 1411), the dialog's
-title and Settings box. A new shot cut the same way keeps the setting rows where GROUPS expects them.
+The source is a full 3840x2160 screenshot kept in art/gallery/ (outside the mod folder, so it does not ship): the settings
+dialog on a save that never had the mod (Load Game > Mods > Activate > gear, 30 Oct 2026). The tool cuts CROP from it, the
+dialog's title and Settings box; a new shot of the same dialog at the same resolution keeps the setting rows where GROUPS
+expects them. The same cut, scaled down, is the settings image in docs/changing-settings.md, which the tool also writes.
 
-Usage: python3 tools/make_gallery.py [OUT_FILE] [--card CARD.png]
-OUT_FILE defaults to best_before_1/_metadata/1.jpg, CARD.png to local/gallery/settings_defaults.png. Needs rsvg-convert and Lato.
+Usage: python3 tools/make_gallery.py [OUT_FILE] [--shot SCREENSHOT.png]
+OUT_FILE defaults to best_before_1/_metadata/1.jpg, SCREENSHOT.png to SHOT. Needs rsvg-convert and Lato.
 """
 import subprocess
 import sys
@@ -25,6 +26,9 @@ W, H = make_preview.W, make_preview.H
 AMBER = make_preview.AMBER
 RADIUS = 22  # the dialog's rounded corners, in screenshot pixels
 
+SHOT = ROOT / "art/gallery/settings-defaults-20261030-082413.png"
+CROP = (567, 278, 1280, 1411)  # in the screenshot: the dialog's title and Settings box
+DOCS_IMAGE, DOCS_SCALE = ROOT / "docs/images/mod-settings-dialog.png", 0.6
 CARD_X, CARD_Y, CARD_H = 60, 40, 1000
 TEXT_X, TEXT_W = 830, 1040
 BRACKET_X = 722  # the brackets beside the screenshot; an S-curve joins each to its note's heading
@@ -34,7 +38,7 @@ HEAD_SIZE, BODY_SIZE, BODY_LEAD = 34, 28, 39
 HEAD_GAP = 46  # heading baseline to the first body line's baseline
 BOTTOM = H - 40  # the last note ends here
 
-# Each group: the rows it covers in the cut screenshot (top, bottom, in screenshot pixels), its heading and its text.
+# Each group: the rows it covers in the cut (top, bottom, in screenshot pixels from the top of CROP), its heading and its text.
 GROUPS = [
     (285, 725, "THE PAY CURVE",
      "Fresh cargo earns 120% of normal pay down to 40% freshness. Below that, pay falls in a straight line to normal pay at "
@@ -99,8 +103,8 @@ def notes(scale):
     return "\n".join(out)
 
 
-def card(path):
-    im = Image.open(path).convert("RGBA")
+def card(im):
+    im = im.convert("RGBA")
     mask = Image.new("L", im.size, 0)
     ImageDraw.Draw(mask).rounded_rectangle((0, 0, im.width - 1, im.height - 1), RADIUS, fill=255)
     im.putalpha(mask)
@@ -120,13 +124,16 @@ def render(svg_body):
 
 def main():
     args = sys.argv[1:]
-    card_path = ROOT / "local/gallery/settings_defaults.png"
-    if "--card" in args:
-        i = args.index("--card")
-        card_path = Path(args[i + 1])
+    shot = SHOT
+    if "--shot" in args:
+        i = args.index("--shot")
+        shot = Path(args[i + 1])
         del args[i:i + 2]
     out = Path(args[0]) if args else ROOT / "best_before_1/_metadata/1.jpg"
-    c, scale = card(card_path)
+    cut = Image.open(shot).convert("RGB").crop(CROP)
+    cut.resize((round(cut.width * DOCS_SCALE), round(cut.height * DOCS_SCALE)), Image.LANCZOS).save(DOCS_IMAGE, optimize=True)
+    print(DOCS_IMAGE)
+    c, scale = card(cut)
     image = render(make_preview.background(curve=False) + notes(scale))
     # The preview's drop shadow (its "shadow" filter): 6 pixels down, blur 7, black at 45%.
     shadow = Image.new("RGBA", c.size, (0, 0, 0, 0))

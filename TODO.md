@@ -32,6 +32,6 @@ A fourth entry in the "Non-perishable cargo" list, second after Full bonus: the 
 The cover `0.jpg` already draws the pay curve; a third image showing pay in play was considered and skipped.
 
 - [ ] Check that the uploader takes numbered images from `best_before_1/_metadata/` into the gallery: put `1.jpg` there, press Refresh in the mod's dialog, and see whether the gallery shows it. Only `workshop_preview.jpg` (picked up by itself) and `0.jpg` (written from the Preview slot) are known so far.
-- [x] `1.jpg`: the settings at their defaults with each group explained beside them, drawn by `tools/make_gallery.py` from shot 08:24:13 (30 Oct 2026). The same capture replaces `docs/images/mod-settings-dialog.png` in `docs/changing-settings.md`.
+- [x] `1.jpg`: the settings at their defaults with each group explained beside them, drawn by `tools/make_gallery.py` from shot 08:24:13 (30 Oct 2026, kept in `art/gallery/`). The same capture replaces `docs/images/mod-settings-dialog.png` in `docs/changing-settings.md`.
 - [ ] `2.jpg`: a line window with the Stale Cargo banner, taken in 1.2 (text "below the mod's stale freshness setting"); add the [L] line manager with the icon on that line's row if it fits in one frame.
 - [ ] Write the gallery images into `docs/publishing.md` once the check above shows how the uploader takes them.
