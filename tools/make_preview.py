@@ -33,16 +33,29 @@ LIFT = 50   # the title block, the feature list and the version sit this far up,
 GREEN, AMBER, RED = "#6cc04a", "#f2b33d", "#e0533f"
 INK = "#152031"
 
+# The background's gradient, glow and curve colours, drawn by background(); tools/make_gallery.py lays its cards on the same background.
+BACKGROUND_DEFS = f'''<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22334b"/><stop offset="1" stop-color="#0e1521"/></linearGradient>
+  <radialGradient id="glow" cx="0.62" cy="0.82" r="0.55"><stop offset="0" stop-color="#3a5a7e" stop-opacity=".45"/><stop offset="1" stop-color="#3a5a7e" stop-opacity="0"/></radialGradient>
+  <linearGradient id="curveGrad" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="{W}" y2="0">
+    <stop offset="0" stop-color="{GREEN}"/><stop offset="{fx(0.4) / W:.3f}" stop-color="{GREEN}"/>
+    <stop offset="{fx(0.2) / W:.3f}" stop-color="{AMBER}"/><stop offset="{fx(0.0) / W:.3f}" stop-color="{RED}"/><stop offset="1" stop-color="{RED}"/>
+  </linearGradient>'''
 
-def chart():
+
+def grid():
+    """Pay every 20%, freshness every 10%."""
     out = []
-    # Grid: pay every 20%, freshness every 10%
     for i in range(7):
         y = py(i * 0.2)
         out.append(f'<line x1="0" y1="{y:.1f}" x2="{W}" y2="{y:.1f}" stroke="#fff" stroke-opacity="0.045" stroke-width="2"/>')
     for i in range(11):
         x = fx(i / 10)
         out.append(f'<line x1="{x:.1f}" y1="0" x2="{x:.1f}" y2="{H}" stroke="#fff" stroke-opacity="0.045" stroke-width="2"/>')
+    return "\n".join(out)
+
+
+def chart():
+    out = [grid()]
     pts = [(0, py(1.2)), (fx(0.4), py(1.2)), (fx(0.2), py(1.0)), (fx(0.0), py(0.0)), (W, py(0.0))]
     line = "M " + " L ".join(f"{x:.1f} {y:.1f}" for x, y in pts)
     out.append(f'<path d="{line} L {W} {H} L 0 {H} Z" fill="url(#curveGrad)" fill-opacity="0.13"/>')
@@ -57,6 +70,13 @@ def chart():
     out.append(f'<text x="{X0}" y="{py(1.2) - 18:.1f}" {lab}>120%</text>')
     out.append(f'<text x="{X0}" y="{py(1.0) + 40:.1f}" {lab}>100%</text>')
     return "\n".join(out)
+
+
+
+def background(curve=True):
+    """The gradient, the glow, and the grid with the default pay curve (or the grid alone)."""
+    return "\n".join([f'<rect width="{W}" height="{H}" fill="url(#bg)"/>', f'<rect width="{W}" height="{H}" fill="url(#glow)"/>',
+                      chart() if curve else grid()])
 
 
 # ---- produce, drawn in a flat style: fill, darker same-hue outline, light highlight ----
@@ -333,17 +353,10 @@ def build(version=None):
     parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">',
         f'''<defs>
-  <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22334b"/><stop offset="1" stop-color="#0e1521"/></linearGradient>
-  <radialGradient id="glow" cx="0.62" cy="0.82" r="0.55"><stop offset="0" stop-color="#3a5a7e" stop-opacity=".45"/><stop offset="1" stop-color="#3a5a7e" stop-opacity="0"/></radialGradient>
-  <linearGradient id="curveGrad" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="{W}" y2="0">
-    <stop offset="0" stop-color="{GREEN}"/><stop offset="{fx(0.4) / W:.3f}" stop-color="{GREEN}"/>
-    <stop offset="{fx(0.2) / W:.3f}" stop-color="{AMBER}"/><stop offset="{fx(0.0) / W:.3f}" stop-color="{RED}"/><stop offset="1" stop-color="{RED}"/>
-  </linearGradient>
+  {BACKGROUND_DEFS}
   <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#000" flood-opacity=".45"/></filter>
 </defs>''',
-        f'<rect width="{W}" height="{H}" fill="url(#bg)"/>',
-        f'<rect width="{W}" height="{H}" fill="url(#glow)"/>',
-        chart(),
+        background(),
         f'<g filter="url(#shadow)"><text x="70" y="{250 - LIFT}" font-family="Lato" font-weight="900" font-size="196" fill="#fff" letter-spacing="2">BEST BEFORE</text></g>',
         f'<text x="78" y="{345 - LIFT}" font-family="Lato" font-weight="800" font-size="70" fill="{AMBER}" letter-spacing="12">CARGO FRESHNESS</text>',
         also_includes(),

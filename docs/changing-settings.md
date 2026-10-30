@@ -25,7 +25,7 @@
 
 3. The dialog lists the mod's settings under **Settings**. Set the sliders, then close the dialog with the X at its top right. The dialog opens with the values of the last new game you set up, not the defaults, because the game keeps the New Game screen's choices in its `settings.lua` in your user folder. Check them before you start.
 
-   ![The mod's settings at their defaults (taken before the stale threshold slider was added, so that sixth slider is missing)](images/mod-settings-dialog.png)
+   ![The mod's nine settings at their defaults, on a save that never had the mod (1.3)](images/mod-settings-dialog.png)
 
 4. Start the game as usual.
 

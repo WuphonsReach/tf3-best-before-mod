@@ -38,6 +38,9 @@ python3 tools/cpu_sample.py report local/cpu/<name> [--log local/logs/<log>.txt 
 # Redraw the mod's preview image (best_before_1/_metadata/workshop_preview.jpg, 1920x1080; needs rsvg-convert and the Lato font)
 python3 tools/make_preview.py [--version 0.1] [--keep-svg local/preview/workshop_preview.svg]   # the version goes in the upper right corner, kept clear for it; --keep-svg also saves the SVG it was drawn from (not into best_before_1/)
 cp best_before_1/_metadata/workshop_preview.jpg best_before_1/_metadata/0.jpg   # 0.jpg is the cover the in-game uploader made from it (byte-identical); copy again after every redraw
+
+# Redraw the gallery's 1.jpg: the settings at their defaults with each group explained beside them, on the cover's background
+python3 tools/make_gallery.py [--card local/gallery/settings_defaults.png]   # the docstring says how the card was cut from the screenshot
 ```
 
 Run `tl check` on each script you touch; there is no single command for both.
