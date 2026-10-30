@@ -76,6 +76,7 @@ THE DEFAULT CURVE
 - 40% down to 20%: falls in a straight line to normal pay.
 - 20% down to 0%: falls in a straight line to no pay.
 - Spoiled cargo: no pay.
+- Non-perishable cargo (everything but food, at the default delivery time): half the bonus, so 110% at most; below normal pay the curve is the same.
 
 NINE SETTINGS
 Set them under Mods, with the gear next to the mod, in New Game or in Load Game. The game keeps them in the save, so you can retune a save on any load. The percent sliders move in 5% steps.
@@ -86,7 +87,7 @@ Set them under Mods, with the gear next to the mod, in New Game or in Load Game.
 - Pay multiplier for spoiled cargo: 0% to 100% (default 0%).
 - Warn on cargo below freshness percent: 0% to 25% (default 10%). For the Stale Cargo warning only; pay is not affected, and 0% counts only spoiled cargo.
 - Show Stale Cargo warnings: on or off (default on). Off takes down every warning shown and stops counting stale cargo.
-- Non-perishable cargo: Full bonus, Half bonus, No bonus or No effect (default Full bonus). How the mod pays cargo with a long delivery time: the whole curve, the curve with half its bonus, its penalties only, or normal game pay. Stale Cargo warnings count it in every case.
+- Non-perishable cargo: Full bonus, Half bonus, No bonus or No effect (default Half bonus). How the mod pays cargo with a long delivery time: the whole curve, the curve with half its bonus, its penalties only, or normal game pay. Stale Cargo warnings count it in every case.
 - Non-perishable delivery time: 15 to 75 min (default 25 min). Cargo whose base delivery time is at least this counts as non-perishable; at 25 min only food (meat, fish, vegetables, beverages, grain) is perishable. The Delivery Time tab shows the base time x 1.5 in 1900, falling to x 0.75 from 2020.
 
 GOOD TO KNOW

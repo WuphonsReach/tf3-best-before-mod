@@ -22,7 +22,7 @@
 -- nonPerishableMinutes counts as non-perishable, and nonPerishable says how the curve pays it: "full" (the whole curve, as
 -- perishable cargo), "halfBonus" (the curve with its bonus halved, penalties in full), "noBonus" (the curve capped at normal
 -- pay, so penalties only) or "noEffect" (no answer, normal game pay).
--- The stale line warnings count it either way. In-game settings "Non-perishable cargo" (default Full bonus) and
+-- The stale line warnings count it either way. In-game settings "Non-perishable cargo" (default Half bonus) and
 -- "Non-perishable delivery time" (15 to 75 min, default 25 min, so only food is perishable); these are only their fallback,
 -- keep them equal to the mod.json defaults.
 --
@@ -71,7 +71,7 @@ return {
 	breakevenFreshness = 0.2,
 	penaltyBelowFreshness = 0.0,
 	penaltyPercent = -1.0,
-	nonPerishable = "full",
+	nonPerishable = "halfBonus",
 	nonPerishableMinutes = 25,
 	ticketPriceProbe = "off",
 	ticketPriceMultiplier = 1.0,
