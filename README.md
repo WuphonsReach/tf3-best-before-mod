@@ -4,6 +4,11 @@ A Transport Fever 3 mod that makes cargo pay follow freshness. Fresh cargo earns
 
 **Get it:** [Best Before: Cargo Freshness on mod.io](https://mod.io/g/transportfever3/m/best-before-cargo-freshness) (mod id 6459472). Subscribe there or in the game's Mod Hub (search for "Best Before"), then activate it under Mods in New Game or Load Game.
 
+<p>
+  <img src="best_before_1/_metadata/0.jpg" alt="Best Before: Cargo Freshness. Fresh cargo earns a bonus, spoiled cargo earns nothing." width="49%">
+  <img src="best_before_1/_metadata/1.jpg" alt="The mod's settings at their defaults, in three categories, each explained" width="49%">
+</p>
+
 ## In short
 
 - **What it does.** Before the game pays for a delivered cargo unit, it asks scripts for a pay multiplier (the ticket price event). The mod works out how fresh the unit is and answers 1 + the curve's bonus or deduction. The game pays the changed amount and shares it along the unit's trip as usual, so every vehicle and line that carried the unit shows the change, as does the player's account. Every line the mod writes to the game log starts with `BEST_BEFORE`.
