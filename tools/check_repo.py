@@ -41,16 +41,30 @@ else:
 
 # modVersion in mod.script.tl against the newest changelog entry ("## 1.2 (not released)" for modVersion "1.2-dev").
 m = re.search(r'^local modVersion = "([^"]+)"', (mod / "content/mod.script.tl").read_text(), re.M)
-h = re.search(r"^## (\S+)", (root / "CHANGELOG.md").read_text(), re.M)
+# "-dev" goes with "(not released)" and only with it, so a release cannot ship a -dev number or an unreleased heading. A dated
+# entry's last line is the uploader's one-liner ("Release note: ..."), and its placeholder bullet must be gone.
+changelog = (root / "CHANGELOG.md").read_text()
+h = re.search(r"^## (\S+)(.*)$", changelog, re.M)
 if not m or not h:
     fail("could not find modVersion in mod.script.tl or the top heading in CHANGELOG.md")
 else:
     version = m.group(1)
     base = version.removesuffix("-dev")
-    if h.group(1) == base:
-        ok(f"modVersion {version} matches the top CHANGELOG entry {h.group(1)}")
-    else:
+    unreleased = "(not released)" in h.group(2)
+    if h.group(1) != base:
         fail(f"modVersion {version} does not match the top CHANGELOG entry {h.group(1)}")
+    elif version.endswith("-dev") != unreleased:
+        fail(f"modVersion {version} under the heading \"## {h.group(1)}{h.group(2)}\": \"-dev\" goes with \"(not released)\" and "
+             "only with it (set both in the release commit)")
+    else:
+        ok(f"modVersion {version} matches the top CHANGELOG entry {h.group(1)}{h.group(2)}")
+    if not unreleased:
+        entry = changelog[h.end():].split("\n## ", 1)[0]
+        last = [ln for ln in entry.splitlines() if ln.strip()][-1:] or [""]
+        if "Nothing yet." in entry or not last[0].startswith("Release note: "):
+            fail(f"the released CHANGELOG entry {h.group(1)} must end with a \"Release note: \" line and drop \"Nothing yet.\"")
+        else:
+            ok(f"the CHANGELOG entry {h.group(1)} ends with its release note")
 
 # settings.tl's curve is the fallback and must equal the mod.json defaults (the slider position as a number, a check box as
 # true or false, the non-perishable list as the probe's name for it).

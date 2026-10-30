@@ -4,7 +4,8 @@ Newest first. The number in the title is `modVersion` at the top of [mod.script.
 
 ## 1.4 (not released)
 
-- Nothing yet.
+- **Fixed: turning the Stale Cargo warnings off retries a refused take-down.** If the game refused to take the warnings down, the mod tried only once, so a warning could stay in the save, and a save that holds one does not load without the mod. It now tries again once a game month until it goes through.
+- **Changed: a logging error no longer stops the Stale Cargo warnings.** The logging work in the mod's update runs under a guard, so an error there costs that log line only. Log: a new `BEST_BEFORE logError` line, written once per distinct error.
 
 ## 1.3 (30 Oct 2026)
 

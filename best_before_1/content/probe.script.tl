@@ -209,9 +209,11 @@ local record ProbeState
 	staleMonth : integer -- the game month the buckets were last rolled in
 	staleLines : {string : StaleLine} -- keyed by the line entity as text
 	staleSent : string -- the warned lines last sent to the notifications, comma separated
+	staleOffMonth : integer -- with the warnings off, the game month the empty set was last sent in (a failed send is retried the next month)
 	limitSig : string -- the adjusted delivery times and year last logged by logDeliveryLimits
 	limitTime : number -- the clock time of that line
 	ticketPriceSubscribed : boolean -- OnCalcTicketPrice was subscribed (ticket billing or the test probe)
+	lastLogError : string -- the last error logged by guardLog
 end
 
 -- Vehicles and lines can be sold while their cargo is still on its way, and asking the engine about a vanished entity
@@ -689,13 +691,15 @@ end
 
 local updateStaleLines = function(state : GameScriptState<ProbeState>, probeState : ProbeState, now : number, curve : Curve)
 	if not curve.staleWarnings then
-		-- Turned off: take down the warnings shown and forget the history, so turning it on again starts fresh. Tried once:
-		-- a failed send is logged, not repeated on every update. This is also how a player clears the warnings before removing
-		-- the mod: a save that holds one fails to load without it (docs/stale-line-warnings.md).
+		-- Turned off: take down the warnings shown and forget the history, so turning it on again starts fresh. A failed send
+		-- is logged and tried again once a game month (not on every update) until it goes through: this is also how a player
+		-- clears the warnings before removing the mod, and a save that still holds one fails to load without it
+		-- (docs/stale-line-warnings.md).
 		local changed = probeState.staleLines ~= nil or probeState.staleMonth ~= nil
-		if probeState.staleSent ~= nil and probeState.staleSent ~= "" then
-			sendStaleWarnings(probeState, {}, now)
-			probeState.staleSent = ""
+		local month = math.floor(now / monthClock)
+		if probeState.staleSent ~= nil and probeState.staleSent ~= "" and probeState.staleOffMonth ~= month then
+			probeState.staleOffMonth = month
+			sendStaleWarnings(probeState, {}, now) -- sets staleSent to "" when it goes through
 			changed = true
 		end
 		if changed then
@@ -704,6 +708,10 @@ local updateStaleLines = function(state : GameScriptState<ProbeState>, probeStat
 			state:set(probeState)
 		end
 		return
+	end
+	if probeState.staleOffMonth ~= nil then
+		probeState.staleOffMonth = nil
+		state:set(probeState)
 	end
 	local month = math.floor(now / monthClock)
 	if probeState.staleMonth == nil or month < probeState.staleMonth then
@@ -912,6 +920,19 @@ local logDeliveryLimits = function(state : GameScriptState<ProbeState>, probeSta
 	end)
 end
 
+-- Runs log-only work from update under pcall: an error costs that log line, never the stale warnings that update handles
+-- after it (an error in the game script repeats on every update). The error is logged when it differs from the last one, so a
+-- repeating error writes one line, not one per update.
+local guardLog = function(state : GameScriptState<ProbeState>, probeState : ProbeState, what : string, work : function())
+	local ok, err : boolean, any = pcall(work)
+	if ok then return end
+	local text = what .. ": " .. tostring(err)
+	if text == probeState.lastLogError then return end
+	probeState.lastLogError = text
+	state:set(probeState)
+	log.message("BEST_BEFORE logError " .. text)
+end
+
 local vehicleQuality = function(vehicle : Engine.Entity, cargoTypeId : integer) : string
 	if not exists(vehicle) then return "gone" end
 	local ok, data = pcall(api.engine.util.cargo.getCargoQualityDataForVehicle, vehicle, cargoTypeId)
@@ -933,11 +954,14 @@ local probe : GameScript<ProbeState> = {
 			log.message("BEST_BEFORE ticketPrice subscribed probe=" .. ticketMode)
 		end
 		local curve = activeCurve(state, probeState) -- reads the in-game settings, before any unit arrives
-		if logUnits then logJournalSnapshot(state, probeState) end
+		if logUnits then
+			guardLog(state, probeState, "journal", function() logJournalSnapshot(state, probeState) end)
+		end
 		local gameTime : Engine.Component.GameTime = api.engine.getComponent(api.engine.util.getWorld(), api.type.ComponentType.GAME_TIME)
 		if logAny then
-			currentPayScale(state, probeState, gameTime.gameTime) -- logs the company and pay scale when they changed
-			logSummary(state, probeState)
+			-- Logs the company and pay scale when they changed.
+			guardLog(state, probeState, "payScale", function() currentPayScale(state, probeState, gameTime.gameTime) end)
+			guardLog(state, probeState, "summary", function() logSummary(state, probeState) end)
 		end
 		logDeliveryLimits(state, probeState, gameTime.gameTime)
 		updateStaleLines(state, probeState, gameTime.gameTime, curve)

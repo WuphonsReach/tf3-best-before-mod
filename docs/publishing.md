@@ -13,7 +13,7 @@
 ## Uploading an update
 
 1. Edit the listing text below first, then copy it into `modinfo.json` (the description with line breaks as `\n`).
-2. Keep `best_before_1/_content.json` in step with `best_before_1/content/`: every file under `content/` listed (the game cannot load one that is missing). Run `python3 tools/check_content_list.py` (it fails if the list and the folder differ). Set `modVersion` in `mod.script.tl`, move the `CHANGELOG.md` entry from "not released" to the version and date, with its "Release note:" line, and put `settings.tl`'s `logLevel` back to `summary`.
+2. Keep `best_before_1/_content.json` in step with `best_before_1/content/`: every file under `content/` listed (the game cannot load one that is missing). Run `python3 tools/check_content_list.py` (it fails if the list and the folder differ). Set `modVersion` in `mod.script.tl`, move the `CHANGELOG.md` entry from "not released" to the version and date, with its "Release note:" line, and put `settings.tl`'s `logLevel` back to `summary`. `python3 tools/check_repo.py` fails until all of that is done: `modVersion` without "-dev" under a dated heading, the entry ending in its release note, no "Nothing yet." left.
 3. Start the game, open **Mod Hub**, then **My Mods**, and click the mod's card.
 4. In the dialog:
    - **Validation** should read "No Issues Found" (**Re-Validate** runs it again).

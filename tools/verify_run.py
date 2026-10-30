@@ -9,7 +9,9 @@ The mod answers the game's ticket price event with each unit's pay multiplier. T
     curve's adjustment, not below 0), and every arrival billed "none" (non-perishable cargo under "No effect") was left
     unanswered, and
   - each arrival's perishable flag follows its file time against the "Non-perishable delivery time" of the `loadParams` line,
-    and its non-perishable cargo is paid as "Non-perishable cargo" says (full curve, rate at most 1, or not answered).
+    and its non-perishable cargo is paid as "Non-perishable cargo" says (full curve, rate at most 1, or not answered), and
+  - each arrival's rate equals the one tools/replay_curve.py works out from the curve the run was played on (the
+    `loadParams` line), so a wrong curve fails although the ticket answers equal the logged rates.
 The player's income against the logged base pay times the answers is reported for information (units near either end of a
 run blur it). A run under the test probe (ticketPriceProbe "observe" or "scale") bills nothing by ticket; read it with
 tools/ticket_probe.py.
@@ -21,6 +23,8 @@ Each arrival's staleUnit is checked against the rule too (not good, or corrected
 import re
 import sys
 from collections import defaultdict
+
+from replay_curve import BEFORE_NP, DEFAULTS, adjustment, curve_from_lines, file_seconds
 
 
 def kv(text):
@@ -39,7 +43,7 @@ def main(path):
     ticket_items, ticketed, ticket_events = {}, [], []     # items by unit, (arrival, item) pairs, events
     unbilled = []                                          # (arrival, item) pairs of units the mod left alone
     for i, ln in enumerate(lines[start:], start):
-        if " - ERROR " in ln or "Error message" in ln:
+        if " - ERROR " in ln or " - CRITICAL " in ln or "Error message" in ln or "BEST_BEFORE logError " in ln:
             errors.append(ln.strip())
         m = re.search(r"BEST_BEFORE (\w+) ?(.*)", ln)
         if not m:
@@ -81,6 +85,7 @@ def main(path):
         print("FAIL  no arrival billed by ticket (a test probe run? read it with tools/ticket_probe.py)")
         return 1
     ok = check_non_perishable(lines, start, arrivals, unbilled) and ok
+    ok = check_rates(lines, start, arrivals) and ok
     return check_ticket(lines, start, ticketed, unbilled, ticket_events, snaps, ok)
 
 
@@ -122,6 +127,31 @@ def check_non_perishable(lines, start, arrivals, unbilled):
     for p in problems[:5]:
         print(f"      {p}")
     return not answered and not problems
+
+
+def check_rates(lines, start, arrivals):
+    """Each arrival's rate against the curve the run was played on, worked out by tools/replay_curve.py (its own copy of
+    probe.script.tl's curveAdjustment and unitAdjustment), on the corrected freshness the mod judges by."""
+    curve, source = curve_from_lines(lines[start:])
+    if curve is None:
+        curve, source = dict(DEFAULTS), "settings.tl"      # no in-game settings logged: the probe's last resort too
+    curve = dict(BEFORE_NP, **curve)
+    checked, problems = 0, []
+    for a in arrivals:
+        if "rate" not in a or "corrected" not in a or a.get("billing") not in ("ticket", "none"):
+            continue
+        u = {"corrected": float(a["corrected"]), "fresh": float(a.get("freshness", a["corrected"])),
+             "good": a.get("good") == "true", "file": file_seconds(a)}
+        expected = max(0.0, 1.0 + adjustment(u, curve, "corrected"))
+        checked += 1
+        if abs(expected - float(a["rate"])) > 1e-6:
+            problems.append(f"unit {a['unit']} at {a['now']}: rate {a['rate']}, the curve gives {expected:.6f} (good={a.get('good')} "
+                            f"corrected={a['corrected']} fileSeconds={a.get('fileSeconds')})")
+    print(("PASS" if not problems else "FAIL") + f"  rates against the curve (from {source}): {checked - len(problems)} of {checked} "
+          f"arrivals match")
+    for p in problems[:5]:
+        print(f"      {p}")
+    return not problems
 
 
 def check_ticket(lines, start, ticketed, unbilled, events, snaps, ok):

@@ -156,7 +156,7 @@ def extract(path, out_dir, slug, note, min_arrivals):
     arrivals, journal, company, settings, curve_notes, sends, errors = [], [], None, None, [], [0, 0], 0
     load_params = None
     for ln in lines[start:]:
-        if " - ERROR " in ln or "Error message" in ln:
+        if " - ERROR " in ln or " - CRITICAL " in ln or "Error message" in ln or "BEST_BEFORE logError " in ln:
             errors += 1
         m = re.search(r"BEST_BEFORE (\w+) ?(.*)", ln)
         if not m:
