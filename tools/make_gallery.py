@@ -42,17 +42,18 @@ BOTTOM = H - 40  # the last note ends here
 GROUPS = [
     (285, 725, "THE PAY CURVE",
      "Fresh cargo earns 120% of normal pay down to 40% freshness. Below that, pay falls in a straight line to normal pay at "
-     "20%, then to the lowest pay, nothing, at 0%. Spoiled cargo earns the spoiled pay, also nothing. Freshness is 100% "
-     "at pickup and 0% at the game's delivery limit for that cargo."),
+     "20%, then on to the lowest pay (nothing) at 0%. Spoiled cargo earns the spoiled pay, also nothing. Freshness is 100% "
+     "at pickup and falls to 0% at the cargo's delivery limit."),
     (745, 875, "STALE CARGO WARNINGS",
-     "A line whose deliveries arrive mostly below 10% freshness, or spoiled, for months gets a warning; pay is not affected. "
-     "Untick the box to turn the warnings off."),
+     "A line that delivers mostly cargo below 10% freshness, or spoiled cargo, for several months gets a warning. Pay is not "
+     "affected. Untick the box to turn the warnings off."),
     (895, 1100, "NON-PERISHABLE CARGO",
-     "Cargo with a base delivery time of 25 min or more, everything but food, gets half the bonus (110% at most) and the "
-     "penalties in full. The other choices: Full\u00a0bonus, No\u00a0bonus, No\u00a0effect."),
+     "Cargo with a base delivery time of 25 min or more (everything but food) gets half the bonus, so 110% at most, and the "
+     "full penalties. The other choices are Full\u00a0bonus, No\u00a0bonus and No\u00a0effect."),
 ]
-TITLE = "NINE SETTINGS"
-SUBTITLE = "Under Mods, the gear next to the mod, in New Game or Load Game. Shown at their defaults. The save keeps them, so a save can be retuned on any load."
+TITLE = "3 SETTING CATEGORIES"
+SUBTITLE = ("Set them under Mods (the gear next to the mod) in New Game or Load Game.",  # one line each, wrapped apart
+            "Shown at their defaults. Settings are stored in the save; change them on any load.")
 
 
 def wrap(text, size, width, weight="Regular"):
@@ -75,7 +76,7 @@ def text_block(x, y, lines, size, lead, attrs):
 
 def notes(scale):
     out = [f'<text x="{TEXT_X}" y="128" font-family="Lato" font-weight="800" font-size="62" fill="{AMBER}" letter-spacing="8">{TITLE}</text>']
-    sub = wrap(SUBTITLE, BODY_SIZE, TEXT_W)
+    sub = [line for part in SUBTITLE for line in wrap(part, BODY_SIZE, TEXT_W)]
     out.append(text_block(TEXT_X, 186, sub, BODY_SIZE, BODY_LEAD, 'fill="#fff" fill-opacity=".8"'))
     # The notes share the space under the subtitle in even gaps; a line from each bracket's middle leads to its heading.
     blocks = []

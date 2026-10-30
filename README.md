@@ -6,7 +6,7 @@ A Transport Fever 3 mod that makes cargo pay follow freshness. Fresh cargo earns
 
 <p>
   <img src="best_before_1/_metadata/0.jpg" alt="Best Before: Cargo Freshness. Fresh cargo earns a bonus, spoiled cargo earns nothing." width="49%">
-  <img src="best_before_1/_metadata/1.jpg" alt="The mod's nine settings at their defaults, each group explained" width="49%">
+  <img src="best_before_1/_metadata/1.jpg" alt="The mod's settings at their defaults, in three categories, each explained" width="49%">
 </p>
 
 ## In short
