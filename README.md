@@ -6,7 +6,7 @@ A Transport Fever 3 mod that makes cargo pay follow freshness. Fresh cargo earns
 
 <p>
   <img src="best_before_1/_metadata/0.jpg" alt="Best Before: Cargo Freshness. Fresh cargo earns a bonus, spoiled cargo earns nothing." width="49%">
-  <img src="best_before_1/_metadata/workshop_preview.jpg" alt="The mod's settings at their defaults, in three categories, each explained" width="49%">
+  <img src="best_before_1/_metadata/2.jpg" alt="The mod's settings at their defaults, in three categories, each explained" width="49%">
 </p>
 
 ## In short
@@ -51,7 +51,7 @@ The work is done by `best_before_1/content/probe.script.tl`, which answers the t
 - `tools/extract_run.py` cuts a run's arrivals, balance snapshots and facts (save, settings, totals) out of a raw log into small CSV and JSON files under `local/runs/`. It corrects the pay prediction to the save's Cargo Income setting and earned rank, so runs from different saves can be replayed together.
 - `tools/replay_curve.py` applies the five-setting curve and the non-perishable settings to the arrivals in one or more logs or extracted `.arrivals.csv` files and prints the net change in pay, each run on the curve it was played on. `--use-defaults` replays on `settings.tl`'s numbers instead; `--sweep`, `--solve-bonus` and `--tables` help tune the defaults without the game.
 - `tools/cpu_sample.py` samples the game's simulation and main threads and the whole machine's CPU every few seconds while you play (two CSV files under `local/cpu/`), then reports CPU seconds per game month to compare log levels. Run `sample` for at least 5 minutes while the game runs, then `report` with the game log.
-- `tools/make_preview.py` draws the listing's cover, `best_before_1/_metadata/1.jpg` (copied to `0.jpg`), and `tools/make_gallery.py` the settings image, `best_before_1/_metadata/workshop_preview.jpg`.
+- `tools/make_preview.py` draws the listing's cover, `best_before_1/_metadata/1.jpg` (copied to `0.jpg`), and `tools/make_gallery.py` the settings image, `best_before_1/_metadata/2.jpg`.
 
 ## Documentation
 
