@@ -3,7 +3,7 @@
 The background curve is the default curve from mod.json. The upper right corner is kept clear for a version number.
 
 Usage: python3 tools/make_preview.py [OUT_FILE] [--version 0.1] [--keep-svg SVG_FILE]
---keep-svg also writes the SVG the image is rendered from (for example to local/preview/workshop_preview.svg); keep it out of best_before_1/.
+--keep-svg also writes the SVG the image is rendered from (for example to local/preview/cover.svg); keep it out of best_before_1/.
 OUT_FILE defaults to best_before_1/_metadata/1.jpg, the gallery's first image; copy it to 0.jpg for the cover (docs/publishing.md).
 """
 import math

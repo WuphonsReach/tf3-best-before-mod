@@ -119,14 +119,13 @@ Whether the uploader needs step 2 or makes `0.jpg` from step 3 alone is not know
 
 ## Gallery
 
-The gallery under the large image on the mod's page (and in the dialog) holds `1.jpg` (the cover) and then `workshop_preview.jpg` (the settings at their defaults, drawn by `tools/make_gallery.py`). `0.jpg` is not in it.
+The gallery under the large image on the mod's page (and in the dialog) holds `1.jpg` (the cover) and then `2.jpg` (the settings at their defaults, drawn by `tools/make_gallery.py`). `0.jpg` is not in it. The names follow Industry Upgrades (`0.png` the cover, `1.png` to `7.png` the gallery); there is no `workshop_preview.jpg`.
 
 - **The order is the file names.** On the 1.3 upload (30 Oct 2026) the dialog showed `1.jpg` first; when it held the settings image, the settings came first. Each thumbnail in the dialog has a small < (Move Left), > (Move Right) and bin over its top right corner. Moving a thumbnail swapped the two files' contents on disk and wrote nothing else, so the order lives only in which image has which name. Commit the files as the dialog leaves them, or the next upload goes back to the old order.
 - **The page follows the dialog's order.** After that upload the mod.io page showed the cover thumbnail first and the settings thumbnail second.
 - **mod.io keeps old names.** It already had a `workshop_preview.jpg` (the cover, from earlier uploads), so it stored the new one as `workshop_preview.1.jpg`; the old file stays on its image server. The files there are byte-identical to the repo's (`image.modcdn.io/mods/7cd8/6459472/<name>` for the original, `thumb.modcdn.io/mods/7cd8/6459472/crop_1280x720/<name>` and `crop_320x180` for the sizes the page uses; a size not yet asked for redirects once while it is rendered).
 - **Clicking the second thumbnail did not show it** right after the 1.3 upload, although every size of `workshop_preview.1.jpg` loaded correctly on its own. Other mods' galleries (Bus And Truck Bay, Industry Upgrades) worked at the same time, and the game's own Mod Hub shows the settings image when its thumbnail is clicked, so it looks like a stale cache on mod.io's website; not yet rechecked.
-- **Other mods' layout.** Industry Upgrades stores `0.png` (the cover) and `1.png` to `7.png`, and no `workshop_preview`. Renaming ours the same way (`2.jpg` for the settings image, no `workshop_preview.jpg`) would avoid mod.io's renaming; whether the game's dialog then makes a `workshop_preview.jpg` by itself is not known.
-- **Unknown:** whether a `2.jpg` would join the gallery, and where it would sort.
+- **Unknown until the next upload:** that the dialog takes `2.jpg` into the gallery after `1.jpg` (expected from the name order and from Industry Upgrades), and whether it writes a `workshop_preview.jpg` of its own. The live listing (1.3) still carries the settings image as `workshop_preview.jpg`.
 
 ## What was checked
 
