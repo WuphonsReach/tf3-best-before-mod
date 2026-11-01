@@ -9,7 +9,7 @@ dialog's title and Settings box; a new shot of the same dialog at the same resol
 expects them. The same cut, scaled down, is the settings image in docs/changing-settings.md, which the tool also writes.
 
 Usage: python3 tools/make_gallery.py [OUT_FILE] [--shot SCREENSHOT.png]
-OUT_FILE defaults to best_before_1/_metadata/2.jpg (the gallery's second image, see docs/publishing.md), SCREENSHOT.png to SHOT. Needs rsvg-convert and Lato.
+OUT_FILE defaults to best_before_1/_metadata/2-settings.jpg (the gallery's second image, see docs/publishing.md), SCREENSHOT.png to SHOT. Needs rsvg-convert and Lato.
 """
 import subprocess
 import sys
@@ -130,7 +130,7 @@ def main():
         i = args.index("--shot")
         shot = Path(args[i + 1])
         del args[i:i + 2]
-    out = Path(args[0]) if args else ROOT / "best_before_1/_metadata/2.jpg"
+    out = Path(args[0]) if args else ROOT / "best_before_1/_metadata/2-settings.jpg"
     cut = Image.open(shot).convert("RGB").crop(CROP)
     cut.resize((round(cut.width * DOCS_SCALE), round(cut.height * DOCS_SCALE)), Image.LANCZOS).save(DOCS_IMAGE, optimize=True)
     print(DOCS_IMAGE)
