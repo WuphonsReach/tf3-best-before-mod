@@ -35,12 +35,11 @@ python3 tools/replay_curve.py local/runs/<name>.arrivals.csv [more]   # pool the
 python3 tools/cpu_sample.py sample local/cpu/<name> [--also "steam|code"]   # writes <name>.process.csv and <name>.system.csv; run at least 5 minutes
 python3 tools/cpu_sample.py report local/cpu/<name> [--log local/logs/<log>.txt | --game-months N]
 
-# Redraw the mod's cover (best_before_1/_metadata/1.jpg, the gallery's first image, 1920x1080; needs rsvg-convert and the Lato font)
+# Redraw the mod's cover (best_before_1/_metadata/0.jpg, the Preview slot's image, plus a byte-identical copy 1-cover.jpg, the gallery's first image; 1920x1080; needs rsvg-convert and the Lato font)
 python3 tools/make_preview.py [--version 0.1] [--keep-svg local/preview/cover.svg]   # the version goes in the upper right corner, kept clear for it; --keep-svg also saves the SVG it was drawn from (not into best_before_1/)
-cp best_before_1/_metadata/1.jpg best_before_1/_metadata/0.jpg   # 0.jpg is the Preview slot's cover (byte-identical); copy again after every redraw
 
-# Redraw the gallery's second image (2.jpg; the gallery orders by file name, see docs/publishing.md): the settings at their defaults with each group explained beside them, on the cover's background
-python3 tools/make_gallery.py [--shot art/gallery/<screenshot>.png]   # writes 2.jpg; cuts the dialog from the screenshot kept in art/gallery/ (not shipped); also rewrites docs/images/mod-settings-dialog.png from the same cut
+# Redraw the gallery's second image (2-settings.jpg; the gallery orders by file name, see docs/publishing.md): the settings at their defaults with each group explained beside them, on the cover's background
+python3 tools/make_gallery.py [--shot art/gallery/<screenshot>.png]   # writes 2-settings.jpg; cuts the dialog from the screenshot kept in art/gallery/ (not shipped); also rewrites docs/images/mod-settings-dialog.png from the same cut
 ```
 
 Run `tl check` on each script you touch; there is no single command for both.
@@ -83,6 +82,6 @@ Game script constraints that shape this code (details in findings):
 Details and the step-by-step are in [docs/publishing.md](docs/publishing.md).
 
 - Uploads go only through the game's own uploader (Mod Hub, My Mods, the mod's dialog); the mod.io website refuses Transport Fever 3 uploads, and the website login does not reach the account that owns the mod. Uploading is outward-facing: the user does it, never a script.
-- The uploader reads `best_before_1/_metadata/modinfo.json` (name, summary, description, tags) and the images in `_metadata/`. Edit the listing text in `docs/publishing.md` first, then mirror it into `modinfo.json`.
+- The uploader reads `best_before_1/_metadata/modinfo.json` (name, summary, description, tags) and the images in `_metadata/`: `0.jpg` the cover, then the gallery `<n>-<name>.jpg` in file-name order. An update does not send a gallery image whose name mod.io already holds, so a changed picture gets a new name (`2-settings-2.jpg`), and the tool that draws it writes that name. Edit the listing text in `docs/publishing.md` first, then mirror it into `modinfo.json`.
 - `best_before_1/_metadata/mod.io_fileid.txt` holds the mod id and makes the dialog update the existing mod. Keep it committed and never delete it, or the next upload creates a second mod.
 - The upload takes the whole `best_before_1/` folder except `_metadata/` (checked on a subscribed copy of 1.0), so anything put there ships. `best_before_1/_content.json` lists the files under `content/`, and the game builds the mod's file index from that list: a script file missing from it cannot be loaded (1.0 shipped without `settings.tl` in it and the game refused to start). Keep it in step when a script file is added, renamed or removed, and after every upload load a save with the published copy before calling the release good (staging link removed, subscribed copy only: with both present the game picks the staging copy and logs a `Multiple (2) mods with same id` warning). Keep `modVersion` in `mod.script.tl` and the top of `CHANGELOG.md` in step; the log line `BEST_BEFORE version` shows which copy loaded.
