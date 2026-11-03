@@ -218,9 +218,14 @@ def report_run(run, series, comms, system_rows, process_path, log, skip, game_mo
     first = min(s[0][0] for s in series.values())
     last = max(s[-1][0] for s in series.values())
     day = datetime.fromtimestamp(first, timezone.utc).strftime("%Y-%m-%d")
-    at = lambda hms: datetime.strptime(f"{day} {hms}", "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc).timestamp()
-    start = at(from_at) if from_at else first + skip
-    end = min(at(until_at), last) if until_at else last
+    def at(hms, not_before):
+        """The first moment at HH:MM:SS UTC that is not before not_before (a minute of slack): a window may cross midnight."""
+        when = datetime.strptime(f"{day} {hms}", "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc).timestamp()
+        while when < not_before - 60:
+            when += 86400
+        return when
+    start = at(from_at, first) if from_at else first + skip
+    end = min(at(until_at, start), last) if until_at else last
     print(f"\n=== run {run}: started {datetime.fromtimestamp(first, timezone.utc):%Y-%m-%d %H:%M:%SZ} ===")
     if end <= start:
         print(f"the run is shorter than --skip {skip:g}s")

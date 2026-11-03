@@ -4,6 +4,7 @@
 Checks: the mod's JSON files parse, mod.io_fileid.txt is present, modVersion matches the top CHANGELOG entry, settings.tl's
 curve equals the mod.json defaults, and settings.tl ships logLevel "summary", ticketPriceProbe "off" and incomeLogging false.
 """
+import ast
 import json
 import re
 import sys
@@ -105,6 +106,14 @@ if "mod.json" in loaded:
             fail(f"settings.tl {name} = {settings.get(name)} but the mod.json default is {want}")
     if not any("settings.tl" in f for f in failures):
         ok("settings.tl curve equals the mod.json defaults")
+    # The cover and the gallery draw and quote the defaults from SHOWN_DEFAULTS in make_preview.py.
+    shown_line = re.search(r"^SHOWN_DEFAULTS = (\{.*\})$", (root / "tools/make_preview.py").read_text(), re.M)
+    shown = ast.literal_eval(shown_line.group(1)) if shown_line else {}
+    bad = [n for n, want in expected.items() if abs(shown.get(n, float("nan")) - want) > 1e-9]
+    if bad:
+        fail("make_preview.py SHOWN_DEFAULTS differs from the mod.json defaults for " + ", ".join(bad))
+    else:
+        ok("the cover and gallery scripts draw the mod.json defaults")
 
 # A test value of logLevel must not ship.
 if settings.get("logLevel") == '"summary"':

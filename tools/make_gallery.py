@@ -39,16 +39,19 @@ HEAD_GAP = 46  # heading baseline to the first body line's baseline
 BOTTOM = H - 40  # the last note ends here
 
 # Each group: the rows it covers in the cut (top, bottom, in screenshot pixels from the top of CROP), its heading and its text.
+D = make_preview.SHOWN_DEFAULTS
 GROUPS = [
     (285, 725, "THE PAY CURVE",
-     "Fresh cargo earns 120% of normal pay down to 40% freshness. Below that, pay falls in a straight line to normal pay at "
-     "20%, then on to the lowest pay (nothing) at 0%. Spoiled cargo earns the spoiled pay, also nothing. Freshness is 100% "
+     f"Fresh cargo earns {1 + D['bonusPercent']:.0%} of normal pay down to {D['bonusDownToFreshness']:.0%} freshness. Below that, "
+     f"pay falls in a straight line to normal pay at {D['breakevenFreshness']:.0%}, then on to the lowest pay (nothing) at "
+     f"{D['penaltyBelowFreshness']:.0%}. Spoiled cargo earns the spoiled pay, also nothing. Freshness is 100% "
      "at pickup and falls to 0% at the cargo's delivery limit."),
     (745, 875, "STALE CARGO WARNINGS",
-     "A line that delivers mostly cargo below 10% freshness, or spoiled cargo, for several months gets a warning. Pay is not "
+     f"A line that delivers mostly cargo below {D['staleBelowFreshness']:.0%} freshness, or spoiled cargo, for several months gets a warning. Pay is not "
      "affected. Untick the box to turn the warnings off."),
     (895, 1100, "NON-PERISHABLE CARGO",
-     "Cargo with a base delivery time of 25 min or more (everything but food) gets half the bonus, so 110% at most, and the "
+     f"Cargo with a base delivery time of {D['nonPerishableMinutes']} min or more (everything but food) gets half the bonus, so "
+     f"{1 + D['bonusPercent'] / 2:.0%} at most, and the "
      "full penalties. The other choices are Full\u00a0bonus, No\u00a0bonus and No\u00a0effect."),
 ]
 TITLE = "3 SETTING CATEGORIES"
