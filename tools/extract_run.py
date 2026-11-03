@@ -142,11 +142,14 @@ def pay_scale_of(ctx):
 
 
 def extract(path, out_dir, slug, note, min_arrivals):
-    lines = open(path, errors="replace").read().splitlines()
+    text = open(path, errors="replace").read()
+    if text and not text.endswith("\n"):
+        text = text[:text.rfind("\n") + 1]           # a copy taken while the game writes ends mid-line: drop that line
+    lines = text.splitlines()
     start = max((i for i, ln in enumerate(lines) if "BEST_BEFORE preRunFn" in ln), default=0)
     stem = re.sub(r"^stdout-", "", os.path.splitext(os.path.basename(path))[0])
     if slug:
-        stem = re.sub(r"^(\d{8}-\d{4}).*", r"\1", stem) + "-" + slug
+        stem = re.sub(r"^(\d{8}(-\d{4})?).*", r"\1", stem) + "-" + slug
     save = None
     for ln in lines:
         m = re.search(r"Loading game from file (.+?)\s*$", ln)

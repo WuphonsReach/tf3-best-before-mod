@@ -20,6 +20,10 @@ local fallbackSettings : {string:any} = {
 	breakevenFreshness = 0.2,
 	penaltyBelowFreshness = 0.0,
 	penaltyPercent = -1.0,
+	staleWarnings = true,
+	staleBelowFreshness = 0.1,
+	nonPerishable = "halfBonus",
+	nonPerishableMinutes = 25,
 }
 local settingsLoaded, loadedSettings = pcall(ug_require, "best_before_1::/settings.tl")
 local settings : {string:any} = settingsLoaded and (loadedSettings as {string:any}) or fallbackSettings

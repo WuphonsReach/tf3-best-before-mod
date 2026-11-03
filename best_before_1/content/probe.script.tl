@@ -167,6 +167,16 @@ local engineFactor = 0.96426
 -- the cargo file's time. The adjusted time shrinks as the game years pass: 1.5 x in 1900, 1.4 x in 1916, about 0.75 x by 2191.
 local deliverTimeMultiplier = 1.5
 
+-- The year rule behind that shrinking (docs/findings.md): 1.5 - (year - 1900) / 160, never below 0.75 (reached in 2020). Used
+-- only when the game's own call fails; 1.5 when the year cannot be read either.
+local fallbackTimeMultiplier = function() : number
+	local ok, year = pcall(api.engine.util.getYear)
+	if ok and type(year) == "number" then
+		return math.min(deliverTimeMultiplier, math.max(0.75, deliverTimeMultiplier - (year - 1900) / 160))
+	end
+	return deliverTimeMultiplier
+end
+
 -- Vehicles and lines whose ledger balance is logged (every vehicle and line in an arriving unit's pickup chain, up to
 -- this many).
 local maxTracked = 200
@@ -185,7 +195,6 @@ end
 
 local record ProbeState
 	curve : Curve -- the pay curve in force, refreshed by update for handleEvent
-	lastCurveNote : string
 	lastCurveSource : string -- "params" or "settings.tl": where `curve` came from
 	payScaleValue : number -- the pay scale read at payScaleTime, see currentPayScale
 	payScaleText : string
@@ -487,7 +496,6 @@ local activeCurve = function(state : GameScriptState<ProbeState>, probeState : P
 	probeState.lastCurveSource = source
 	local note = "source=" .. source .. " " .. describeCurve(curve) .. (adjusted and " adjusted=yes" or "")
 	probeState.curve = curve
-	probeState.lastCurveNote = note
 	state:set(probeState)
 	if logAny then log.message("BEST_BEFORE curveSettings " .. note) end
 	return curve
@@ -785,11 +793,11 @@ end
 
 -- A unit's delivery limit in ms (freshness 0) and where it came from: the game's adjusted delivery time, which is what the
 -- company window's Delivery Time tab shows (game_mechanics.zip: finance/finances_cargo_lifetime.tl) and what the vehicles'
--- cargo bar runs against, or deliverTimeMultiplier x the cargo file's time when that call fails.
+-- cargo bar runs against, or the file's time x the year rule below when that call fails.
 local deliveryLimit = function(cargoTypeId : integer, fileSeconds : number) : number, string
 	local ok, seconds = pcall(api.engine.util.stock.getAdjustedDeliveryTime, cargoTypeId)
 	if ok and seconds ~= nil and seconds > 0 then return seconds * 1000.0, "adjusted" end
-	return fileSeconds * 1000.0 * deliverTimeMultiplier, "file"
+	return fileSeconds * 1000.0 * fallbackTimeMultiplier(), "file"
 end
 
 -- Ticket billing and the test probe. Before it pays, the engine asks every OnCalcTicketPrice subscriber for pay

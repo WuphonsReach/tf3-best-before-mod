@@ -17,6 +17,12 @@ from pathlib import Path
 W, H = 1920, 1080
 
 # Default curve from mod.json: 120% down to freshness 40%, 100% at 20%, 0% at 0% and for spoiled cargo.
+# The mod.json defaults the cover and the gallery draw and write about (tools/check_repo.py compares this line with mod.json).
+SHOWN_DEFAULTS = {"bonusPercent": 0.2, "bonusDownToFreshness": 0.4, "breakevenFreshness": 0.2, "penaltyBelowFreshness": 0.0, "penaltyPercent": -1.0, "staleBelowFreshness": 0.1, "nonPerishableMinutes": 25}
+TOP_PAY = 1 + SHOWN_DEFAULTS["bonusPercent"]
+BONUS_TO, BREAKEVEN, PENALTY_BELOW = (SHOWN_DEFAULTS[k] for k in ("bonusDownToFreshness", "breakevenFreshness", "penaltyBelowFreshness"))
+LOW_PAY = 1 + SHOWN_DEFAULTS["penaltyPercent"]
+
 X0, X1 = 80, 1840          # freshness 100% .. 0%
 Y_TOP, Y0 = 440, 1000      # pay 120% .. 0%
 
@@ -38,8 +44,8 @@ INK = "#152031"
 BACKGROUND_DEFS = f'''<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22334b"/><stop offset="1" stop-color="#0e1521"/></linearGradient>
   <radialGradient id="glow" cx="0.62" cy="0.82" r="0.55"><stop offset="0" stop-color="#3a5a7e" stop-opacity=".45"/><stop offset="1" stop-color="#3a5a7e" stop-opacity="0"/></radialGradient>
   <linearGradient id="curveGrad" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="{W}" y2="0">
-    <stop offset="0" stop-color="{GREEN}"/><stop offset="{fx(0.4) / W:.3f}" stop-color="{GREEN}"/>
-    <stop offset="{fx(0.2) / W:.3f}" stop-color="{AMBER}"/><stop offset="{fx(0.0) / W:.3f}" stop-color="{RED}"/><stop offset="1" stop-color="{RED}"/>
+    <stop offset="0" stop-color="{GREEN}"/><stop offset="{fx(BONUS_TO) / W:.3f}" stop-color="{GREEN}"/>
+    <stop offset="{fx(BREAKEVEN) / W:.3f}" stop-color="{AMBER}"/><stop offset="{fx(PENALTY_BELOW) / W:.3f}" stop-color="{RED}"/><stop offset="1" stop-color="{RED}"/>
   </linearGradient>'''
 
 
@@ -57,7 +63,7 @@ def grid():
 
 def chart():
     out = [grid()]
-    pts = [(0, py(1.2)), (fx(0.4), py(1.2)), (fx(0.2), py(1.0)), (fx(0.0), py(0.0)), (W, py(0.0))]
+    pts = [(0, py(TOP_PAY)), (fx(BONUS_TO), py(TOP_PAY)), (fx(BREAKEVEN), py(1.0)), (fx(PENALTY_BELOW), py(LOW_PAY)), (W, py(LOW_PAY))]
     line = "M " + " L ".join(f"{x:.1f} {y:.1f}" for x, y in pts)
     out.append(f'<path d="{line} L {W} {H} L 0 {H} Z" fill="url(#curveGrad)" fill-opacity="0.13"/>')
     # Normal pay line
@@ -68,7 +74,7 @@ def chart():
     out.append(f'<path d="{line}" fill="none" stroke="url(#curveGrad)" stroke-opacity="0.85" stroke-width="9" '
                f'stroke-linejoin="round"/>')
     lab = 'font-family="Lato" font-weight="700" font-size="30" fill="#fff" fill-opacity="0.55"'
-    out.append(f'<text x="{X0}" y="{py(1.2) - 18:.1f}" {lab}>120%</text>')
+    out.append(f'<text x="{X0}" y="{py(TOP_PAY) - 18:.1f}" {lab}>{TOP_PAY:.0%}</text>')
     out.append(f'<text x="{X0}" y="{py(1.0) + 40:.1f}" {lab}>100%</text>')
     return "\n".join(out)
 

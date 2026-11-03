@@ -35,7 +35,10 @@ def spread(values):
 
 
 def main(path):
-    lines = open(path, errors="replace").read().splitlines()
+    text = open(path, errors="replace").read()
+    if text and not text.endswith("\n"):
+        text = text[:text.rfind("\n") + 1]           # a copy taken while the game writes ends mid-line: drop that line
+    lines = text.splitlines()
     start = max((i for i, ln in enumerate(lines) if "BEST_BEFORE preRunFn" in ln), default=0)
     # Entity ids are reused, so an item is paired with the next arrival line of the same id (the ticket line comes first).
     events, items, arrivals, snaps, sends, errors = [], [], {}, [], [], []
@@ -56,9 +59,10 @@ def main(path):
             open_items[d["unit"]].append(d)
         elif kind == "arrival":
             arrivals[(d["unit"], i)] = d
-            if open_items[d["unit"]]:
-                pairs.append((open_items[d["unit"]], d))
-                open_items[d["unit"]] = []
+            here = [it for it in open_items[d["unit"]] if it.get("now") == d.get("now")]   # ids are reused: same clock time only
+            if here:
+                pairs.append((here, d))
+            open_items[d["unit"]] = []
         elif kind == "journal":
             snaps.append(d)
         elif kind == "sending":

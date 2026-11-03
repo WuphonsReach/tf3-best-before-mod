@@ -32,7 +32,10 @@ def kv(text):
 
 
 def main(path):
-    lines = open(path, errors="replace").read().splitlines()
+    text = open(path, errors="replace").read()
+    if text and not text.endswith("\n"):
+        text = text[:text.rfind("\n") + 1]           # a copy taken while the game writes ends mid-line: drop that line
+    lines = text.splitlines()
     start = max((i for i, ln in enumerate(lines) if "BEST_BEFORE preRunFn" in ln), default=0)
     # The level is judged from the log itself: the BEST_BEFORE settings line comes from mod.script.tl and runs one load behind the
     # level the probe used, while the probe writes a line per unit only at "curve" and "full".
@@ -57,10 +60,13 @@ def main(path):
         elif kind == "arrival":
             d = kv(rest)
             arrivals.append(d)
+            item = ticket_items.pop(d["unit"], None)
+            if item is not None and item.get("now") != d.get("now"):
+                item = None                             # an older item of a reused id, not this delivery's
             if d.get("billing") == "ticket":
-                ticketed.append((d, ticket_items.pop(d["unit"], None)))
+                ticketed.append((d, item))
             elif d.get("billing") == "none":
-                unbilled.append((d, ticket_items.pop(d["unit"], None)))
+                unbilled.append((d, item))
         elif kind == "journal":
             seq = int(re.match(r"#(\d+)", rest).group(1))
             t = int(re.search(r" t=(\d+)", rest).group(1))
