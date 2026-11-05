@@ -30,8 +30,8 @@ A whole-repo review; the stale take-down retry, `guardLog`, the `CRITICAL`/`logE
 
 In-game checks still open:
 
-- [ ] A run at `curve`, then `verify_run.py`: the new "rates against the curve" check passes on a live log, no `logError` line.
-- [ ] Untick "Show Stale Cargo warnings" on a save that holds a warning: one `staleWarnings ... count=0 lines=none` line with no `error=`, not repeated the next month. The retry after a refused send is tested only against a mocked API.
+- [x] A run at `curve`, then `verify_run.py`: passed on the 3 to 5 Nov 2026 run (266,625 arrivals after the last load: all rates match the curve, no error lines, no `logError`) and on the 5 Nov first session on the 1974 save (1,952 arrivals). See [changing-settings.md](docs/changing-settings.md#test-half-bonus-late-log-trains-on-the-1974-save-5-nov-2026).
+- [x] Untick "Show Stale Cargo warnings" on a save that holds a warning: checked on 5 Nov 2026 on the 1974 save (one `staleWarnings ... count=0 lines=none` line, no `error=`, not repeated over about four game years; Active tab and top-bar icon clear, History keeps the entry), see [stale-line-warnings.md](docs/stale-line-warnings.md#the-off-switch-on-the-1974-save-5-nov-2026). The retry after a refused send is still tested only against a mocked API.
 
 Review findings left for later:
 
