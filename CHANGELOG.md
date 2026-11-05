@@ -2,6 +2,10 @@
 
 Newest first. The number in the title is `modVersion` at the top of [mod.script.tl](best_before_1/content/mod.script.tl), which the game log prints at every load as `BEST_BEFORE version <number>` (between releases it reads the next number with "-dev", for example `1.2-dev`). Each entry's last line is the one-liner for the Changelog field of the in-game uploader ([how to upload](docs/publishing.md#uploading-an-update)). mod.io labels every file we upload "1.0" whatever the number here is, so the number in this file and in the log is the one that tells builds apart.
 
+## 1.5 (not released)
+
+- Nothing yet.
+
 ## 1.4 (5 Nov 2026)
 
 - **Fixed: turning the Stale Cargo warnings off retries a refused take-down.** If the game refused to take the warnings down, the mod tried only once, so a warning could stay in the save, and a save that holds one does not load without the mod. It now tries again once a game month until it goes through.
