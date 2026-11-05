@@ -2,12 +2,14 @@
 
 Newest first. The number in the title is `modVersion` at the top of [mod.script.tl](best_before_1/content/mod.script.tl), which the game log prints at every load as `BEST_BEFORE version <number>` (between releases it reads the next number with "-dev", for example `1.2-dev`). Each entry's last line is the one-liner for the Changelog field of the in-game uploader ([how to upload](docs/publishing.md#uploading-an-update)). mod.io labels every file we upload "1.0" whatever the number here is, so the number in this file and in the log is the one that tells builds apart.
 
-## 1.4 (not released)
+## 1.4 (5 Nov 2026)
 
 - **Fixed: turning the Stale Cargo warnings off retries a refused take-down.** If the game refused to take the warnings down, the mod tried only once, so a warning could stay in the save, and a save that holds one does not load without the mod. It now tries again once a game month until it goes through.
 - **Changed: the fallback delivery limit follows the year.** When the game's own adjusted delivery time cannot be read, the mod used 1.5 x the cargo file's time at every date; it now uses the year rule (1.5 - (year - 1900) / 160, never below 0.75). The game's call has not failed in any logged run, so a normal game is unchanged.
 - **Changed: a logging error no longer stops the Stale Cargo warnings.** The logging work in the mod's update runs under a guard, so an error there costs that log line only. Log: a new `BEST_BEFORE logError` line, written once per distinct error.
 - **New: a third gallery image, `3-non-perishable-slider.jpg`.** One bar per cargo in the game's colours and icons, with the Non-perishable delivery time slider values for each cut between delivery times (drawn by `tools/make_delivery_times.py`). The settings image and the slider's tooltip say the Delivery Time tab displays base times at 150% in 1900, falling to 75% in 2020.
+
+Release note: `Turning the Stale Cargo warnings off now retries a refused take-down. A logging error no longer stops the warnings. The fallback delivery limit follows the year. New slider image in the gallery.`
 
 ## 1.3 (30 Oct 2026)
 
