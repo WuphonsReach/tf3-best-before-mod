@@ -9,6 +9,10 @@ A Transport Fever 3 mod that makes cargo pay follow freshness. Fresh cargo earns
   <img src="best_before_1/_metadata/2-settings.jpg" alt="The mod's settings at their defaults, in three categories, each explained" width="49%">
 </p>
 
+<p>
+  <img src="best_before_1/_metadata/3-non-perishable-slider.jpg" alt="One bar per cargo in the game's colours and icons, with the Non-perishable delivery time slider value for each step between delivery times" width="100%">
+</p>
+
 ## In short
 
 - **What it does.** Before the game pays for a delivered cargo unit, it asks scripts for a pay multiplier (the ticket price event). The mod works out how fresh the unit is and answers 1 + the curve's bonus or deduction. The game pays the changed amount and shares it along the unit's trip as usual, so every vehicle and line that carried the unit shows the change, as does the player's account. Every line the mod writes to the game log starts with `BEST_BEFORE`.
@@ -39,7 +43,7 @@ There are nine settings, set in game: New Game or Load Game, the Mods tab, the g
 - The freshness below which a delivery counts as stale for the Stale Cargo warning (0% to 25%, default 10%; no effect on pay).
 - A check box that turns the Stale Cargo warnings off (on by default). Before removing the mod from a save, untick it, load and save; see [docs/removing-the-mod.md](docs/removing-the-mod.md).
 - How non-perishable cargo is paid: the whole curve, half the bonus (the default), penalties only, or not touched.
-- The base delivery time (the cargo file's) from which a cargo counts as non-perishable (15 to 75 min, default 25 min: only food is perishable).
+- The base delivery time (the cargo file's) from which a cargo counts as non-perishable (15 to 75 min, default 25 min: only food is perishable). The picture above shows which cargo each slider value makes perishable.
 
 `logLevel` is not an in-game setting; it stays in `best_before_1/content/settings.tl` and sets how much the mod writes to the game log: `off`, `summary` (a totals line about once a game month; the default), `curve` (a line per delivered unit, enough for the tools below) or `full` (adds vehicle and line names, chains and per-vehicle ledgers). Measured on one save at 4x over the same game dates, `full` cost the simulation threads about 1 to 3% more CPU than `off`, inside the run-to-run noise, and the game ran at the same speed. So the levels differ in log size and readability, not speed.
 
@@ -51,7 +55,7 @@ The work is done by `best_before_1/content/probe.script.tl`, which answers the t
 - `tools/extract_run.py` cuts a run's arrivals, balance snapshots and facts (save, settings, totals) out of a raw log into small CSV and JSON files under `local/runs/`. It corrects the pay prediction to the save's Cargo Income setting and earned rank, so runs from different saves can be replayed together.
 - `tools/replay_curve.py` applies the five-setting curve and the non-perishable settings to the arrivals in one or more logs or extracted `.arrivals.csv` files and prints the net change in pay, each run on the curve it was played on. `--use-defaults` replays on `settings.tl`'s numbers instead; `--sweep`, `--solve-bonus` and `--tables` help tune the defaults without the game.
 - `tools/cpu_sample.py` samples the game's simulation and main threads and the whole machine's CPU every few seconds while you play (two CSV files under `local/cpu/`), then reports CPU seconds per game month to compare log levels. Run `sample` for at least 5 minutes while the game runs, then `report` with the game log.
-- `tools/make_preview.py` draws the listing's cover, `best_before_1/_metadata/0.jpg` (and its gallery copy `1-cover.jpg`), and `tools/make_gallery.py` the settings image, `best_before_1/_metadata/2-settings.jpg`.
+- `tools/make_preview.py` draws the listing's cover, `best_before_1/_metadata/0.jpg` (and its gallery copy `1-cover.jpg`), `tools/make_gallery.py` the settings image, `best_before_1/_metadata/2-settings.jpg`, and `tools/make_delivery_times.py` the slider image, `best_before_1/_metadata/3-non-perishable-slider.jpg` (data in `art/delivery-times/`).
 
 ## Documentation
 
