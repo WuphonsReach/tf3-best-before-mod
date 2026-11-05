@@ -20,9 +20,9 @@ Half bonus is second in the "Non-perishable cargo" list, so No bonus and No effe
 
 The cover `0.jpg` already draws the pay curve; a third image showing pay in play was considered and skipped.
 
-- [ ] A third image (`3-stale-warning.jpg`): a line window with the Stale Cargo banner, taken in 1.2 (text "below the mod's stale freshness setting"); add the [L] line manager with the icon on that line's row if it fits in one frame.
-- [ ] Recheck the mod.io page: clicking the second thumbnail did not show the settings image right after the 1.3 upload (30 Oct 2026), although the image itself loads ([Gallery](docs/publishing.md#gallery)). The next upload carries it as `2-settings.jpg`, which may fix it.
-- [ ] At the next upload (with a release, not on its own), check that the dialog shows `1-cover.jpg` then `2-settings.jpg`, that the page shows both in that order and drops the `workshop_preview` images, and whether the upload writes a `workshop_preview.jpg` of its own ([Gallery](docs/publishing.md#gallery)).
+- [ ] A fourth image (`4-stale-warning.jpg`): a line window with the Stale Cargo banner, taken in 1.2 (text "below the mod's stale freshness setting"); add the [L] line manager with the icon on that line's row if it fits in one frame.
+- [x] Recheck the mod.io page: clicking the second thumbnail did not show the settings image right after the 1.3 upload (30 Oct 2026), although the image itself loads ([Gallery](docs/publishing.md#gallery)). The next upload carries it as `2-settings.jpg`, which may fix it. Checked on the 1.4 upload (5 Nov 2026): the second and third thumbnails open.
+- [x] At the next upload (with a release, not on its own), check that the dialog shows `1-cover.jpg` then `2-settings.jpg`, that the page shows both in that order and drops the `workshop_preview` images, and whether the upload writes a `workshop_preview.jpg` of its own ([Gallery](docs/publishing.md#gallery)). Checked on the 1.4 upload: the dialog showed 1-cover, 2-settings, 3-non-perishable-slider; the page lists the same three and no workshop_preview images; no workshop_preview.jpg was written.
 
 ## Review fixes (30 Oct 2026)
 
