@@ -9,10 +9,6 @@ A Transport Fever 3 mod that makes cargo pay follow freshness. Fresh cargo earns
   <img src="best_before_1/_metadata/2-settings.jpg" alt="The mod's settings at their defaults, in three categories, each explained" width="49%">
 </p>
 
-<p>
-  <img src="best_before_1/_metadata/3-non-perishable-slider.jpg" alt="One bar per cargo in the game's colours and icons, with the Non-perishable delivery time slider value for each step between delivery times" width="100%">
-</p>
-
 ## In short
 
 - **What it does.** Before the game pays for a delivered cargo unit, it asks scripts for a pay multiplier (the ticket price event). The mod works out how fresh the unit is and answers 1 + the curve's bonus or deduction. The game pays the changed amount and shares it along the unit's trip as usual, so every vehicle and line that carried the unit shows the change, as does the player's account. Every line the mod writes to the game log starts with `BEST_BEFORE`.
@@ -43,7 +39,11 @@ There are nine settings, set in game: New Game or Load Game, the Mods tab, the g
 - The freshness below which a delivery counts as stale for the Stale Cargo warning (0% to 25%, default 10%; no effect on pay).
 - A check box that turns the Stale Cargo warnings off (on by default). Before removing the mod from a save, untick it, load and save; see [docs/removing-the-mod.md](docs/removing-the-mod.md).
 - How non-perishable cargo is paid: the whole curve, half the bonus (the default), penalties only, or not touched.
-- The base delivery time (the cargo file's) from which a cargo counts as non-perishable (15 to 75 min, default 25 min: only food is perishable). The picture above shows which cargo each slider value makes perishable.
+- The base delivery time (the cargo file's) from which a cargo counts as non-perishable (15 to 75 min, default 25 min: only food is perishable). The picture below shows which cargo each slider value makes perishable.
+
+<p>
+  <img src="best_before_1/_metadata/3-non-perishable-slider.jpg" alt="One bar per cargo in the game's colours and icons, with the Non-perishable delivery time slider value for each step between delivery times" width="100%">
+</p>
 
 `logLevel` is not an in-game setting; it stays in `best_before_1/content/settings.tl` and sets how much the mod writes to the game log: `off`, `summary` (a totals line about once a game month; the default), `curve` (a line per delivered unit, enough for the tools below) or `full` (adds vehicle and line names, chains and per-vehicle ledgers). Measured on one save at 4x over the same game dates, `full` cost the simulation threads about 1 to 3% more CPU than `off`, inside the run-to-run noise, and the game ran at the same speed. So the levels differ in log size and readability, not speed.
 
