@@ -212,7 +212,7 @@
         {
             "key": "bestBefore.nonPerishableTime",
             "name": "Non-perishable delivery time",
-            "tooltip": "Cargo whose base delivery time is at least this counts as non-perishable. The Delivery Time tab shows the base time x 1.5 in 1900, falling to x 0.75 from 2020.",
+            "tooltip": "Cargo whose base delivery time is at least this counts as non-perishable. The game's Delivery Time tab displays it at 150% in 1900, falling to 75% in 2020.",
             "uiType": "Slider",
             "values": [
                 "15 min",

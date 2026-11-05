@@ -52,7 +52,8 @@ GROUPS = [
     (895, 1100, "NON-PERISHABLE CARGO",
      f"Cargo with a base delivery time of {D['nonPerishableMinutes']} min or more (everything but food) gets half the bonus, so "
      f"{1 + D['bonusPercent'] / 2:.0%} at most, and the "
-     "full penalties. The other choices are Full\u00a0bonus, No\u00a0bonus and No\u00a0effect."),
+     "full penalties. The other choices are Full\u00a0bonus, No\u00a0bonus and No\u00a0effect. The game's Delivery Time tab "
+     "displays base times at 150% in 1900, falling to 75% in 2020."),
 ]
 TITLE = "3 SETTING CATEGORIES"
 SUBTITLE = ("Set them under Mods (the gear next to the mod) in New Game or Load Game.",  # one line each, wrapped apart

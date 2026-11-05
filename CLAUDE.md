@@ -38,6 +38,9 @@ python3 tools/cpu_sample.py report local/cpu/<name> [--log local/logs/<log>.txt 
 # Redraw the mod's cover (best_before_1/_metadata/0.jpg, the Preview slot's image, plus a byte-identical copy 1-cover.jpg, the gallery's first image; 1920x1080; needs rsvg-convert and the Lato font)
 python3 tools/make_preview.py [--version 0.1] [--keep-svg local/preview/cover.svg]   # the version goes in the upper right corner, kept clear for it; --keep-svg also saves the SVG it was drawn from (not into best_before_1/)
 
+# Redraw the delivery-time chart (a gallery candidate, best_before_1/_metadata/3-non-perishable-slider.jpg by default; not listed in docs/publishing.md yet): one bar per cargo in the game's colours and icons, with the Non-perishable delivery time slider values for each cut; reads art/delivery-times/ (--extract GAME_DIR rebuilds that from the game's cargo archives)
+python3 tools/make_delivery_times.py [OUT_FILE] [--extract GAME_DIR]
+
 # Redraw the gallery's second image (2-settings.jpg; the gallery orders by file name, see docs/publishing.md): the settings at their defaults with each group explained beside them, on the cover's background
 python3 tools/make_gallery.py [--shot art/gallery/<screenshot>.png]   # writes 2-settings.jpg; cuts the dialog from the screenshot kept in art/gallery/ (not shipped); also rewrites docs/images/mod-settings-dialog.png from the same cut
 ```

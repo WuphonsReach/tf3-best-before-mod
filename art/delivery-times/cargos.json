@@ -1,0 +1,398 @@
+[
+ {
+  "id": "grain",
+  "name": "Grain",
+  "order": 10,
+  "seconds": 1286,
+  "color": [
+   0.9,
+   0.82,
+   0.57
+  ]
+ },
+ {
+  "id": "dyes",
+  "name": "Dyes",
+  "order": 20,
+  "seconds": 2250,
+  "color": [
+   0.54,
+   0.15,
+   0.57
+  ]
+ },
+ {
+  "id": "fertilizer",
+  "name": "Fertilizer",
+  "order": 30,
+  "seconds": 1500,
+  "color": [
+   0.3,
+   0.79,
+   0.03
+  ]
+ },
+ {
+  "id": "sawdust",
+  "name": "Sawdust",
+  "order": 40,
+  "seconds": 2250,
+  "color": [
+   1.0,
+   0.98,
+   0.56
+  ]
+ },
+ {
+  "id": "sand",
+  "name": "Sand",
+  "order": 50,
+  "seconds": 4500,
+  "color": [
+   0.94,
+   0.86,
+   0.72
+  ]
+ },
+ {
+  "id": "fish",
+  "name": "Fish",
+  "order": 60,
+  "seconds": 1125,
+  "color": [
+   0.31,
+   0.72,
+   0.79
+  ]
+ },
+ {
+  "id": "meat",
+  "name": "Meat",
+  "order": 70,
+  "seconds": 900,
+  "color": [
+   0.62,
+   0.0,
+   0.01
+  ]
+ },
+ {
+  "id": "beverages",
+  "name": "Beverages",
+  "order": 80,
+  "seconds": 1125,
+  "color": [
+   0.25,
+   0.47,
+   0.09
+  ]
+ },
+ {
+  "id": "vegetables",
+  "name": "Vegetables",
+  "order": 90,
+  "seconds": 1125,
+  "color": [
+   0.15,
+   0.79,
+   0.75
+  ]
+ },
+ {
+  "id": "sheet_metal",
+  "name": "Sheet Metal",
+  "order": 100,
+  "seconds": 3000,
+  "color": [
+   0.83,
+   0.83,
+   0.83
+  ]
+ },
+ {
+  "id": "steel",
+  "name": "Steel",
+  "order": 110,
+  "seconds": 4500,
+  "color": [
+   0.64,
+   0.64,
+   0.64
+  ]
+ },
+ {
+  "id": "logs",
+  "name": "Logs",
+  "order": 120,
+  "seconds": 3000,
+  "color": [
+   0.47,
+   0.26,
+   0.08
+  ]
+ },
+ {
+  "id": "planks",
+  "name": "Planks",
+  "order": 130,
+  "seconds": 3000,
+  "color": [
+   0.94,
+   0.74,
+   0.4
+  ]
+ },
+ {
+  "id": "vehicles",
+  "name": "Vehicles",
+  "order": 140,
+  "seconds": 2250,
+  "color": [
+   0.04,
+   0.84,
+   0.98
+  ]
+ },
+ {
+  "id": "cement",
+  "name": "Cement",
+  "order": 150,
+  "seconds": 2250,
+  "color": [
+   0.5,
+   0.5,
+   0.5
+  ]
+ },
+ {
+  "id": "machines",
+  "name": "Machines",
+  "order": 160,
+  "seconds": 2250,
+  "color": [
+   0.64,
+   0.64,
+   0.64
+  ]
+ },
+ {
+  "id": "rubber",
+  "name": "Rubber",
+  "order": 170,
+  "seconds": 1800,
+  "color": [
+   0.1,
+   0.1,
+   0.1
+  ]
+ },
+ {
+  "id": "crude_oil",
+  "name": "Crude Oil",
+  "order": 180,
+  "seconds": 3000,
+  "color": [
+   0.04,
+   0.04,
+   0.04
+  ]
+ },
+ {
+  "id": "chemicals",
+  "name": "Chemicals",
+  "order": 190,
+  "seconds": 1800,
+  "color": [
+   1.0,
+   0.99,
+   0.33
+  ]
+ },
+ {
+  "id": "fuel",
+  "name": "Fuel",
+  "order": 200,
+  "seconds": 2250,
+  "color": [
+   0.94,
+   0.64,
+   0.28
+  ]
+ },
+ {
+  "id": "iron_ore",
+  "name": "Iron Ore",
+  "order": 210,
+  "seconds": 4500,
+  "color": [
+   0.94,
+   0.53,
+   0.31
+  ]
+ },
+ {
+  "id": "coal",
+  "name": "Coal",
+  "order": 220,
+  "seconds": 3000,
+  "color": [
+   0.2,
+   0.2,
+   0.2
+  ]
+ },
+ {
+  "id": "clay",
+  "name": "Clay",
+  "order": 230,
+  "seconds": 3000,
+  "color": [
+   0.94,
+   0.61,
+   0.35
+  ]
+ },
+ {
+  "id": "stone",
+  "name": "Stone",
+  "order": 240,
+  "seconds": 4500,
+  "color": [
+   0.44,
+   0.44,
+   0.44
+  ]
+ },
+ {
+  "id": "wool",
+  "name": "Wool",
+  "order": 250,
+  "seconds": 1500,
+  "color": [
+   1.0,
+   0.98,
+   0.88
+  ]
+ },
+ {
+  "id": "fabric",
+  "name": "Fabric",
+  "order": 260,
+  "seconds": 1500,
+  "color": [
+   0.31,
+   0.54,
+   0.57
+  ]
+ },
+ {
+  "id": "clothes",
+  "name": "Clothes",
+  "order": 270,
+  "seconds": 1500,
+  "color": [
+   1.0,
+   1.0,
+   1.0
+  ]
+ },
+ {
+  "id": "tinned_food",
+  "name": "Canned Food",
+  "order": 280,
+  "seconds": 1800,
+  "color": [
+   0.76,
+   0.76,
+   0.76
+  ]
+ },
+ {
+  "id": "plastic",
+  "name": "Plastic",
+  "order": 290,
+  "seconds": 1500,
+  "color": [
+   0.76,
+   0.51,
+   0.86
+  ]
+ },
+ {
+  "id": "tools",
+  "name": "Tools",
+  "order": 300,
+  "seconds": 2250,
+  "color": [
+   0.49,
+   0.67,
+   0.79
+  ]
+ },
+ {
+  "id": "furniture",
+  "name": "Furniture",
+  "order": 310,
+  "seconds": 1800,
+  "color": [
+   0.89,
+   0.5,
+   0.16
+  ]
+ },
+ {
+  "id": "glass",
+  "name": "Glass",
+  "order": 320,
+  "seconds": 2250,
+  "color": [
+   0.67,
+   0.88,
+   0.89
+  ]
+ },
+ {
+  "id": "bricks",
+  "name": "Bricks",
+  "order": 330,
+  "seconds": 3000,
+  "color": [
+   0.94,
+   0.53,
+   0.31
+  ]
+ },
+ {
+  "id": "paper",
+  "name": "Paper",
+  "order": 340,
+  "seconds": 1800,
+  "color": [
+   0.86,
+   0.86,
+   0.86
+  ]
+ },
+ {
+  "id": "books",
+  "name": "Books",
+  "order": 350,
+  "seconds": 1800,
+  "color": [
+   0.31,
+   0.25,
+   0.07
+  ]
+ },
+ {
+  "id": "tires",
+  "name": "Tires",
+  "order": 360,
+  "seconds": 1500,
+  "color": [
+   0.31,
+   0.31,
+   0.31
+  ]
+ }
+]
